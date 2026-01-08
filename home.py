@@ -45,4 +45,60 @@ calculus_page = st.Page(
 
 ai_math_page = st.Page(
     "activities/ai_math/ai_math.py",
-    title="인공지능
+    title="인공지능수학",
+    icon="🤖",
+)
+
+seat_page = st.Page(
+    "sub/seat/seat.py",
+    title="좌석 배정",
+    icon="🪑",
+)
+
+pages = {
+    "Home": [home_page],
+    "📁 교과별 페이지": [calculus_page, ai_math_page],
+    "📁 도움 자료": [seat_page],
+}
+
+# 기본 네비게이션(자동 페이지 목록)은 숨기고, 우리가 만든 사이드바 메뉴만 사용
+pg = st.navigation(pages, position="hidden")  # sidebar/top/hidden 중 hidden 사용 :contentReference[oaicite:1]{index=1}
+
+
+# -----------------------------
+# 3) 상단 바: "🏠 홈으로" 버튼
+# -----------------------------
+top_left, top_right = st.columns([8, 2])
+with top_right:
+    if st.button("🏠 홈으로", use_container_width=True, key="top_home"):
+        st.switch_page(home_page)
+
+st.divider()
+
+
+# -----------------------------
+# 4) 좌측 사이드바: 사용자가 원하는 메뉴 구성
+# -----------------------------
+with st.sidebar:
+    st.header("Home")
+
+    st.markdown("---")
+    st.subheader("📁 교과별 페이지")
+
+    if st.button("미적분", use_container_width=True, key="sb_calculus"):
+        st.switch_page(calculus_page)
+
+    if st.button("인공지능수학", use_container_width=True, key="sb_ai_math"):
+        st.switch_page(ai_math_page)
+
+    st.markdown("---")
+    st.subheader("📁 도움 자료")
+
+    if st.button("좌석 배정", use_container_width=True, key="sb_seat"):
+        st.switch_page(seat_page)
+
+
+# -----------------------------
+# 5) 현재 선택된 페이지 실행
+# -----------------------------
+pg.run()
