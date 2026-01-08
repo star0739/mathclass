@@ -13,7 +13,7 @@ def home_screen():
     st.markdown(
         """
         <h2 style="margin-bottom: 0.5em;">
-            ✨ OO고 수학 스튜디오
+            ✨ 숭문고 수학 스튜디오
         </h2>
         """,
         unsafe_allow_html=True,
