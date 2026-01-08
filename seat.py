@@ -150,28 +150,29 @@ with tab_student:
 
     is_open = get_setting("is_open") == "1"
     round_id = get_setting("round_id")
+    st.caption(f"현재 라운드: {round_id}")
 
+    # 이름 미입력
     if not st.session_state.get("student_name"):
         st.info("이름을 입력하면 대기 상태로 들어갑니다.")
-        st.stop()
+    else:
+        # 아직 오픈 전(대기 화면)
+        if not is_open:
+            st.info("대기 중입니다. 교사가 시작하면 좌석 선택이 열립니다.")
+            st_autorefresh(interval=1000, key="wait_refresh")
 
-    st.caption(f"현재 라운드: {round_id}")
-    if not is_open:
-        st.info("대기 중입니다. 교사가 시작하면 좌석 선택이 열립니다.")
-        st_autorefresh(interval=1000, key="wait_refresh")  # 1초마다 갱신
-        # 현재 본인 배정 상태 표시(혹시 열리기 전에 배정된 경우 등)
-        my = get_user_assignment(st.session_state.user_token)
-        if my:
-            st.success(f"이미 배정됨: {my['seat_id']} (취소하려면 해당 좌석을 다시 누르세요)")
-        st.stop()
+            my = get_user_assignment(st.session_state.user_token)
+            if my:
+                st.success(f"이미 배정됨: {my['seat_id']} (취소하려면 해당 좌석을 다시 누르세요)")
+        else:
+            # 오픈 후(좌석 선택 화면)
+            st.success("좌석 선택이 열렸습니다. 원하는 좌석을 클릭하세요.")
+            st_autorefresh(interval=1000, key="open_refresh")
 
-    # Open state
-    st.success("좌석 선택이 열렸습니다. 원하는 좌석을 클릭하세요.")
-    st_autorefresh(interval=1000, key="open_refresh")  # 실시간 반영용(선택현황 표시)
-
-    assignments = list_assignments()
-    my = get_user_assignment(st.session_state.user_token)
-    my_seat = my["seat_id"] if my else None
+            # (이 아래에 기존 좌석 그리드/선택 로직을 그대로 두면 됩니다)
+            assignments = list_assignments()
+            my = get_user_assignment(st.session_state.user_token)
+            my_seat = my["seat_id"] if my else None
 
     # Seat grid
     st.markdown("### 좌석 선택")
@@ -239,30 +240,27 @@ with tab_student:
 with tab_teacher:
     st.subheader("교사 화면")
 
-    # 간단한 보호장치(운영 시 환경변수로 비밀번호 설정 권장)
     teacher_pass = st.text_input("교사용 비밀번호", type="password")
-    REQUIRED = st.secrets.get("TEACHER_PASSWORD", "") if hasattr(st, "secrets") else ""
+    REQUIRED = st.secrets.get("TEACHER_PASSWORD", "")
+
     if REQUIRED and teacher_pass != REQUIRED:
         st.info("비밀번호를 입력하세요.")
-        st.stop()
+    else:
+        # 여기부터 버튼들 렌더링
+        colA, colB, colC = st.columns(3)
+        with colA:
+            if st.button("좌석 선택 시작(오픈)"):
+                set_setting("is_open", "1")
+                st.success("좌석 선택을 오픈했습니다.")
+        with colB:
+            if st.button("좌석 선택 마감(클로즈)"):
+                set_setting("is_open", "0")
+                st.warning("좌석 선택을 마감했습니다.")
+        with colC:
+            if st.button("라운드 초기화(전체 취소 + 새 라운드)"):
+                reset_round()
+                st.warning("초기화 완료. 새 라운드로 전환되었습니다.")
 
-    is_open = get_setting("is_open") == "1"
-    round_id = get_setting("round_id")
-    st.caption(f"현재 라운드: {round_id}")
-
-    colA, colB, colC = st.columns(3)
-    with colA:
-        if st.button("좌석 선택 시작(오픈)"):
-            set_setting("is_open", "1")
-            st.success("좌석 선택을 오픈했습니다.")
-    with colB:
-        if st.button("좌석 선택 마감(클로즈)"):
-            set_setting("is_open", "0")
-            st.warning("좌석 선택을 마감했습니다.")
-    with colC:
-        if st.button("라운드 초기화(전체 취소 + 새 라운드)"):
-            reset_round()
-            st.warning("초기화 완료. 새 라운드로 전환되었습니다.")
 
     st.markdown("### 배정 현황")
     assignments = list_assignments()
