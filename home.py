@@ -75,8 +75,8 @@ finalseat_page = st.Page(
 
 pages = {
     "Home": [home_page],
-    "📁 교과 학습": [calculus_page, ai_math_page],
-    "📁 좌석 관리": [seat_page, finalseat_page],
+    "📖 교과 학습": [calculus_page, ai_math_page],
+    "🪑 좌석 관리": [seat_page, finalseat_page],
 }
 
 # 기본 네비게이션은 숨기고, 우리가 만든 사이드바로만 이동
