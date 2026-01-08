@@ -331,10 +331,6 @@ with tabT:
         def _reload():
             st.session_state[text_key] = assignments_to_text(load_assignments(class_id))
 
-        # 콜백: 전체 초기화
-        def _clear_all():
-            clear_assignments(class_id)
-            st.session_state[text_key] = ""  # 콜백에서 설정하면 오류 없음
 
         # 최초 진입 시 DB 저장본을 세션에 로딩
         if text_key not in st.session_state:
@@ -359,28 +355,19 @@ with tabT:
             placeholder="예) 1: 홍길동\n2: 김철수",
         )
 
-        b1, b2 = st.columns(2)
+        b1 = st.container()
 
-        with b1:
-            if st.button("저장", key=f"save_{class_id}", use_container_width=True, disabled=not is_teacher):
-                new_assignments, errors = parse_text_to_assignments(text)
-                if errors:
-                    st.error("입력 오류가 있습니다.")
-                    for e in errors:
-                        st.write(f"- {e}")
-                else:
-                    save_assignments(class_id, new_assignments)
-                    st.success(f"미적분{class_id} 저장 완료. (미적분{class_id} 탭에 연동 표시됨)")
-                    st.rerun()
-
-        with b2:
-            st.button(
-                "전체 초기화",
-                key=f"clear_{class_id}",
-                use_container_width=True,
-                disabled=not is_teacher,
-                on_click=_clear_all,
-            )
+with b1:
+    if st.button("저장", key=f"save_{class_id}", use_container_width=True, disabled=not is_teacher):
+        new_assignments, errors = parse_text_to_assignments(text)
+        if errors:
+            st.error("입력 오류가 있습니다.")
+            for e in errors:
+                st.write(f"- {e}")
+        else:
+            save_assignments(class_id, new_assignments)
+            st.success(f"미적분{class_id} 저장 완료. (미적분{class_id} 탭에 연동 표시됨)")
+            st.rerun()
 
     with tA:
         teacher_editor("A")
