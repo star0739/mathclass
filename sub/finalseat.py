@@ -298,9 +298,6 @@ with tabT:
     pw_input = st.text_input("비밀번호", type="password", key="teacher_pw_input")
     is_teacher = (teacher_pw != "") and (pw_input == teacher_pw)
 
-    st.caption("입력 형식 예시 (괄호 내용은 무시됩니다)")
-    st.code("2: 김 (배정: 2026-01-08 08:31:39)\n1: 이", language="text")
-
     if teacher_pw and not is_teacher:
         st.info("비밀번호를 입력하면 편집 및 저장이 활성화됩니다.")
 
