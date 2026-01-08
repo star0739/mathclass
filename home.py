@@ -10,13 +10,25 @@ st.set_page_config(
 # 페이지 등록 (현재 폴더 구조 기준)
 # -----------------------------
 def home_screen():
-    st.title("✨숭문고")
-    st.subtitle("수학 스튜디오)
-    
-    st.write(
-        "미적분과 인공지능 수학 수업에서 직접 탐구하고 실험할 수 있는 시뮬레이션과 활동들을 모아두었습니다. "
-        "아래에서 교과를 고르고, 교과별 페이지에서 원하는 활동을 시작해 보세요."
+    st.markdown(
+        """
+        <h2 style="margin-bottom: 0.5em;">
+            ✨ OO고 수학 스튜디오
+        </h2>
+        """,
+        unsafe_allow_html=True,
     )
+    
+    st.markdown(
+        """
+        <p style="font-size: 1.1rem; line-height: 1.7;">
+            미적분과 인공지능 수학 수업에서 직접 탐구하고 실험할 수 있는 시뮬레이션과 활동들을 모아두었습니다.<br>
+            아래에서 교과를 고르고, 교과별 페이지에서 원하는 활동을 시작해 보세요.
+        </p>
+        """,
+        unsafe_allow_html=True,
+    )
+    
     st.write("")
 
     st.markdown("#### 빠른 이동")
