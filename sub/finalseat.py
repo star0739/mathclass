@@ -9,7 +9,7 @@ import streamlit as st
 # ---------------------------
 # Config
 # ---------------------------
-st.set_page_config(page_title="지정 좌석 확인", layout="wide")
+st.set_page_config(page_title="좌석 확인", layout="wide")
 
 ROWS = 6
 COLS = 5
@@ -362,7 +362,7 @@ def render_grid(assignments: dict[int, str]):
 # ---------------------------
 init_db()
 
-st.title("지정 좌석 확인(미적분 A~D)")
+st.title("좌석 확인(미적분 A~D)")
 
 teacher_pw = get_teacher_password()
 if not teacher_pw:
