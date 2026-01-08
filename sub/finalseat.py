@@ -60,7 +60,6 @@ def init_db():
     새 스키마로 자동 이관(마이그레이션)합니다.
     """
     with get_conn() as conn:
-        # 테이블 존재 확인
         row = conn.execute(
             "SELECT name FROM sqlite_master WHERE type='table' AND name='seat_assignments';"
         ).fetchone()
@@ -79,7 +78,6 @@ def init_db():
             )
             return
 
-        # 컬럼 확인
         cols = conn.execute("PRAGMA table_info(seat_assignments);").fetchall()
         col_names = [c[1] for c in cols]
 
@@ -92,7 +90,6 @@ def init_db():
         if is_new_schema:
             return
 
-        # 마이그레이션 수행
         now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         conn.execute("BEGIN;")
         try:
@@ -108,8 +105,6 @@ def init_db():
                 """
             )
 
-            # 과거 스키마에서 가능한 정보 이관
-            # (1) seat_no, student_name (+ optional updated_at)
             if "seat_no" in col_names and "student_name" in col_names:
                 if "updated_at" in col_names:
                     conn.execute(
@@ -128,7 +123,6 @@ def init_db():
                         """,
                         (now,),
                     )
-            # 그 외 알 수 없는 형태면 데이터 이관 없이 스키마만 교체
 
             conn.execute("DROP TABLE seat_assignments;")
             conn.execute("ALTER TABLE seat_assignments_new RENAME TO seat_assignments;")
@@ -181,7 +175,6 @@ def clear_assignments(class_id: str):
 # ---------------------------
 # Parsing
 # ---------------------------
-# 예: "2: 김 (배정: ...)" -> seat_no=2, name="김"만 추출. 괄호 이후 무시.
 LINE_RE = re.compile(r"^\s*(\d{1,2})\s*:\s*([^\(\n\r]+?)\s*(?:\(|$)")
 
 
@@ -210,7 +203,6 @@ def parse_text_to_assignments(text: str) -> tuple[dict[int, str], list[str]]:
             errors.append(f"{idx}번째 줄 이름이 비어 있습니다: {raw}")
             continue
 
-        # 중복 좌석번호는 마지막 값으로 덮어씀
         assignments[seat_no] = name
 
     return assignments, errors
@@ -227,6 +219,32 @@ def assignments_to_text(assignments: dict[int, str]) -> str:
 # ---------------------------
 # UI helpers
 # ---------------------------
+def render_front_bar():
+    """
+    좌석 배치 상단에 '칠판&교탁'을 가로로 길게 표시.
+    """
+    st.markdown(
+        """
+        <div style="
+            width: 100%;
+            border: 1px solid #cfcfcf;
+            border-radius: 14px;
+            padding: 14px 16px;
+            margin: 6px 0 14px 0;
+            background: #f7f7f7;
+            box-shadow: 0 1px 2px rgba(0,0,0,0.04);
+            text-align: center;
+            font-weight: 800;
+            font-size: 18px;
+            letter-spacing: 0.5px;
+        ">
+            칠판 &amp; 교탁 (앞)
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+
 def seat_cell_html(seat_no: int, name: str) -> str:
     safe_name = (name or "").replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
     display = safe_name if safe_name else "<span style='color:#999; font-weight:600;'>미배정</span>"
@@ -276,18 +294,22 @@ tabA, tabB, tabC, tabD, tabT = st.tabs(["미적분A", "미적분B", "미적분C"
 # ---- Student tabs (read-only display) ----
 with tabA:
     st.subheader("미적분A 좌석 배치")
+    render_front_bar()
     render_grid(load_assignments("A"))
 
 with tabB:
     st.subheader("미적분B 좌석 배치")
+    render_front_bar()
     render_grid(load_assignments("B"))
 
 with tabC:
     st.subheader("미적분C 좌석 배치")
+    render_front_bar()
     render_grid(load_assignments("C"))
 
 with tabD:
     st.subheader("미적분D 좌석 배치")
+    render_front_bar()
     render_grid(load_assignments("D"))
 
 # ---- Teacher tab (password protected input per class) ----
@@ -306,7 +328,6 @@ with tabT:
         current = load_assignments(class_id)
         text_key = f"text_{class_id}"
 
-        # 최초 진입 시 DB 저장본을 세션에 로딩
         if text_key not in st.session_state:
             st.session_state[text_key] = assignments_to_text(current)
 
@@ -323,10 +344,10 @@ with tabT:
             key=text_key,
             height=220,
             disabled=not is_teacher,
-            placeholder="예) 1: 김숭문\n2: 이숭문",
+            placeholder="예) 1: 홍길동\n2: 김철수",
         )
 
-        b1, b2, b3 = st.columns(3)
+        b1, b2 = st.columns(2)
 
         with b1:
             if st.button("저장", key=f"save_{class_id}", use_container_width=True, disabled=not is_teacher):
@@ -341,26 +362,11 @@ with tabT:
                     st.rerun()
 
         with b2:
-            if st.button("미리보기", key=f"preview_{class_id}", use_container_width=True, disabled=not is_teacher):
-                new_assignments, errors = parse_text_to_assignments(text)
-                if errors:
-                    st.error("입력 오류가 있습니다.")
-                    for e in errors:
-                        st.write(f"- {e}")
-                else:
-                    st.success("미리보기(저장 전)입니다.")
-                    render_grid(new_assignments)
-
-        with b3:
             if st.button("전체 초기화", key=f"clear_{class_id}", use_container_width=True, disabled=not is_teacher):
                 clear_assignments(class_id)
                 st.session_state[text_key] = ""
                 st.warning(f"미적분{class_id} 배정을 모두 삭제했습니다.")
                 st.rerun()
-
-        st.divider()
-        st.write("**현재 저장된 좌석 배치(읽기 전용)**")
-        render_grid(load_assignments(class_id))
 
     with tA:
         teacher_editor("A")
