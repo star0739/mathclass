@@ -210,7 +210,7 @@ init_db()
 if "user_token" not in st.session_state:
     st.session_state.user_token = str(uuid.uuid4())
 
-st.title("미적분 좌석 배정")
+st.title("선착순 좌석 배정")
 
 tab_student, tab_teacher = st.tabs(["학생", "교사"])
 
