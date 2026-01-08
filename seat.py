@@ -302,17 +302,17 @@ with tab_teacher:
     else:
         colA, colB, colC = st.columns(3)
         with colA:
-            if st.button("좌석 선택 시작(오픈)"):
+            if st.button("좌석 선택 시작"):
                 set_setting("is_open", "1")
                 st.success("좌석 선택을 오픈했습니다.")
         with colB:
-            if st.button("좌석 선택 마감(클로즈)"):
+            if st.button("좌석 선택 마감"):
                 set_setting("is_open", "0")
                 st.warning("좌석 선택을 마감했습니다.")
         with colC:
-            if st.button("라운드 초기화(전체 취소 + 새 라운드)"):
+            if st.button("라운드 초기화"):
                 reset_round()
-                st.warning("초기화 완료. 새 라운드로 전환되었습니다.")
+                st.warning("초기화 완료")
 
     st.markdown("### 배정 현황")
     assignments = list_assignments()
