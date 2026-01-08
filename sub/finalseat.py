@@ -258,7 +258,6 @@ def render_grid(assignments: dict[int, str]):
             name = assignments.get(seat_no, "")
             with cols[c]:
                 st.markdown(seat_cell_html(seat_no, name), unsafe_allow_html=True)
-    st.caption("표시 규칙: 1행 1열부터 1번, 오른쪽으로 증가 후 다음 행으로 넘어갑니다.")
 
 
 # ---------------------------
