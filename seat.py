@@ -4,6 +4,7 @@ import uuid
 from contextlib import contextmanager
 
 import streamlit as st
+from streamlit_autorefresh import st_autorefresh
 
 DB_PATH = "seats.db"
 
@@ -157,7 +158,7 @@ with tab_student:
     st.caption(f"현재 라운드: {round_id}")
     if not is_open:
         st.info("대기 중입니다. 교사가 시작하면 좌석 선택이 열립니다.")
-        st.autorefresh(interval=1000, key="wait_refresh")  # 1초마다 갱신
+        st_autorefresh(interval=1000, key="wait_refresh")  # 1초마다 갱신
         # 현재 본인 배정 상태 표시(혹시 열리기 전에 배정된 경우 등)
         my = get_user_assignment(st.session_state.user_token)
         if my:
@@ -166,7 +167,7 @@ with tab_student:
 
     # Open state
     st.success("좌석 선택이 열렸습니다. 원하는 좌석을 클릭하세요.")
-    st.autorefresh(interval=1000, key="open_refresh")  # 실시간 반영용(선택현황 표시)
+    st_autorefresh(interval=1000, key="open_refresh")  # 실시간 반영용(선택현황 표시)
 
     assignments = list_assignments()
     my = get_user_assignment(st.session_state.user_token)
