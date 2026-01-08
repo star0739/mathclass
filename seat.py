@@ -45,6 +45,7 @@ def init_db():
             );
             """
         )
+        # defaults
         conn.execute("INSERT OR IGNORE INTO settings(key, value) VALUES('is_open', '0');")
         conn.execute("INSERT OR IGNORE INTO settings(key, value) VALUES('round_id', '1');")
 
@@ -56,6 +57,12 @@ def get_setting(key: str) -> str:
 
 
 def set_setting(key: str, value: str):
+    """
+    ✅ UPSET(ON CONFLICT) 대신:
+    1) UPDATE 먼저 시도
+    2) 없으면 INSERT
+    - SQLite 버전/환경 차이에도 안정적으로 동작
+    """
     with get_conn() as conn:
         conn.execute("BEGIN IMMEDIATE;")
         cur = conn.execute("UPDATE settings SET value = ? WHERE key = ?;", (value, key))
@@ -92,6 +99,12 @@ def get_user_assignment(user_token: str):
 
 
 def try_assign(seat_id: str, user_token: str, student_name: str):
+    """
+    Atomic seat assignment:
+    - If seat is taken -> fail with 'seat_taken'
+    - If user already has seat -> fail with 'user_already_assigned'
+    - Else success
+    """
     now = time.time()
     try:
         with get_conn() as conn:
@@ -113,99 +126,7 @@ def try_assign(seat_id: str, user_token: str, student_name: str):
         return {"ok": False, "reason": "unknown_error"}
 
 
-def cancel_own_seat(user_token: str, seat_id: str):
-    with get_conn() as conn:
-        conn.execute("BEGIN IMMEDIATE;")
-        cur = conn.execute(
-            "DELETE FROM assignments WHERE seat_id = ? AND user_token = ?;",
-            (str(seat_id), user_token),
-        )
-        conn.execute("COMMIT;")
-    return cur.rowcount == 1
-
-
-def reset_round():
-    with get_conn() as conn:
-        conn.execute("BEGIN IMMEDIATE;")
-
-        conn.execute("DELETE FROM assignments;")
-
-        row = conn.execute("SELECT value FROM settings WHERE key='round_id';").fetchone()
-        rid = int(row[0]) if row and str(row[0]).isdigit() else 1
-        new_rid = str(rid + 1)
-
-        cur = conn.execute("UPDATE settings SET value=? WHERE key='round_id';", (new_rid,))
-        if cur.rowcount == 0:
-            conn.execute("INSERT INTO settings(key, value) VALUES('round_id', ?);", (new_rid,))
-
-        cur = conn.execute("UPDATE settings SET value='0' WHERE key='is_open';")
-        if cur.rowcount == 0:
-            conn.execute("INSERT INTO settings(key, value) VALUES('is_open', '0');")
-
-        conn.execute("COMMIT;")
-
-
-def safe_seat_sort_key(seat_id: str):
-    try:
-        return (0, int(str(seat_id)))
-    except Exception:
-        return (1, str(seat_id))
-
-
-# ---------------------------
-# App
-# ---------------------------
-st.set_page_config(page_title="3학년 미적분 좌석 배정", layout="wide")
-init_db()
-
-if "user_token" not in st.session_state:
-    st.session_state.user_token = str(uuid.uuid4())
-
-st.title("3학년 미적분 좌석 배정")
-
-# ✅ 표 형태(행/열 모두 붙이기) 강화 CSS
-# 핵심: stElementContainer, stHorizontalBlock, stVerticalBlock, column padding/margin 제거
-st.markdown(
-    """
-<style>
-/* 전체 상하 패딩 최소화 */
-.block-container { padding-top: 1rem !important; padding-bottom: 1rem !important; }
-
-/* 요소 컨테이너(행 사이 간격의 주범) 마진 제거 */
-div[data-testid="stElementContainer"] { margin: 0 !important; padding: 0 !important; }
-
-/* 수직/수평 블록 간 gap 제거 */
-div[data-testid="stVerticalBlock"] { gap: 0rem !important; }
-div[data-testid="stHorizontalBlock"] { gap: 0rem !important; }
-
-/* 컬럼 패딩 제거 */
-div[data-testid="column"] { padding: 0 !important; }
-
-/* 버튼을 표 셀처럼 (사각형, 테두리, 여백 제거) */
-div.stButton > button {
-  width: 100% !important;
-  margin: 0 !important;
-  padding: 0 !important;
-  height: 44px !important;        /* 모바일 터치 고려 */
-  border-radius: 0 !important;
-  border: 1px solid #bdbdbd !important;
-  font-size: 16px !important;
-  line-height: 1 !important;
-}
-
-/* 버튼 바깥 여백 제거 */
-div.stButton { margin: 0 !important; padding: 0 !important; }
-
-/* 좌석판 외곽 테두리 */
-.seat-wrap {
-  max-width: 520px;      /* 휴대폰 세로에서도 전체 보이도록 */
-  margin: 0 auto;
-  border: 1px solid #bdbdbd;
-}
-</style>
-""",
-    unsafe_allow_html=True,
-)
+def cancel_own_seat(user_token: 정")
 
 tab_student, tab_teacher = st.tabs(["학생", "교사"])
 
@@ -218,7 +139,7 @@ with tab_student:
         st.session_state.student_name = student_name.strip()
 
     is_open = get_setting("is_open") == "1"
-    round_id = get_setting("round_id")  # 표시하지 않되, 버튼 key 안정화에 사용
+    round_id = get_setting("round_id")
 
     if not st.session_state.get("student_name"):
         st.info("이름을 입력하면 대기 상태로 들어갑니다.")
@@ -232,50 +153,37 @@ with tab_student:
                 st.success(f"이미 배정됨: {my['seat_id']}번 (취소하려면 해당 좌석을 다시 누르세요)")
         else:
             st.success("좌석 선택이 열렸습니다. 원하는 좌석을 클릭하세요.")
-            st_autorefresh(interval=1000, key=f"open_refresh_{round_id}")
+            st_autorefresh(interval=1000, key="open_refresh")
 
-            # 항상 최신 상태 기준
             assignments = list_assignments()
             my = get_user_assignment(st.session_state.user_token)
             my_seat = my["seat_id"] if my else None
 
             st.markdown("## <칠판 & 교탁>")
 
-            # ✅ 좌석판: 완전 밀착 표 형태
-            st.markdown('<div class="seat-wrap">', unsafe_allow_html=True)
-
             for r in range(1, ROWS + 1):
-                cols = st.columns(COLS, gap="small")  # gap은 CSS에서 0으로 강제
+                cols = st.columns(COLS)
                 for c in range(1, COLS + 1):
-                    seat_num = (r - 1) * COLS + c
+                    seat_num = (r - 1) * COLS + c  # 1..30
                     seat_id = str(seat_num)
 
                     taken = seat_id in assignments
                     taken_by_me = taken and assignments[seat_id]["user_token"] == st.session_state.user_token
 
-                    # 규칙 4: 이미 다른 좌석 보유 시, 다른 좌석은 비활성
-                    disabled = bool(my_seat and seat_id != my_seat)
-
-                    # 라벨
                     label = f"{seat_num}"
                     if taken:
                         label = f"{seat_num}\n(사용중)"
+
+                    disabled = False
+                    if my_seat and seat_id != my_seat:
+                        disabled = True
+
                     if taken_by_me:
+                        disabled = False
                         label = f"{seat_num}\n(내 좌석·취소)"
 
-                    # 버튼 클릭 처리 (세션 유지 가장 안정적)
-                    if cols[c - 1].button(
-                        label,
-                        key=f"seat_{seat_id}_{round_id}",
-                        disabled=disabled and not taken_by_me,  # 내 좌석은 취소 가능
-                        use_container_width=True,
-                    ):
-                        # 클릭 순간 최신 상태로 다시 로드하여 판정
-                        assignments_now = list_assignments()
-                        my_now = get_user_assignment(st.session_state.user_token)
-                        my_seat_now = my_now["seat_id"] if my_now else None
-
-                        if not my_seat_now:
+                    if cols[c - 1].button(label, key=f"btn_{seat_id}_{round_id}", disabled=disabled):
+                        if not my_seat:
                             result = try_assign(
                                 seat_id=seat_id,
                                 user_token=st.session_state.user_token,
@@ -291,8 +199,7 @@ with tab_student:
                                 else:
                                     st.error("처리 중 오류가 발생했습니다. 다시 시도하세요.")
                         else:
-                            # 취소는 본인 좌석만
-                            if seat_id == my_seat_now:
+                            if seat_id == my_seat:
                                 ok = cancel_own_seat(st.session_state.user_token, seat_id)
                                 if ok:
                                     st.success("좌석 배정이 취소되었습니다. 이제 다른 좌석을 선택할 수 있습니다.")
@@ -300,10 +207,6 @@ with tab_student:
                                     st.error("취소 권한이 없거나 이미 처리되었습니다.")
                             else:
                                 st.warning("다른 좌석을 선택하려면 먼저 본인 좌석을 취소하세요.")
-
-                        st.rerun()
-
-            st.markdown("</div>", unsafe_allow_html=True)
 
     st.markdown("---")
     st.markdown("### 내 상태")
@@ -341,9 +244,9 @@ with tab_teacher:
                 set_setting("is_open", "0")
                 st.warning("좌석 선택을 마감했습니다.")
         with colC:
-            if st.button("라운드 초기화(전체 취소 + 새 라운드)"):
+            if st.button("라운드 초기화"):
                 reset_round()
-                st.warning("초기화 완료. 새 라운드로 전환되었습니다.")
+                st.warning("초기화 완료.")
 
     st.markdown("### 배정 현황")
     assignments = list_assignments()
@@ -354,3 +257,5 @@ with tab_teacher:
         for seat_id, info in items:
             ts = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(info["assigned_at"]))
             st.write(f"- **{seat_id}** : {info['student_name']}  (배정: {ts})")
+
+    st.caption("이전 버전 데이터가 섞여 있으면, '라운드 초기화'로 한번 정리한 뒤 사용하면 가장 안정적입니다.")
