@@ -45,7 +45,6 @@ def init_db():
             );
             """
         )
-        # defaults
         conn.execute("INSERT OR IGNORE INTO settings(key, value) VALUES('is_open', '0');")
         conn.execute("INSERT OR IGNORE INTO settings(key, value) VALUES('round_id', '1');")
 
@@ -57,12 +56,7 @@ def get_setting(key: str) -> str:
 
 
 def set_setting(key: str, value: str):
-    """
-    ✅ UPSET(ON CONFLICT) 대신:
-    1) UPDATE 먼저 시도
-    2) 없으면 INSERT
-    - SQLite 버전/환경 차이에도 안정적으로 동작
-    """
+    # UPDATE 먼저 시도 후 없으면 INSERT (환경 차이에도 안정적)
     with get_conn() as conn:
         conn.execute("BEGIN IMMEDIATE;")
         cur = conn.execute("UPDATE settings SET value = ? WHERE key = ?;", (value, key))
@@ -99,12 +93,6 @@ def get_user_assignment(user_token: str):
 
 
 def try_assign(seat_id: str, user_token: str, student_name: str):
-    """
-    Atomic seat assignment:
-    - If seat is taken -> fail with 'seat_taken'
-    - If user already has seat -> fail with 'user_already_assigned'
-    - Else success
-    """
     now = time.time()
     try:
         with get_conn() as conn:
@@ -127,7 +115,6 @@ def try_assign(seat_id: str, user_token: str, student_name: str):
 
 
 def cancel_own_seat(user_token: str, seat_id: str):
-    """Only cancels if (seat_id, user_token) matches."""
     with get_conn() as conn:
         conn.execute("BEGIN IMMEDIATE;")
         cur = conn.execute(
@@ -139,23 +126,16 @@ def cancel_own_seat(user_token: str, seat_id: str):
 
 
 def reset_round():
-    """
-    ✅ 핵심 수정:
-    - 하나의 conn/트랜잭션 안에서 모든 DB작업 수행
-    - 내부에서 get_setting/set_setting(=새 연결 생성) 호출 금지
-    """
+    # 하나의 conn/트랜잭션에서 처리 (락/중첩 연결 방지)
     with get_conn() as conn:
         conn.execute("BEGIN IMMEDIATE;")
 
-        # 1) 배정 전체 삭제
         conn.execute("DELETE FROM assignments;")
 
-        # 2) round_id +1
         row = conn.execute("SELECT value FROM settings WHERE key='round_id';").fetchone()
         rid = int(row[0]) if row and str(row[0]).isdigit() else 1
         new_rid = str(rid + 1)
 
-        # 3) settings 업데이트 (UPDATE 후 없으면 INSERT)
         cur = conn.execute("UPDATE settings SET value=? WHERE key='round_id';", (new_rid,))
         if cur.rowcount == 0:
             conn.execute("INSERT INTO settings(key, value) VALUES('round_id', ?);", (new_rid,))
@@ -177,16 +157,46 @@ def safe_seat_sort_key(seat_id: str):
 # ---------------------------
 # App
 # ---------------------------
-st.set_page_config(page_title="분반 좌석 선착순", layout="wide")
+st.set_page_config(page_title="3학년 미적분 좌석 배정", layout="wide")
 init_db()
 
 if "user_token" not in st.session_state:
     st.session_state.user_token = str(uuid.uuid4())
 
-st.title("분반 좌석 선착순 배정 (5열 × 6행, 1~30번)")
+# ✅ (2) 화면 이름 변경
+st.title("3학년 미적분 좌석 배정")
+
+# ✅ (4) 표처럼(여백 최소) + 모바일 가독성 확보용 CSS
+st.markdown(
+    """
+<style>
+/* 가로 블록(컬럼 줄) 사이 간격 제거 */
+div[data-testid="stHorizontalBlock"] { gap: 0rem !important; }
+
+/* 각 컬럼 자체 패딩 제거 */
+div[data-testid="column"] { padding: 0 !important; }
+
+/* 버튼을 표 셀처럼: 여백/둥근 모서리 최소화, 크기 축소 */
+div.stButton > button {
+  width: 100% !important;
+  margin: 0 !important;
+  padding: 0.35rem 0 !important;
+  border-radius: 0 !important;
+  font-size: 0.95rem !important;
+  line-height: 1.1 !important;
+}
+
+/* 버튼 컨테이너 여백 제거 */
+div.stButton { margin: 0 !important; padding: 0 !important; }
+
+/* 상단 여백 조금 줄이기 */
+.block-container { padding-top: 1rem !important; padding-bottom: 1rem !important; }
+</style>
+""",
+    unsafe_allow_html=True,
+)
 
 tab_student, tab_teacher = st.tabs(["학생", "교사"])
-
 
 with tab_student:
     st.subheader("학생 화면")
@@ -197,7 +207,8 @@ with tab_student:
 
     is_open = get_setting("is_open") == "1"
     round_id = get_setting("round_id")
-    st.caption(f"현재 라운드: {round_id}")
+
+    # ✅ (1) 학생 화면에서 라운드 표시 제거 (st.caption 삭제)
 
     if not st.session_state.get("student_name"):
         st.info("이름을 입력하면 대기 상태로 들어갑니다.")
@@ -218,12 +229,14 @@ with tab_student:
             my_seat = my["seat_id"] if my else None
 
             st.markdown("## <칠판 & 교탁>")
-            st.caption("아래 좌석을 번호로 선택하세요. (5열 × 6행)")
 
-            st.markdown("### 좌석 선택")
+            # ✅ (3) 아래 두 줄 제거:
+            # st.caption("아래 좌석을 번호로 선택하세요. (5열 × 6행)")
+            # st.markdown("### 좌석 선택")
 
+            # ✅ 좌석 선택 표(5열 x 6행, 1~30)
             for r in range(1, ROWS + 1):
-                cols = st.columns(COLS)
+                cols = st.columns(COLS, gap="small")  # gap은 CSS로 0에 가깝게 강제됨
                 for c in range(1, COLS + 1):
                     seat_num = (r - 1) * COLS + c  # 1..30
                     seat_id = str(seat_num)
@@ -236,14 +249,22 @@ with tab_student:
                         label = f"{seat_num}\n(사용중)"
 
                     disabled = False
+
+                    # 규칙 4: 이미 다른 좌석을 가진 학생은 다른 좌석 선택 불가 (취소는 본인 좌석만)
                     if my_seat and seat_id != my_seat:
                         disabled = True
 
+                    # 규칙 5: 본인 좌석은 다시 눌러 취소 가능
                     if taken_by_me:
                         disabled = False
                         label = f"{seat_num}\n(내 좌석·취소)"
 
-                    if cols[c - 1].button(label, key=f"btn_{seat_id}_{round_id}", disabled=disabled):
+                    if cols[c - 1].button(
+                        label,
+                        key=f"btn_{seat_id}_{round_id}",
+                        disabled=disabled,
+                        use_container_width=True,
+                    ):
                         if not my_seat:
                             result = try_assign(
                                 seat_id=seat_id,
@@ -295,6 +316,10 @@ with tab_teacher:
     if REQUIRED and teacher_pass != REQUIRED:
         st.info("비밀번호를 입력하세요.")
     else:
+        # 교사에게는 라운드 정보 표시(학생 요구사항과 무관)
+        round_id = get_setting("round_id")
+        st.caption(f"현재 라운드: {round_id}")
+
         colA, colB, colC = st.columns(3)
         with colA:
             if st.button("좌석 선택 시작(오픈)"):
@@ -318,5 +343,3 @@ with tab_teacher:
         for seat_id, info in items:
             ts = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(info["assigned_at"]))
             st.write(f"- **{seat_id}** : {info['student_name']}  (배정: {ts})")
-
-    st.caption("이전 버전 데이터가 섞여 있으면, '라운드 초기화'로 한번 정리한 뒤 사용하면 가장 안정적입니다.")
