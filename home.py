@@ -7,7 +7,7 @@ st.set_page_config(
 )
 
 # -----------------------------
-# 1) 홈(메인) 화면 함수
+# 페이지 등록 (현재 폴더 구조 기준)
 # -----------------------------
 def home_screen():
     st.write(
@@ -20,37 +20,34 @@ def home_screen():
     c1, c2, c3 = st.columns(3)
 
     with c1:
-        if st.button("미적분으로 이동", use_container_width=True, key="home_quick_calculus"):
+        if st.button("미적분으로 이동", use_container_width=True, key="quick_calculus"):
             st.switch_page(calculus_page)
 
     with c2:
-        if st.button("인공지능수학으로 이동", use_container_width=True, key="home_quick_ai"):
+        if st.button("인공지능수학으로 이동", use_container_width=True, key="quick_ai"):
             st.switch_page(ai_math_page)
 
     with c3:
-        if st.button("좌석 배정으로 이동", use_container_width=True, key="home_quick_seat"):
+        if st.button("좌석 배정으로 이동", use_container_width=True, key="quick_seat"):
             st.switch_page(seat_page)
 
 
-# -----------------------------
-# 2) 페이지 등록 (폴더 내 파일로 연결)
-# -----------------------------
 home_page = st.Page(home_screen, title="Home", icon="🏠", default=True)
 
 calculus_page = st.Page(
-    "activities/calculus/calculus.py",
+    "activities/calculus.py",
     title="미적분",
     icon="📘",
 )
 
 ai_math_page = st.Page(
-    "activities/ai_math/ai_math.py",
+    "activities/ai_math.py",
     title="인공지능수학",
     icon="🤖",
 )
 
 seat_page = st.Page(
-    "sub/seat/seat.py",
+    "sub/seat.py",
     title="좌석 배정",
     icon="🪑",
 )
@@ -61,23 +58,21 @@ pages = {
     "📁 도움 자료": [seat_page],
 }
 
-# 기본 네비게이션(자동 페이지 목록)은 숨기고, 우리가 만든 사이드바 메뉴만 사용
-pg = st.navigation(pages, position="hidden")  # sidebar/top/hidden 중 hidden 사용 :contentReference[oaicite:1]{index=1}
-
+# 기본 네비게이션은 숨기고, 우리가 만든 사이드바로만 이동
+pg = st.navigation(pages, position="hidden")
 
 # -----------------------------
-# 3) 상단 바: "🏠 홈으로" 버튼
+# 상단 바: 홈으로
 # -----------------------------
-top_left, top_right = st.columns([8, 2])
-with top_right:
+col_left, col_right = st.columns([8, 2])
+with col_right:
     if st.button("🏠 홈으로", use_container_width=True, key="top_home"):
         st.switch_page(home_page)
 
 st.divider()
 
-
 # -----------------------------
-# 4) 좌측 사이드바: 사용자가 원하는 메뉴 구성
+# 좌측 사이드바: 메뉴 구성
 # -----------------------------
 with st.sidebar:
     st.header("Home")
@@ -88,7 +83,7 @@ with st.sidebar:
     if st.button("미적분", use_container_width=True, key="sb_calculus"):
         st.switch_page(calculus_page)
 
-    if st.button("인공지능수학", use_container_width=True, key="sb_ai_math"):
+    if st.button("인공지능수학", use_container_width=True, key="sb_ai"):
         st.switch_page(ai_math_page)
 
     st.markdown("---")
@@ -97,8 +92,7 @@ with st.sidebar:
     if st.button("좌석 배정", use_container_width=True, key="sb_seat"):
         st.switch_page(seat_page)
 
-
 # -----------------------------
-# 5) 현재 선택된 페이지 실행
+# 현재 선택된 페이지 실행
 # -----------------------------
 pg.run()
