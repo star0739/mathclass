@@ -178,14 +178,14 @@ def safe_seat_sort_key(seat_id: str):
 # App
 # ---------------------------
 # (2) 화면 이름 변경
-st.set_page_config(page_title="3학년 미적분 좌석 배정", layout="wide")
+st.set_page_config(page_title="미적분 좌석 배정", layout="wide")
 init_db()
 
 if "user_token" not in st.session_state:
     st.session_state.user_token = str(uuid.uuid4())
 
 # (2) 타이틀 변경
-st.title("3학년 미적분 좌석 배정")
+st.title("미적분 좌석 배정")
 
 tab_student, tab_teacher = st.tabs(["학생", "교사"])
 
