@@ -2,6 +2,7 @@ import re
 import sqlite3
 from contextlib import contextmanager
 from datetime import datetime
+from pathlib import Path
 
 import streamlit as st
 
@@ -10,22 +11,23 @@ import streamlit as st
 # ---------------------------
 st.set_page_config(page_title="분반별 좌석 배치도", layout="wide")
 
-DB_PATH = "finalseat.db"
 ROWS = 6
 COLS = 5
 TOTAL = ROWS * COLS
-
 CLASSES = ["A", "B", "C", "D"]  # 미적분 A~D
+
+# DB를 "현재 파일(finalseat.py)과 같은 폴더"에 고정 생성
+DB_PATH = str(Path(__file__).with_name("finalseat.db"))
 
 
 # ---------------------------
 # Secrets (Teacher password)
 # ---------------------------
-# secrets.toml 예시
-# TEACHER_PASSWORD = "원하는비밀번호"
+# .streamlit/secrets.toml 예시
+# TEACHER_PASSWORD = "1234"
 # 또는
 # [auth]
-# password = "원하는비밀번호"
+# password = "1234"
 def get_teacher_password() -> str:
     if "TEACHER_PASSWORD" in st.secrets:
         return str(st.secrets["TEACHER_PASSWORD"])
@@ -49,18 +51,91 @@ def get_conn():
 
 
 def init_db():
+    """
+    최신 스키마:
+      seat_assignments(class_id, seat_no, student_name, updated_at)
+      PRIMARY KEY (class_id, seat_no)
+
+    기존 DB에 seat_assignments 테이블이 다른 형태로 존재하면
+    새 스키마로 자동 이관(마이그레이션)합니다.
+    """
     with get_conn() as conn:
-        conn.execute(
-            """
-            CREATE TABLE IF NOT EXISTS seat_assignments (
-                class_id TEXT NOT NULL,
-                seat_no INTEGER NOT NULL,
-                student_name TEXT NOT NULL,
-                updated_at TEXT NOT NULL,
-                PRIMARY KEY (class_id, seat_no)
-            );
-            """
+        # 테이블 존재 확인
+        row = conn.execute(
+            "SELECT name FROM sqlite_master WHERE type='table' AND name='seat_assignments';"
+        ).fetchone()
+
+        if row is None:
+            conn.execute(
+                """
+                CREATE TABLE seat_assignments (
+                    class_id TEXT NOT NULL,
+                    seat_no INTEGER NOT NULL,
+                    student_name TEXT NOT NULL,
+                    updated_at TEXT NOT NULL,
+                    PRIMARY KEY (class_id, seat_no)
+                );
+                """
+            )
+            return
+
+        # 컬럼 확인
+        cols = conn.execute("PRAGMA table_info(seat_assignments);").fetchall()
+        col_names = [c[1] for c in cols]
+
+        is_new_schema = (
+            "class_id" in col_names
+            and "seat_no" in col_names
+            and "student_name" in col_names
+            and "updated_at" in col_names
         )
+        if is_new_schema:
+            return
+
+        # 마이그레이션 수행
+        now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        conn.execute("BEGIN;")
+        try:
+            conn.execute(
+                """
+                CREATE TABLE seat_assignments_new (
+                    class_id TEXT NOT NULL,
+                    seat_no INTEGER NOT NULL,
+                    student_name TEXT NOT NULL,
+                    updated_at TEXT NOT NULL,
+                    PRIMARY KEY (class_id, seat_no)
+                );
+                """
+            )
+
+            # 과거 스키마에서 가능한 정보 이관
+            # (1) seat_no, student_name (+ optional updated_at)
+            if "seat_no" in col_names and "student_name" in col_names:
+                if "updated_at" in col_names:
+                    conn.execute(
+                        """
+                        INSERT INTO seat_assignments_new (class_id, seat_no, student_name, updated_at)
+                        SELECT 'A', seat_no, student_name, updated_at
+                        FROM seat_assignments;
+                        """
+                    )
+                else:
+                    conn.execute(
+                        """
+                        INSERT INTO seat_assignments_new (class_id, seat_no, student_name, updated_at)
+                        SELECT 'A', seat_no, student_name, ?
+                        FROM seat_assignments;
+                        """,
+                        (now,),
+                    )
+            # 그 외 알 수 없는 형태면 데이터 이관 없이 스키마만 교체
+
+            conn.execute("DROP TABLE seat_assignments;")
+            conn.execute("ALTER TABLE seat_assignments_new RENAME TO seat_assignments;")
+            conn.execute("COMMIT;")
+        except Exception:
+            conn.execute("ROLLBACK;")
+            raise
 
 
 def load_assignments(class_id: str) -> dict[int, str]:
@@ -106,7 +181,7 @@ def clear_assignments(class_id: str):
 # ---------------------------
 # Parsing
 # ---------------------------
-# "2: 김 (배정: ...)" -> 좌석번호=2, 이름="김" 만 추출. 괄호 이후 무시.
+# 예: "2: 김 (배정: ...)" -> seat_no=2, name="김"만 추출. 괄호 이후 무시.
 LINE_RE = re.compile(r"^\s*(\d{1,2})\s*:\s*([^\(\n\r]+?)\s*(?:\(|$)")
 
 
@@ -135,7 +210,7 @@ def parse_text_to_assignments(text: str) -> tuple[dict[int, str], list[str]]:
             errors.append(f"{idx}번째 줄 이름이 비어 있습니다: {raw}")
             continue
 
-        # 중복 좌석번호는 마지막 입력으로 덮어씀
+        # 중복 좌석번호는 마지막 값으로 덮어씀
         assignments[seat_no] = name
 
     return assignments, errors
@@ -154,6 +229,7 @@ def assignments_to_text(assignments: dict[int, str]) -> str:
 # ---------------------------
 def seat_cell_html(seat_no: int, name: str) -> str:
     safe_name = (name or "").replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+    display = safe_name if safe_name else "<span style='color:#999; font-weight:600;'>미배정</span>"
     return f"""
     <div style="
         border: 1px solid #d0d0d0;
@@ -168,7 +244,7 @@ def seat_cell_html(seat_no: int, name: str) -> str:
     ">
         <div style="font-weight: 700; font-size: 14px;">{seat_no}번</div>
         <div style="font-size: 18px; font-weight: 700; line-height: 1.2; margin-top: 6px;">
-            {safe_name if safe_name else "<span style='color:#999; font-weight:600;'>미배정</span>"}
+            {display}
         </div>
     </div>
     """
@@ -182,7 +258,6 @@ def render_grid(assignments: dict[int, str]):
             name = assignments.get(seat_no, "")
             with cols[c]:
                 st.markdown(seat_cell_html(seat_no, name), unsafe_allow_html=True)
-
     st.caption("표시 규칙: 1행 1열부터 1번, 오른쪽으로 증가 후 다음 행으로 넘어갑니다.")
 
 
@@ -229,22 +304,20 @@ with tabT:
     if teacher_pw and not is_teacher:
         st.info("비밀번호를 입력하면 편집 및 저장이 활성화됩니다.")
 
-    # 교사 탭 안에서도 분반별로 나누어 입력하도록 탭 구성
     tA, tB, tC, tD = st.tabs(["A 입력", "B 입력", "C 입력", "D 입력"])
 
     def teacher_editor(class_id: str):
         current = load_assignments(class_id)
-        default_text = assignments_to_text(current)
-
         text_key = f"text_{class_id}"
-        if text_key not in st.session_state:
-            st.session_state[text_key] = default_text
 
-        # DB가 바뀌었는데 이전 세션 텍스트가 남아있을 수 있어, "불러오기" 제공
-        col1, col2 = st.columns([1, 1])
-        with col1:
+        # 최초 진입 시 DB 저장본을 세션에 로딩
+        if text_key not in st.session_state:
+            st.session_state[text_key] = assignments_to_text(current)
+
+        top1, top2 = st.columns([1, 1])
+        with top1:
             st.write(f"**미적분{class_id} 입력**")
-        with col2:
+        with top2:
             if st.button("현재 저장본 불러오기", key=f"reload_{class_id}", disabled=not is_teacher):
                 st.session_state[text_key] = assignments_to_text(load_assignments(class_id))
                 st.rerun()
@@ -258,6 +331,7 @@ with tabT:
         )
 
         b1, b2, b3 = st.columns(3)
+
         with b1:
             if st.button("저장", key=f"save_{class_id}", use_container_width=True, disabled=not is_teacher):
                 new_assignments, errors = parse_text_to_assignments(text)
