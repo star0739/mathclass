@@ -325,19 +325,31 @@ with tabT:
     tA, tB, tC, tD = st.tabs(["A 입력", "B 입력", "C 입력", "D 입력"])
 
     def teacher_editor(class_id: str):
-        current = load_assignments(class_id)
         text_key = f"text_{class_id}"
 
+        # 콜백: 저장본 불러오기
+        def _reload():
+            st.session_state[text_key] = assignments_to_text(load_assignments(class_id))
+
+        # 콜백: 전체 초기화
+        def _clear_all():
+            clear_assignments(class_id)
+            st.session_state[text_key] = ""  # 콜백에서 설정하면 오류 없음
+
+        # 최초 진입 시 DB 저장본을 세션에 로딩
         if text_key not in st.session_state:
-            st.session_state[text_key] = assignments_to_text(current)
+            st.session_state[text_key] = assignments_to_text(load_assignments(class_id))
 
         top1, top2 = st.columns([1, 1])
         with top1:
             st.write(f"**미적분{class_id} 입력**")
         with top2:
-            if st.button("현재 저장본 불러오기", key=f"reload_{class_id}", disabled=not is_teacher):
-                st.session_state[text_key] = assignments_to_text(load_assignments(class_id))
-                st.rerun()
+            st.button(
+                "현재 저장본 불러오기",
+                key=f"reload_{class_id}",
+                disabled=not is_teacher,
+                on_click=_reload,
+            )
 
         text = st.text_area(
             "배정 현황(여러 줄)",
@@ -362,11 +374,13 @@ with tabT:
                     st.rerun()
 
         with b2:
-            if st.button("전체 초기화", key=f"clear_{class_id}", use_container_width=True, disabled=not is_teacher):
-                clear_assignments(class_id)
-                st.session_state[text_key] = ""
-                st.warning(f"미적분{class_id} 배정을 모두 삭제했습니다.")
-                st.rerun()
+            st.button(
+                "전체 초기화",
+                key=f"clear_{class_id}",
+                use_container_width=True,
+                disabled=not is_teacher,
+                on_click=_clear_all,
+            )
 
     with tA:
         teacher_editor("A")
