@@ -1,8 +1,8 @@
 import streamlit as st
 
 st.set_page_config(
-    page_title="수학 수업 연구실",
-    page_icon="🏠",
+    page_title="숭문고 수학 스튜디오",
+    page_icon="✨",
     layout="wide",
 )
 
@@ -11,8 +11,9 @@ st.set_page_config(
 # -----------------------------
 def home_screen():
     st.write(
-        "이곳은 수학 수업에서 활용할 수 있는 시뮬레이션과 활동을 한 곳에 모은 연구실입니다. "
-        "아래에서 교과를 고르고, 교과별 메인 페이지에서 구체 활동으로 들어가세요."
+        "✨숭문고 수학 스튜디오"
+        "미적분과 인공지능 수학 수업에서 직접 탐구하고 실험할 수 있는 시뮬레이션과 활동들을 모아두었습니다."
+        "아래에서 교과를 고르고, 교과별 페이지에서 원하는 활동을 시작해 보세요."
     )
     st.write("")
 
@@ -28,16 +29,16 @@ def home_screen():
             st.switch_page(ai_math_page)
 
     with c3:
-        if st.button("지정 좌석 확인", use_container_width=True, key="quick_seat"):
+        if st.button("좌석 확인", use_container_width=True, key="quick_finalseat"):
             st.switch_page(finalseat_page)
 
 
-home_page = st.Page(home_screen, title="Home", icon="🏠", default=True)
+home_page = st.Page(home_screen, title="Home", icon="✨", default=True)
 
 calculus_page = st.Page(
     "activities/calculus.py",
     title="미적분",
-    icon="📘",
+    icon="🧮",
 )
 
 ai_math_page = st.Page(
@@ -48,21 +49,20 @@ ai_math_page = st.Page(
 
 seat_page = st.Page(
     "sub/seat.py",
-    title="선착순 좌석 배정",
+    title="선착순 배정",
     icon="🪑",
 )
 
-
 finalseat_page = st.Page(
     "sub/finalseat.py",
-    title="지정 좌석 확인",
+    title="좌석 확인",
     icon="✅",
 )
 
 pages = {
     "Home": [home_page],
-    "📁 교과별 페이지": [calculus_page, ai_math_page],
-    "📁 도움 자료": [seat_page, finalseat_page],
+    "📁 교과 학습": [calculus_page, ai_math_page],
+    "📁 좌석 관리": [seat_page, finalseat_page],
 }
 
 # 기본 네비게이션은 숨기고, 우리가 만든 사이드바로만 이동
@@ -85,7 +85,7 @@ with st.sidebar:
     st.header("Home")
 
     st.markdown("---")
-    st.subheader("📁 교과별 페이지")
+    st.subheader("📁 교과 학습")
 
     if st.button("미적분", use_container_width=True, key="sb_calculus"):
         st.switch_page(calculus_page)
@@ -94,12 +94,12 @@ with st.sidebar:
         st.switch_page(ai_math_page)
 
     st.markdown("---")
-    st.subheader("📁 도움 자료")
+    st.subheader("📁 좌석 관리")
 
-    if st.button("선착순 좌석 배정", use_container_width=True, key="sb_seat"):
+    if st.button("선착순 배정", use_container_width=True, key="sb_seat"):
         st.switch_page(seat_page)
 
-    if st.button("지정 좌석 확인", use_container_width=True, key="sb_finalseat"):
+    if st.button("좌석 확인", use_container_width=True, key="sb_finalseat"):
         st.switch_page(finalseat_page)
 
 # -----------------------------
