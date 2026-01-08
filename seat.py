@@ -56,7 +56,6 @@ def get_setting(key: str) -> str:
 
 
 def set_setting(key: str, value: str):
-    # UPDATE 먼저 시도 후 없으면 INSERT (환경 차이에도 안정적)
     with get_conn() as conn:
         conn.execute("BEGIN IMMEDIATE;")
         cur = conn.execute("UPDATE settings SET value = ? WHERE key = ?;", (value, key))
@@ -126,7 +125,6 @@ def cancel_own_seat(user_token: str, seat_id: str):
 
 
 def reset_round():
-    # 하나의 conn/트랜잭션에서 처리 (락/중첩 연결 방지)
     with get_conn() as conn:
         conn.execute("BEGIN IMMEDIATE;")
 
@@ -163,31 +161,59 @@ init_db()
 if "user_token" not in st.session_state:
     st.session_state.user_token = str(uuid.uuid4())
 
-# ✅ (2) 화면 이름 변경
 st.title("3학년 미적분 좌석 배정")
 
-# ✅ (4) 표처럼(여백 최소) + 모바일 가독성 확보용 CSS
+# ✅ 완전 밀착 표(행/열 간격 0) 구현용 CSS
+# - Streamlit columns는 행 간격이 남는 경우가 많아서,
+#   "CSS Grid + HTML button"으로 좌석판을 직접 만듭니다.
+# - 클릭은 query param 방식으로 처리(앱이 재실행되며 처리됨).
 st.markdown(
     """
 <style>
-/* 가로 블록(컬럼 줄) 사이 간격 제거 */
-div[data-testid="stHorizontalBlock"] { gap: 0rem !important; }
-
-/* 각 컬럼 자체 패딩 제거 */
-div[data-testid="column"] { padding: 0 !important; }
-
-/* 버튼을 표 셀처럼: 여백/둥근 모서리 최소화, 크기 축소 */
-div.stButton > button {
-  width: 100% !important;
-  margin: 0 !important;
-  padding: 0.35rem 0 !important;
-  border-radius: 0 !important;
-  font-size: 0.95rem !important;
-  line-height: 1.1 !important;
+/* 좌석판 전체 */
+.seatboard {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 0px;                 /* ✅ 행/열 간격 0 */
+  width: 100%;
+  max-width: 520px;         /* 모바일 세로에서도 전체가 보이도록 상한 */
+  margin: 0 auto;           /* 가운데 정렬 */
+  border: 1px solid #bbb;   /* 표 테두리 */
 }
 
-/* 버튼 컨테이너 여백 제거 */
-div.stButton { margin: 0 !important; padding: 0 !important; }
+/* 각 셀(버튼) */
+.seatbtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 44px;             /* 모바일 터치 고려 */
+  border: 1px solid #bbb;   /* 셀 경계선 */
+  border-radius: 0;
+  background: white;
+  font-size: 16px;
+  padding: 0;
+  margin: 0;
+}
+
+/* 사용중 좌석 */
+.seatbtn.taken {
+  background: #f3f3f3;
+  color: #666;
+}
+
+/* 내 좌석(취소 가능) */
+.seatbtn.mine {
+  background: #e9f5ff;
+  font-weight: 700;
+}
+
+/* 링크(a)로 버튼을 감싸기 때문에 기본 스타일 제거 */
+.seatlink {
+  text-decoration: none !important;
+  color: inherit !important;
+  display: block;
+}
 
 /* 상단 여백 조금 줄이기 */
 .block-container { padding-top: 1rem !important; padding-bottom: 1rem !important; }
@@ -198,6 +224,22 @@ div.stButton { margin: 0 !important; padding: 0 !important; }
 
 tab_student, tab_teacher = st.tabs(["학생", "교사"])
 
+# ---------------------------
+# Helper: 좌석 클릭 처리(쿼리 파라미터)
+# ---------------------------
+def get_clicked_seat():
+    qp = st.query_params  # Streamlit >= 1.30
+    seat = qp.get("seat", None)
+    if isinstance(seat, list):
+        seat = seat[0] if seat else None
+    return seat
+
+
+def clear_clicked_seat():
+    # seat 파라미터 제거
+    st.query_params.clear()
+
+
 with tab_student:
     st.subheader("학생 화면")
 
@@ -206,9 +248,7 @@ with tab_student:
         st.session_state.student_name = student_name.strip()
 
     is_open = get_setting("is_open") == "1"
-    round_id = get_setting("round_id")
-
-    # ✅ (1) 학생 화면에서 라운드 표시 제거 (st.caption 삭제)
+    round_id = get_setting("round_id")  # 키 충돌 방지용(표시하지 않음)
 
     if not st.session_state.get("student_name"):
         st.info("이름을 입력하면 대기 상태로 들어갑니다.")
@@ -222,7 +262,7 @@ with tab_student:
                 st.success(f"이미 배정됨: {my['seat_id']}번 (취소하려면 해당 좌석을 다시 누르세요)")
         else:
             st.success("좌석 선택이 열렸습니다. 원하는 좌석을 클릭하세요.")
-            st_autorefresh(interval=1000, key="open_refresh")
+            st_autorefresh(interval=1000, key=f"open_refresh_{round_id}")
 
             assignments = list_assignments()
             my = get_user_assignment(st.session_state.user_token)
@@ -230,65 +270,77 @@ with tab_student:
 
             st.markdown("## <칠판 & 교탁>")
 
-            # ✅ (3) 아래 두 줄 제거:
-            # st.caption("아래 좌석을 번호로 선택하세요. (5열 × 6행)")
-            # st.markdown("### 좌석 선택")
+            # ✅ 클릭 처리: URL 쿼리 파라미터로 들어온 seat를 처리하고, 처리 후 제거
+            clicked = get_clicked_seat()
+            if clicked:
+                # 클릭한 좌석이 숫자 형태인지 최소 검증
+                if not clicked.isdigit() or not (1 <= int(clicked) <= ROWS * COLS):
+                    st.error("잘못된 좌석 요청입니다.")
+                else:
+                    seat_id = str(int(clicked))
 
-            # ✅ 좌석 선택 표(5열 x 6행, 1~30)
-            for r in range(1, ROWS + 1):
-                cols = st.columns(COLS, gap="small")  # gap은 CSS로 0에 가깝게 강제됨
-                for c in range(1, COLS + 1):
-                    seat_num = (r - 1) * COLS + c  # 1..30
-                    seat_id = str(seat_num)
+                    # 최신 상태 기준으로 처리
+                    assignments = list_assignments()
+                    my = get_user_assignment(st.session_state.user_token)
+                    my_seat = my["seat_id"] if my else None
 
-                    taken = seat_id in assignments
-                    taken_by_me = taken and assignments[seat_id]["user_token"] == st.session_state.user_token
-
-                    label = f"{seat_num}"
-                    if taken:
-                        label = f"{seat_num}\n(사용중)"
-
-                    disabled = False
-
-                    # 규칙 4: 이미 다른 좌석을 가진 학생은 다른 좌석 선택 불가 (취소는 본인 좌석만)
-                    if my_seat and seat_id != my_seat:
-                        disabled = True
-
-                    # 규칙 5: 본인 좌석은 다시 눌러 취소 가능
-                    if taken_by_me:
-                        disabled = False
-                        label = f"{seat_num}\n(내 좌석·취소)"
-
-                    if cols[c - 1].button(
-                        label,
-                        key=f"btn_{seat_id}_{round_id}",
-                        disabled=disabled,
-                        use_container_width=True,
-                    ):
-                        if not my_seat:
-                            result = try_assign(
-                                seat_id=seat_id,
-                                user_token=st.session_state.user_token,
-                                student_name=st.session_state.student_name,
-                            )
-                            if result["ok"]:
-                                st.success(f"{seat_num}번 좌석이 배정되었습니다.")
-                            else:
-                                if result["reason"] == "seat_taken":
-                                    st.error("이미 선택된 좌석입니다.")
-                                elif result["reason"] == "user_already_assigned":
-                                    st.warning("이미 좌석이 배정되어 있습니다. 취소 후 다시 선택하세요.")
-                                else:
-                                    st.error("처리 중 오류가 발생했습니다. 다시 시도하세요.")
+                    if not my_seat:
+                        result = try_assign(
+                            seat_id=seat_id,
+                            user_token=st.session_state.user_token,
+                            student_name=st.session_state.student_name,
+                        )
+                        if result["ok"]:
+                            st.success(f"{seat_id}번 좌석이 배정되었습니다.")
                         else:
-                            if seat_id == my_seat:
-                                ok = cancel_own_seat(st.session_state.user_token, seat_id)
-                                if ok:
-                                    st.success("좌석 배정이 취소되었습니다. 이제 다른 좌석을 선택할 수 있습니다.")
-                                else:
-                                    st.error("취소 권한이 없거나 이미 처리되었습니다.")
+                            if result["reason"] == "seat_taken":
+                                st.error("이미 선택된 좌석입니다.")
+                            elif result["reason"] == "user_already_assigned":
+                                st.warning("이미 좌석이 배정되어 있습니다. 취소 후 다시 선택하세요.")
                             else:
-                                st.warning("다른 좌석을 선택하려면 먼저 본인 좌석을 취소하세요.")
+                                st.error("처리 중 오류가 발생했습니다. 다시 시도하세요.")
+                    else:
+                        # 취소는 본인 좌석만
+                        if seat_id == my_seat:
+                            ok = cancel_own_seat(st.session_state.user_token, seat_id)
+                            if ok:
+                                st.success("좌석 배정이 취소되었습니다. 이제 다른 좌석을 선택할 수 있습니다.")
+                            else:
+                                st.error("취소 권한이 없거나 이미 처리되었습니다.")
+                        else:
+                            st.warning("다른 좌석을 선택하려면 먼저 본인 좌석을 취소하세요.")
+
+                clear_clicked_seat()
+                st.rerun()
+
+            # ✅ 표(그리드) 렌더: 완전 밀착
+            # - 좌석이 선택 불가인 경우(이미 다른 좌석 보유)는 링크를 비활성화처럼 처리
+            grid_html = ['<div class="seatboard">']
+            for seat_num in range(1, ROWS * COLS + 1):
+                seat_id = str(seat_num)
+                taken = seat_id in assignments
+                taken_by_me = taken and assignments[seat_id]["user_token"] == st.session_state.user_token
+
+                # 규칙 4: 이미 다른 좌석을 가진 학생은 다른 좌석 선택 불가(본인좌석 취소만)
+                disabled_by_rule = bool(my_seat and seat_id != my_seat)
+
+                cls = "seatbtn"
+                if taken:
+                    cls += " taken"
+                if taken_by_me:
+                    cls += " mine"
+
+                # 링크를 클릭하면 ?seat=번호 로 이동 → rerun → 처리
+                if disabled_by_rule:
+                    # 클릭 불가처럼 보이게(하지만 표 형태 유지)
+                    grid_html.append(f'<div class="{cls}">{seat_num}</div>')
+                else:
+                    grid_html.append(
+                        f'<a class="seatlink" href="?seat={seat_id}"><div class="{cls}">{seat_num}</div></a>'
+                    )
+
+            grid_html.append("</div>")
+            st.markdown("".join(grid_html), unsafe_allow_html=True)
 
     st.markdown("---")
     st.markdown("### 내 상태")
@@ -298,7 +350,7 @@ with tab_student:
             st.write(f"- 이름: {st.session_state.student_name}")
             st.write(f"- 배정 좌석: **{my['seat_id']}번**")
             st.write(f"- 배정 시각(서버): {time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(my['assigned_at']))}")
-            st.caption("취소하려면 본인 좌석 버튼을 다시 누르세요.")
+            st.caption("취소하려면 본인 좌석을 다시 누르세요.")
         else:
             st.write(f"- 이름: {st.session_state.student_name}")
             st.write("- 배정 좌석: 없음")
@@ -316,10 +368,6 @@ with tab_teacher:
     if REQUIRED and teacher_pass != REQUIRED:
         st.info("비밀번호를 입력하세요.")
     else:
-        # 교사에게는 라운드 정보 표시(학생 요구사항과 무관)
-        round_id = get_setting("round_id")
-        st.caption(f"현재 라운드: {round_id}")
-
         colA, colB, colC = st.columns(3)
         with colA:
             if st.button("좌석 선택 시작(오픈)"):
