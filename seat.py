@@ -8,7 +8,7 @@ from streamlit_autorefresh import st_autorefresh
 
 DB_PATH = "seats.db"
 
-# ✅ 요청 반영: 5열 × 6행 = 30석
+# ✅ 5열 × 6행 = 30석
 ROWS = 6
 COLS = 5
 
@@ -37,7 +37,7 @@ def init_db():
         conn.execute(
             """
             CREATE TABLE IF NOT EXISTS assignments (
-                seat_id TEXT PRIMARY KEY,               -- seat unique (now "1".."30")
+                seat_id TEXT PRIMARY KEY,               -- seat unique ("1".."30")
                 user_token TEXT UNIQUE NOT NULL,         -- user unique (one seat per user)
                 student_name TEXT NOT NULL,
                 assigned_at REAL NOT NULL                -- server time (epoch)
@@ -71,7 +71,7 @@ def list_assignments() -> dict:
         ).fetchall()
     out = {}
     for seat_id, user_token, student_name, assigned_at in rows:
-        out[seat_id] = {
+        out[str(seat_id)] = {
             "user_token": user_token,
             "student_name": student_name,
             "assigned_at": assigned_at,
@@ -87,7 +87,7 @@ def get_user_assignment(user_token: str):
         ).fetchone()
     if not row:
         return None
-    return {"seat_id": row[0], "student_name": row[1], "assigned_at": row[2]}
+    return {"seat_id": str(row[0]), "student_name": row[1], "assigned_at": row[2]}
 
 
 def try_assign(seat_id: str, user_token: str, student_name: str):
@@ -103,7 +103,7 @@ def try_assign(seat_id: str, user_token: str, student_name: str):
             conn.execute("BEGIN IMMEDIATE;")
             conn.execute(
                 "INSERT INTO assignments(seat_id, user_token, student_name, assigned_at) VALUES(?, ?, ?, ?);",
-                (seat_id, user_token, student_name, now),
+                (str(seat_id), user_token, student_name, now),
             )
             conn.execute("COMMIT;")
         return {"ok": True}
@@ -124,7 +124,7 @@ def cancel_own_seat(user_token: str, seat_id: str):
         conn.execute("BEGIN IMMEDIATE;")
         cur = conn.execute(
             "DELETE FROM assignments WHERE seat_id = ? AND user_token = ?;",
-            (seat_id, user_token),
+            (str(seat_id), user_token),
         )
         conn.execute("COMMIT;")
     return cur.rowcount == 1
@@ -140,6 +140,19 @@ def reset_round():
         conn.execute("COMMIT;")
 
 
+def safe_seat_sort_key(seat_id: str):
+    """
+    기존 DB에 'R1C1' 같은 값이 남아있는 경우에도 터지지 않도록
+    정렬 키를 안전하게 계산.
+    - 숫자면 int로 정렬
+    - 숫자가 아니면 뒤쪽으로 보내고(큰 값), 문자열로 2차 정렬
+    """
+    try:
+        return (0, int(str(seat_id)))
+    except Exception:
+        return (1, str(seat_id))
+
+
 # ---------------------------
 # App
 # ---------------------------
@@ -150,7 +163,7 @@ init_db()
 if "user_token" not in st.session_state:
     st.session_state.user_token = str(uuid.uuid4())
 
-st.title("분반 좌석 선착순 배정 (5열 × 6행, 1~30번)")
+st.title("3학년 미적분 좌석 지정")
 
 tab_student, tab_teacher = st.tabs(["학생", "교사"])
 
@@ -165,7 +178,7 @@ with tab_student:
     round_id = get_setting("round_id")
     st.caption(f"현재 라운드: {round_id}")
 
-    # ✅ NameError 방지: 항상 기본값 준비
+    # ✅ NameError 방지: 기본값
     assignments = {}
     my = None
     my_seat = None
@@ -180,22 +193,20 @@ with tab_student:
             my = get_user_assignment(st.session_state.user_token)
             if my:
                 st.success(f"이미 배정됨: {my['seat_id']}번 (취소하려면 해당 좌석을 다시 누르세요)")
+
         else:
             st.success("좌석 선택이 열렸습니다. 원하는 좌석을 클릭하세요.")
             st_autorefresh(interval=1000, key="open_refresh")
 
-            # 데이터 로드(오픈 상태에서만)
             assignments = list_assignments()
             my = get_user_assignment(st.session_state.user_token)
             my_seat = my["seat_id"] if my else None
 
-            # ✅ 시각적 상단 표시
             st.markdown("## <칠판 & 교탁>")
             st.caption("아래 좌석을 번호로 선택하세요. (5열 × 6행)")
 
             st.markdown("### 좌석 선택")
 
-            # 5열 × 6행: 좌석 번호 1~30
             for r in range(1, ROWS + 1):
                 cols = st.columns(COLS)
                 for c in range(1, COLS + 1):
@@ -237,7 +248,6 @@ with tab_student:
                                 else:
                                     st.error("처리 중 오류가 발생했습니다. 다시 시도하세요.")
                         else:
-                            # my_seat exists => only allow cancel by clicking my seat
                             if seat_id == my_seat:
                                 ok = cancel_own_seat(st.session_state.user_token, seat_id)
                                 if ok:
@@ -291,8 +301,11 @@ with tab_teacher:
     if not assignments:
         st.write("아직 배정된 좌석이 없습니다.")
     else:
-        # ✅ 좌석번호(1~30) 기준 정렬
-        items = sorted(assignments.items(), key=lambda kv: int(kv[0]))
+        # ✅ 기존 DB에 숫자 아닌 seat_id가 남아도 터지지 않는 정렬
+        items = sorted(assignments.items(), key=lambda kv: safe_seat_sort_key(kv[0]))
         for seat_id, info in items:
             ts = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(info["assigned_at"]))
-            st.write(f"- **{seat_id}번** : {info['student_name']}  (배정: {ts})")
+            # seat_id가 숫자가 아니어도 표시 가능
+            st.write(f"- **{seat_id}** : {info['student_name']}  (배정: {ts})")
+
+    st.caption("참고: 이전 버전(R1C1 형태) 데이터가 남아 있으면 '라운드 초기화'를 한 번 실행하는 것을 권장합니다.")
