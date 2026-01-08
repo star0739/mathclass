@@ -220,7 +220,7 @@ with tab_student:
             my = get_user_assignment(st.session_state.user_token)
             my_seat = my["seat_id"] if my else None
 
-            st.markdown("## <칠판 & 교탁>")
+            st.markdown("# <칠판 & 교탁>")
 
             # (3) 기존 caption/markdown 삭제 + 안내 문구 추가
             st.info("휴대폰 사용 시 가로모드로 해야 좌석이 잘 표시됩니다.")
@@ -273,13 +273,12 @@ with tab_student:
                                 st.warning("다른 좌석을 선택하려면 먼저 본인 좌석을 취소하세요.")
 
     st.markdown("---")
-    st.markdown("### 내 상태")
+    st.markdown("## 신청 내역")
     my = get_user_assignment(st.session_state.user_token)
     if st.session_state.get("student_name"):
         if my:
             st.write(f"- 이름: {st.session_state.student_name}")
             st.write(f"- 배정 좌석: **{my['seat_id']}번**")
-            st.write(f"- 배정 시각(서버): {time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(my['assigned_at']))}")
             st.caption("취소하려면 본인 좌석 버튼을 다시 누르세요.")
         else:
             st.write(f"- 이름: {st.session_state.student_name}")
