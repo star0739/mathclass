@@ -151,6 +151,7 @@ def save_assignments(class_id: str, assignments: dict[int, str]):
     with get_conn() as conn:
         conn.execute("BEGIN;")
         try:
+            # ✅ 항상 먼저 삭제 -> 이후 입력된 것만 다시 INSERT (빈 입력이면 '초기화'와 동일)
             conn.execute("DELETE FROM seat_assignments WHERE class_id = ?;", (class_id,))
             for seat_no, name in assignments.items():
                 if 1 <= seat_no <= TOTAL and name.strip():
@@ -165,11 +166,6 @@ def save_assignments(class_id: str, assignments: dict[int, str]):
         except Exception:
             conn.execute("ROLLBACK;")
             raise
-
-
-def clear_assignments(class_id: str):
-    with get_conn() as conn:
-        conn.execute("DELETE FROM seat_assignments WHERE class_id = ?;", (class_id,))
 
 
 # ---------------------------
@@ -220,9 +216,7 @@ def assignments_to_text(assignments: dict[int, str]) -> str:
 # UI helpers
 # ---------------------------
 def render_front_bar():
-    """
-    좌석 배치 상단에 '칠판&교탁'을 가로로 길게 표시.
-    """
+    """좌석 배치 상단에 '칠판&교탁(앞)'을 가로로 길게 표시."""
     st.markdown(
         """
         <div style="
@@ -247,6 +241,7 @@ def render_front_bar():
 
 def seat_cell_html(seat_no: int, name: str) -> str:
     safe_name = (name or "").replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+    # ✅ 미배정은 '완전 빈칸'처럼 보이되 레이아웃 유지
     display = safe_name if safe_name else "&nbsp;"
     return f"""
     <div style="
@@ -322,6 +317,9 @@ with tabT:
     if teacher_pw and not is_teacher:
         st.info("비밀번호를 입력하면 편집 및 저장이 활성화됩니다.")
 
+    # ✅ 전체 초기화 버튼은 제거했으므로, 안내 문구로 대체(선택이지만 권장)
+    st.caption("※ 입력을 모두 지운 뒤 저장하면 해당 분반 좌석이 초기화됩니다.")
+
     tA, tB, tC, tD = st.tabs(["A 입력", "B 입력", "C 입력", "D 입력"])
 
     def teacher_editor(class_id: str):
@@ -330,7 +328,6 @@ with tabT:
         # 콜백: 저장본 불러오기
         def _reload():
             st.session_state[text_key] = assignments_to_text(load_assignments(class_id))
-
 
         # 최초 진입 시 DB 저장본을 세션에 로딩
         if text_key not in st.session_state:
@@ -355,19 +352,16 @@ with tabT:
             placeholder="예) 1: 홍길동\n2: 김철수",
         )
 
-        b1 = st.container()
-
-with b1:
-    if st.button("저장", key=f"save_{class_id}", use_container_width=True, disabled=not is_teacher):
-        new_assignments, errors = parse_text_to_assignments(text)
-        if errors:
-            st.error("입력 오류가 있습니다.")
-            for e in errors:
-                st.write(f"- {e}")
-        else:
-            save_assignments(class_id, new_assignments)
-            st.success(f"미적분{class_id} 저장 완료. (미적분{class_id} 탭에 연동 표시됨)")
-            st.rerun()
+        if st.button("저장", key=f"save_{class_id}", use_container_width=True, disabled=not is_teacher):
+            new_assignments, errors = parse_text_to_assignments(text)
+            if errors:
+                st.error("입력 오류가 있습니다.")
+                for e in errors:
+                    st.write(f"- {e}")
+            else:
+                save_assignments(class_id, new_assignments)
+                st.success(f"미적분{class_id} 저장 완료. (미적분{class_id} 탭에 연동 표시됨)")
+                st.rerun()
 
     with tA:
         teacher_editor("A")
