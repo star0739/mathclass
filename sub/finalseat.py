@@ -258,6 +258,44 @@ def assignments_to_text(assignments: dict[int, str]) -> str:
             lines.append(f"{seat_no}: {assignments[seat_no]}")
     return "\n".join(lines)
 
+def export_db_to_text() -> str:
+    """
+    A~D 전체 분반 좌석 정보 + 마지막 변경일을 사람이 읽을 수 있는 TXT로 변환
+    """
+    lines = []
+    with get_conn() as conn:
+        for cid in CLASSES:
+            # 마지막 변경일
+            row = conn.execute(
+                "SELECT last_date FROM class_meta WHERE class_id = ?;",
+                (cid,),
+            ).fetchone()
+            last_date = row[0] if row else ""
+
+            lines.append(f"[미적분{cid}]")
+            if last_date:
+                lines.append(f"마지막 변경일: {last_date}")
+
+            rows = conn.execute(
+                """
+                SELECT seat_no, student_name
+                FROM seat_assignments
+                WHERE class_id = ?
+                ORDER BY seat_no;
+                """,
+                (cid,),
+            ).fetchall()
+
+            if not rows:
+                lines.append("(배정 없음)")
+            else:
+                for seat_no, name in rows:
+                    lines.append(f"{int(seat_no)}: {name}")
+
+            lines.append("")  # 분반 사이 빈 줄
+
+    return "\n".join(lines)
+
 
 # ---------------------------
 # UI helpers
@@ -368,13 +406,13 @@ with tabT:
         # ✅ (1) DB 백업 다운로드 (A~D 전체 포함)
         try:
             txt_data = export_db_to_text()
-                st.download_button(
-                    label="좌석 DB 백업 다운로드(A~D 전체)",
-                    data=txt_data,
-                    file_name="finalseat.txt",
-                    mime="text/plain",
-                    use_container_width=True,
-                )
+            st.download_button(
+                label="좌석 DB 백업 다운로드(A~D 전체)",
+                data=txt_data,
+                file_name="finalseat.txt",
+                mime="text/plain",
+                use_container_width=True,
+            )
         except Exception:
             st.warning("DB 파일을 읽을 수 없어 백업 다운로드를 제공할 수 없습니다.")
 
