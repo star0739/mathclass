@@ -12,6 +12,7 @@ DB_PATH = "seats.db"
 ROWS = 6
 COLS = 5
 
+
 # ---------------------------
 # DB utilities
 # ---------------------------
@@ -44,6 +45,7 @@ def init_db():
             );
             """
         )
+        # defaults
         conn.execute("INSERT OR IGNORE INTO settings(key, value) VALUES('is_open', '0');")
         conn.execute("INSERT OR IGNORE INTO settings(key, value) VALUES('round_id', '1');")
 
@@ -55,12 +57,18 @@ def get_setting(key: str) -> str:
 
 
 def set_setting(key: str, value: str):
+    """
+    ✅ UPSET(ON CONFLICT) 대신:
+    1) UPDATE 먼저 시도
+    2) 없으면 INSERT
+    - SQLite 버전/환경 차이에도 안정적으로 동작
+    """
     with get_conn() as conn:
-        conn.execute(
-            "INSERT INTO settings(key, value) VALUES(?, ?) "
-            "ON CONFLICT(key) DO UPDATE SET value=excluded.value;",
-            (key, value),
-        )
+        conn.execute("BEGIN IMMEDIATE;")
+        cur = conn.execute("UPDATE settings SET value = ? WHERE key = ?;", (value, key))
+        if cur.rowcount == 0:
+            conn.execute("INSERT INTO settings(key, value) VALUES(?, ?);", (key, value))
+        conn.execute("COMMIT;")
 
 
 def list_assignments() -> dict:
@@ -131,22 +139,35 @@ def cancel_own_seat(user_token: str, seat_id: str):
 
 
 def reset_round():
+    """
+    ✅ 핵심 수정:
+    - 하나의 conn/트랜잭션 안에서 모든 DB작업 수행
+    - 내부에서 get_setting/set_setting(=새 연결 생성) 호출 금지
+    """
     with get_conn() as conn:
         conn.execute("BEGIN IMMEDIATE;")
+
+        # 1) 배정 전체 삭제
         conn.execute("DELETE FROM assignments;")
-        rid = int(get_setting("round_id") or "1")
-        set_setting("round_id", str(rid + 1))
-        set_setting("is_open", "0")
+
+        # 2) round_id +1
+        row = conn.execute("SELECT value FROM settings WHERE key='round_id';").fetchone()
+        rid = int(row[0]) if row and str(row[0]).isdigit() else 1
+        new_rid = str(rid + 1)
+
+        # 3) settings 업데이트 (UPDATE 후 없으면 INSERT)
+        cur = conn.execute("UPDATE settings SET value=? WHERE key='round_id';", (new_rid,))
+        if cur.rowcount == 0:
+            conn.execute("INSERT INTO settings(key, value) VALUES('round_id', ?);", (new_rid,))
+
+        cur = conn.execute("UPDATE settings SET value='0' WHERE key='is_open';")
+        if cur.rowcount == 0:
+            conn.execute("INSERT INTO settings(key, value) VALUES('is_open', '0');")
+
         conn.execute("COMMIT;")
 
 
 def safe_seat_sort_key(seat_id: str):
-    """
-    기존 DB에 'R1C1' 같은 값이 남아있는 경우에도 터지지 않도록
-    정렬 키를 안전하게 계산.
-    - 숫자면 int로 정렬
-    - 숫자가 아니면 뒤쪽으로 보내고(큰 값), 문자열로 2차 정렬
-    """
     try:
         return (0, int(str(seat_id)))
     except Exception:
@@ -159,13 +180,13 @@ def safe_seat_sort_key(seat_id: str):
 st.set_page_config(page_title="분반 좌석 선착순", layout="wide")
 init_db()
 
-# Session identity
 if "user_token" not in st.session_state:
     st.session_state.user_token = str(uuid.uuid4())
 
-st.title("3학년 미적분 좌석 지정")
+st.title("분반 좌석 선착순 배정 (5열 × 6행, 1~30번)")
 
 tab_student, tab_teacher = st.tabs(["학생", "교사"])
+
 
 with tab_student:
     st.subheader("학생 화면")
@@ -178,11 +199,6 @@ with tab_student:
     round_id = get_setting("round_id")
     st.caption(f"현재 라운드: {round_id}")
 
-    # ✅ NameError 방지: 기본값
-    assignments = {}
-    my = None
-    my_seat = None
-
     if not st.session_state.get("student_name"):
         st.info("이름을 입력하면 대기 상태로 들어갑니다.")
     else:
@@ -193,7 +209,6 @@ with tab_student:
             my = get_user_assignment(st.session_state.user_token)
             if my:
                 st.success(f"이미 배정됨: {my['seat_id']}번 (취소하려면 해당 좌석을 다시 누르세요)")
-
         else:
             st.success("좌석 선택이 열렸습니다. 원하는 좌석을 클릭하세요.")
             st_autorefresh(interval=1000, key="open_refresh")
@@ -203,11 +218,7 @@ with tab_student:
             my_seat = my["seat_id"] if my else None
 
             st.markdown("## <칠판 & 교탁>")
-            st.caption("아래 좌석을 번호로 선택하세요. (5열 × 6행)")
-
-            st.markdown("### 좌석 선택")
-
-            for r in range(1, ROWS + 1):
+                for r in range(1, ROWS + 1):
                 cols = st.columns(COLS)
                 for c in range(1, COLS + 1):
                     seat_num = (r - 1) * COLS + c  # 1..30
@@ -221,12 +232,9 @@ with tab_student:
                         label = f"{seat_num}\n(사용중)"
 
                     disabled = False
-
-                    # 규칙 4: 이미 다른 좌석을 가진 학생은 다른 좌석 선택 불가 (취소는 본인 좌석만)
                     if my_seat and seat_id != my_seat:
                         disabled = True
 
-                    # 규칙 5: 본인 좌석은 다시 눌러 취소 가능
                     if taken_by_me:
                         disabled = False
                         label = f"{seat_num}\n(내 좌석·취소)"
@@ -273,6 +281,7 @@ with tab_student:
         st.write("- 이름: (미입력)")
         st.write("- 배정 좌석: 없음")
 
+
 with tab_teacher:
     st.subheader("교사 화면")
 
@@ -301,11 +310,9 @@ with tab_teacher:
     if not assignments:
         st.write("아직 배정된 좌석이 없습니다.")
     else:
-        # ✅ 기존 DB에 숫자 아닌 seat_id가 남아도 터지지 않는 정렬
         items = sorted(assignments.items(), key=lambda kv: safe_seat_sort_key(kv[0]))
         for seat_id, info in items:
             ts = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(info["assigned_at"]))
-            # seat_id가 숫자가 아니어도 표시 가능
             st.write(f"- **{seat_id}** : {info['student_name']}  (배정: {ts})")
 
-    st.caption("참고: 이전 버전(R1C1 형태) 데이터가 남아 있으면 '라운드 초기화'를 한 번 실행하는 것을 권장합니다.")
+    st.caption("이전 버전 데이터가 섞여 있으면, '라운드 초기화'로 한번 정리한 뒤 사용하면 가장 안정적입니다.")
