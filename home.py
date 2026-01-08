@@ -20,16 +20,16 @@ def home_screen():
     c1, c2, c3 = st.columns(3)
 
     with c1:
-        if st.button("미적분으로 이동", use_container_width=True, key="quick_calculus"):
+        if st.button("미적분", use_container_width=True, key="quick_calculus"):
             st.switch_page(calculus_page)
 
     with c2:
-        if st.button("인공지능수학으로 이동", use_container_width=True, key="quick_ai"):
+        if st.button("인공지능수학", use_container_width=True, key="quick_ai"):
             st.switch_page(ai_math_page)
 
     with c3:
-        if st.button("좌석 배정으로 이동", use_container_width=True, key="quick_seat"):
-            st.switch_page(seat_page)
+        if st.button("지정 좌석 확인", use_container_width=True, key="quick_seat"):
+            st.switch_page(finalseat_page)
 
 
 home_page = st.Page(home_screen, title="Home", icon="🏠", default=True)
@@ -55,7 +55,7 @@ seat_page = st.Page(
 
 finalseat_page = st.Page(
     "sub/finalseat.py",
-    title="분반별 좌석 배치도",
+    title="지정 좌석 확인",
     icon="✅",
 )
 
@@ -96,7 +96,7 @@ with st.sidebar:
     st.markdown("---")
     st.subheader("📁 도움 자료")
 
-    if st.button("좌석 배정", use_container_width=True, key="sb_seat"):
+    if st.button("선착순 좌석 배정", use_container_width=True, key="sb_seat"):
         st.switch_page(seat_page)
 
     if st.button("지정 좌석 확인", use_container_width=True, key="sb_finalseat"):
