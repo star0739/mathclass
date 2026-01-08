@@ -126,7 +126,66 @@ def try_assign(seat_id: str, user_token: str, student_name: str):
         return {"ok": False, "reason": "unknown_error"}
 
 
-def cancel_own_seat(user_token: 정")
+def cancel_own_seat(user_token: str, seat_id: str):
+    """Only cancels if (seat_id, user_token) matches."""
+    with get_conn() as conn:
+        conn.execute("BEGIN IMMEDIATE;")
+        cur = conn.execute(
+            "DELETE FROM assignments WHERE seat_id = ? AND user_token = ?;",
+            (str(seat_id), user_token),
+        )
+        conn.execute("COMMIT;")
+    return cur.rowcount == 1
+
+
+def reset_round():
+    """
+    ✅ 핵심 수정:
+    - 하나의 conn/트랜잭션 안에서 모든 DB작업 수행
+    - 내부에서 get_setting/set_setting(=새 연결 생성) 호출 금지
+    """
+    with get_conn() as conn:
+        conn.execute("BEGIN IMMEDIATE;")
+
+        # 1) 배정 전체 삭제
+        conn.execute("DELETE FROM assignments;")
+
+        # 2) round_id +1
+        row = conn.execute("SELECT value FROM settings WHERE key='round_id';").fetchone()
+        rid = int(row[0]) if row and str(row[0]).isdigit() else 1
+        new_rid = str(rid + 1)
+
+        # 3) settings 업데이트 (UPDATE 후 없으면 INSERT)
+        cur = conn.execute("UPDATE settings SET value=? WHERE key='round_id';", (new_rid,))
+        if cur.rowcount == 0:
+            conn.execute("INSERT INTO settings(key, value) VALUES('round_id', ?);", (new_rid,))
+
+        cur = conn.execute("UPDATE settings SET value='0' WHERE key='is_open';")
+        if cur.rowcount == 0:
+            conn.execute("INSERT INTO settings(key, value) VALUES('is_open', '0');")
+
+        conn.execute("COMMIT;")
+
+
+def safe_seat_sort_key(seat_id: str):
+    try:
+        return (0, int(str(seat_id)))
+    except Exception:
+        return (1, str(seat_id))
+
+
+# ---------------------------
+# App
+# ---------------------------
+# (2) 화면 이름 변경
+st.set_page_config(page_title="3학년 미적분 좌석 배정", layout="wide")
+init_db()
+
+if "user_token" not in st.session_state:
+    st.session_state.user_token = str(uuid.uuid4())
+
+# (2) 타이틀 변경
+st.title("3학년 미적분 좌석 배정")
 
 tab_student, tab_teacher = st.tabs(["학생", "교사"])
 
@@ -140,6 +199,8 @@ with tab_student:
 
     is_open = get_setting("is_open") == "1"
     round_id = get_setting("round_id")
+
+    # (1) 학생 화면에서 '현재 라운드' 표시 제거 (st.caption 삭제)
 
     if not st.session_state.get("student_name"):
         st.info("이름을 입력하면 대기 상태로 들어갑니다.")
@@ -160,6 +221,9 @@ with tab_student:
             my_seat = my["seat_id"] if my else None
 
             st.markdown("## <칠판 & 교탁>")
+
+            # (3) 기존 caption/markdown 삭제 + 안내 문구 추가
+            st.info("휴대폰 사용 시 가로모드로 해야 좌석이 잘 표시됩니다.")
 
             for r in range(1, ROWS + 1):
                 cols = st.columns(COLS)
@@ -231,6 +295,8 @@ with tab_teacher:
     teacher_pass = st.text_input("교사용 비밀번호", type="password")
     REQUIRED = st.secrets.get("TEACHER_PASSWORD", "")
 
+    # (1) 교사 화면에서도 '현재 라운드' 표시 없음 (코드 상 원래 표시하지 않음)
+
     if REQUIRED and teacher_pass != REQUIRED:
         st.info("비밀번호를 입력하세요.")
     else:
@@ -244,9 +310,9 @@ with tab_teacher:
                 set_setting("is_open", "0")
                 st.warning("좌석 선택을 마감했습니다.")
         with colC:
-            if st.button("라운드 초기화"):
+            if st.button("라운드 초기화(전체 취소 + 새 라운드)"):
                 reset_round()
-                st.warning("초기화 완료.")
+                st.warning("초기화 완료. 새 라운드로 전환되었습니다.")
 
     st.markdown("### 배정 현황")
     assignments = list_assignments()
