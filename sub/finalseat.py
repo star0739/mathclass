@@ -283,7 +283,7 @@ def render_grid(assignments: dict[int, str]):
 # ---------------------------
 init_db()
 
-st.title("지 좌석 확인(미적분 A~D)")
+st.title("지정 좌석 확인(미적분 A~D)")
 
 teacher_pw = get_teacher_password()
 if not teacher_pw:
