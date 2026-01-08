@@ -367,12 +367,12 @@ with tabT:
     else:
         # ✅ (1) DB 백업 다운로드 (A~D 전체 포함)
         try:
-            with open(DB_PATH, "rb") as f:
+            txt_data = export_db_to_text()
                 st.download_button(
-                    label="좌석 DB 백업 다운로드 (A~D 전체)",
-                    data=f,
-                    file_name="finalseat.db",
-                    mime="application/x-sqlite3",
+                    label="좌석 DB 백업 다운로드(A~D 전체)",
+                    data=txt_data,
+                    file_name="finalseat.txt",
+                    mime="text/plain",
                     use_container_width=True,
                 )
         except Exception:
