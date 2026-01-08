@@ -234,7 +234,7 @@ with tab_student:
 
             my = get_user_assignment(st.session_state.user_token)
             if my:
-                st.success(f"이미 배정됨: {my['seat_id']}번 (취소하려면 해당 좌석을 다시 누르세요)")
+                st.success(f"이미 배정됨: {my['seat_id']}번")
         else:
             st.success("좌석 선택이 열렸습니다. 원하는 좌석을 클릭하세요.")
             st_autorefresh(interval=1000, key="open_refresh")
