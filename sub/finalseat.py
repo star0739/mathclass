@@ -324,7 +324,7 @@ with tabT:
             key=text_key,
             height=220,
             disabled=not is_teacher,
-            placeholder="예) 1: 이\n2: 김",
+            placeholder="예) 1: 김숭문\n2: 이숭문문",
         )
 
         b1, b2, b3 = st.columns(3)
