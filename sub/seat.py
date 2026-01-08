@@ -204,7 +204,7 @@ def render_front_bar():
 # ---------------------------
 # App
 # ---------------------------
-st.set_page_config(page_title="미적분 좌석 배정", layout="wide")
+st.set_page_config(page_title="선착순 좌석 배정", layout="wide")
 init_db()
 
 if "user_token" not in st.session_state:
