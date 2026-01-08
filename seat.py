@@ -218,7 +218,11 @@ with tab_student:
             my_seat = my["seat_id"] if my else None
 
             st.markdown("## <칠판 & 교탁>")
-                for r in range(1, ROWS + 1):
+            st.caption("아래 좌석을 번호로 선택하세요. (5열 × 6행)")
+
+            st.markdown("### 좌석 선택")
+
+            for r in range(1, ROWS + 1):
                 cols = st.columns(COLS)
                 for c in range(1, COLS + 1):
                     seat_num = (r - 1) * COLS + c  # 1..30
