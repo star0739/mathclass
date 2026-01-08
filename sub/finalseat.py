@@ -247,7 +247,7 @@ def render_front_bar():
 
 def seat_cell_html(seat_no: int, name: str) -> str:
     safe_name = (name or "").replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
-    display = safe_name if safe_name else "<span style='color:#d6d6d6; font-weight:300;'>미배정</span>"
+    display = safe_name if safe_name else ""
     return f"""
     <div style="
         border: 1px solid #d0d0d0;
