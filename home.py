@@ -11,7 +11,7 @@ st.set_page_config(
 # -----------------------------
 def home_screen():
     st.title("✨숭문고")
-    st.title("수학 스튜디오)
+    st.subtitle("수학 스튜디오)
     
     st.write(
         "미적분과 인공지능 수학 수업에서 직접 탐구하고 실험할 수 있는 시뮬레이션과 활동들을 모아두었습니다. "
