@@ -52,10 +52,17 @@ seat_page = st.Page(
     icon="🪑",
 )
 
+
+finalseat_page = st.Page(
+    "sub/finalseat.py",
+    title="지정 좌석 확인",
+    icon="✅",
+)
+
 pages = {
     "Home": [home_page],
     "📁 교과별 페이지": [calculus_page, ai_math_page],
-    "📁 도움 자료": [seat_page],
+    "📁 도움 자료": [seat_page, finalseat_page],
 }
 
 # 기본 네비게이션은 숨기고, 우리가 만든 사이드바로만 이동
@@ -91,6 +98,9 @@ with st.sidebar:
 
     if st.button("좌석 배정", use_container_width=True, key="sb_seat"):
         st.switch_page(seat_page)
+
+    if st.button("지정 좌석 확인", use_container_width=True, key="sb_finalseat"):
+        st.switch_page(finalseat_page)
 
 # -----------------------------
 # 현재 선택된 페이지 실행
