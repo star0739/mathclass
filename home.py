@@ -22,7 +22,7 @@ def home_screen():
     st.markdown(
         """
         <p style="font-size: 1.1rem; line-height: 1.7;">
-            '미적분'과 '인공지능수학' 수업에서 직접 탐구하고 실험할 수 있는 시뮬레이션과 활동들을 모아두었습니다.<br>
+            '미적분'과 '인공지능 수학' 수업에서 직접 탐구하고 실험할 수 있는 시뮬레이션과 활동들을 모아두었습니다.<br>
             아래에서 교과를 고르고, 교과별 페이지에서 원하는 활동을 시작해 보세요.
         </p>
         """,
@@ -39,7 +39,7 @@ def home_screen():
             st.switch_page(calculus_page)
 
     with c2:
-        if st.button("인공지능수학", use_container_width=True, key="quick_ai"):
+        if st.button("인공지능 수학", use_container_width=True, key="quick_ai"):
             st.switch_page(ai_math_page)
 
     with c3:
@@ -57,7 +57,7 @@ calculus_page = st.Page(
 
 ai_math_page = st.Page(
     "activities/ai_math.py",
-    title="인공지능수학",
+    title="인공지능 수학",
     icon="🤖",
 )
 
@@ -99,16 +99,16 @@ with st.sidebar:
     st.header("Home")
 
     st.markdown("---")
-    st.subheader("📁 교과 학습")
+    st.subheader("📖 교과 학습")
 
     if st.button("미적분", use_container_width=True, key="sb_calculus"):
         st.switch_page(calculus_page)
 
-    if st.button("인공지능수학", use_container_width=True, key="sb_ai"):
+    if st.button("인공지능 수학", use_container_width=True, key="sb_ai"):
         st.switch_page(ai_math_page)
 
     st.markdown("---")
-    st.subheader("📁 좌석 관리")
+    st.subheader("🪑 좌석 관리")
 
     if st.button("선착순 배정", use_container_width=True, key="sb_seat"):
         st.switch_page(seat_page)
