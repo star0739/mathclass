@@ -48,14 +48,14 @@ ai_math_page = st.Page(
 
 seat_page = st.Page(
     "sub/seat.py",
-    title="좌석 배정",
+    title="선착순 좌석 배정",
     icon="🪑",
 )
 
 
 finalseat_page = st.Page(
     "sub/finalseat.py",
-    title="지정 좌석 확인",
+    title="분반별 좌석 배치도",
     icon="✅",
 )
 
