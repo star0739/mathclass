@@ -175,16 +175,41 @@ def safe_seat_sort_key(seat_id: str):
 
 
 # ---------------------------
+# UI helpers (추가)
+# ---------------------------
+def render_front_bar():
+    """좌석 배치 상단에 '칠판&교탁(앞)'을 가로로 길게 표시."""
+    st.markdown(
+        """
+        <div style="
+            width: 100%;
+            border: 1px solid #cfcfcf;
+            border-radius: 14px;
+            padding: 14px 16px;
+            margin: 6px 0 14px 0;
+            background: #f7f7f7;
+            box-shadow: 0 1px 2px rgba(0,0,0,0.04);
+            text-align: center;
+            font-weight: 800;
+            font-size: 18px;
+            letter-spacing: 0.5px;
+        ">
+            칠판 &amp; 교탁 (앞)
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+
+# ---------------------------
 # App
 # ---------------------------
-# (2) 화면 이름 변경
 st.set_page_config(page_title="미적분 좌석 배정", layout="wide")
 init_db()
 
 if "user_token" not in st.session_state:
     st.session_state.user_token = str(uuid.uuid4())
 
-# (2) 타이틀 변경
 st.title("미적분 좌석 배정")
 
 tab_student, tab_teacher = st.tabs(["학생", "교사"])
@@ -199,8 +224,6 @@ with tab_student:
 
     is_open = get_setting("is_open") == "1"
     round_id = get_setting("round_id")
-
-    # (1) 학생 화면에서 '현재 라운드' 표시 제거 (st.caption 삭제)
 
     if not st.session_state.get("student_name"):
         st.info("이름을 입력하면 대기 상태로 들어갑니다.")
@@ -220,9 +243,9 @@ with tab_student:
             my = get_user_assignment(st.session_state.user_token)
             my_seat = my["seat_id"] if my else None
 
-            st.markdown("### <칠판 & 교탁>")
+            # ✅ (변경) 칠판&교탁(앞) 바 추가
+            render_front_bar()
 
-            # (3) 기존 caption/markdown 삭제 + 안내 문구 추가
             st.info("휴대폰 사용 시 가로모드로 해야 좌석이 잘 표시됩니다.")
 
             for r in range(1, ROWS + 1):
@@ -293,8 +316,6 @@ with tab_teacher:
 
     teacher_pass = st.text_input("교사용 비밀번호", type="password")
     REQUIRED = st.secrets.get("TEACHER_PASSWORD", "")
-
-    # (1) 교사 화면에서도 '현재 라운드' 표시 없음 (코드 상 원래 표시하지 않음)
 
     if REQUIRED and teacher_pass != REQUIRED:
         st.info("비밀번호를 입력하세요.")
