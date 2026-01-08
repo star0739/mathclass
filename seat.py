@@ -8,8 +8,8 @@ from streamlit_autorefresh import st_autorefresh
 
 DB_PATH = "seats.db"
 
-ROWS = 5
-COLS = 6
+ROWS = 6
+COLS = 5
 
 # ---------------------------
 # DB utilities
@@ -179,55 +179,61 @@ with tab_student:
             my = get_user_assignment(st.session_state.user_token)
             my_seat = my["seat_id"] if my else None
 
-            # Seat grid (오픈 상태에서만 렌더링)
+            # ✅ 시각적 상단 표시
+            st.markdown("## <칠판 & 교탁>")
+            st.caption("아래 좌석을 번호로 선택하세요. (5열 × 6행)")
+
             st.markdown("### 좌석 선택")
-            for r in range(1, ROWS + 1):
-                cols = st.columns(COLS)
-                for c in range(1, COLS + 1):
-                    seat_id = f"R{r}C{c}"
-                    taken = seat_id in assignments
-                    taken_by_me = taken and assignments[seat_id]["user_token"] == st.session_state.user_token
 
-                    label = seat_id
-                    if taken:
-                        label = f"{seat_id}\n(사용중)"
+            for r in range(1, ROWS + 1):         # ROWS = 6
+            cols = st.columns(COLS)          # COLS = 5
+            for c in range(1, COLS + 1):
+                seat_num = (r - 1) * COLS + c   # 1..30
+                seat_id = str(seat_num)
 
-                    disabled = False
-                    # 규칙 4: 이미 다른 좌석을 가진 학생은 다른 좌석 선택 불가 (취소는 본인 좌석만)
-                    if my_seat and seat_id != my_seat:
-                        disabled = True
+            taken = seat_id in assignments
+            taken_by_me = taken and assignments[seat_id]["user_token"] == st.session_state.user_token
 
-                    # 본인 좌석은 다시 눌러 취소 가능
-                    if taken_by_me:
-                        disabled = False
-                        label = f"{seat_id}\n(내 좌석·취소)"
+                label = f"{seat_num}"
+            if taken:
+                label = f"{seat_num}\n(사용중)"
 
-                    if cols[c - 1].button(label, key=f"btn_{seat_id}_{round_id}", disabled=disabled):
-                        if not my_seat:
-                            result = try_assign(
-                                seat_id=seat_id,
-                                user_token=st.session_state.user_token,
-                                student_name=st.session_state.student_name
-                            )
-                            if result["ok"]:
-                                st.success(f"{seat_id} 좌석이 배정되었습니다.")
-                            else:
-                                if result["reason"] == "seat_taken":
-                                    st.error("이미 선택된 좌석입니다.")
-                                elif result["reason"] == "user_already_assigned":
-                                    st.warning("이미 좌석이 배정되어 있습니다. 취소 후 다시 선택하세요.")
-                                else:
-                                    st.error("처리 중 오류가 발생했습니다. 다시 시도하세요.")
-                        else:
-                            # my_seat exists => only allow cancel by clicking my seat
-                            if seat_id == my_seat:
-                                ok = cancel_own_seat(st.session_state.user_token, seat_id)
-                                if ok:
-                                    st.success("좌석 배정이 취소되었습니다. 이제 다른 좌석을 선택할 수 있습니다.")
-                                else:
-                                    st.error("취소 권한이 없거나 이미 처리되었습니다.")
-                            else:
-                                st.warning("다른 좌석을 선택하려면 먼저 본인 좌석을 취소하세요.")
+            disabled = False
+
+        # 규칙 4: 이미 다른 좌석을 가진 학생은 다른 좌석 선택 불가 (취소는 본인 좌석만)
+        if my_seat and seat_id != my_seat:
+            disabled = True
+
+        # 본인 좌석은 다시 눌러 취소 가능
+        if taken_by_me:
+            disabled = False
+            label = f"{seat_num}\n(내 좌석·취소)"
+
+        if cols[c - 1].button(label, key=f"btn_{seat_id}_{round_id}", disabled=disabled):
+            if not my_seat:
+                result = try_assign(
+                    seat_id=seat_id,
+                    user_token=st.session_state.user_token,
+                    student_name=st.session_state.student_name
+                )
+                if result["ok"]:
+                    st.success(f"{seat_num}번 좌석이 배정되었습니다.")
+                else:
+                    if result["reason"] == "seat_taken":
+                        st.error("이미 선택된 좌석입니다.")
+                    elif result["reason"] == "user_already_assigned":
+                        st.warning("이미 좌석이 배정되어 있습니다. 취소 후 다시 선택하세요.")
+                    else:
+                        st.error("처리 중 오류가 발생했습니다. 다시 시도하세요.")
+            else:
+                if seat_id == my_seat:
+                    ok = cancel_own_seat(st.session_state.user_token, seat_id)
+                    if ok:
+                        st.success("좌석 배정이 취소되었습니다. 이제 다른 좌석을 선택할 수 있습니다.")
+                    else:
+                        st.error("취소 권한이 없거나 이미 처리되었습니다.")
+                else:
+                    st.warning("다른 좌석을 선택하려면 먼저 본인 좌석을 취소하세요.")
 
     st.markdown("---")
     st.markdown("### 내 상태")
