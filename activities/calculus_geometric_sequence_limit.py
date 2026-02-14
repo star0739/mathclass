@@ -12,7 +12,7 @@ import streamlit as st
 import matplotlib.pyplot as plt
 from matplotlib.ticker import MultipleLocator
 
-TITLE = "등비수열 {$r^n$}의 수렴과 발산"
+TITLE = "등비수열의 수렴과 발산"
 
 
 def _classify_textbook(r: float) -> tuple[str, str]:
@@ -178,7 +178,7 @@ def render():
         ax2.grid(True, which="major", linestyle="--", linewidth=0.5, alpha=0.6)
         st.pyplot(fig2)
 
-    st.markdown("### 등비수열의 수렴과 발산")
+    st.markdown("### 등비수열 {$r^n$}의 수렴과 발산 ")
     st.markdown(r"""
 - $$r>1 \Rightarrow \lim_{n\to\infty} r^n = \infty \;(\text{발산})$$
 - $$r=1 \Rightarrow \lim_{n\to\infty} r^n = 1 \;(\text{수렴})$$
