@@ -1,5 +1,7 @@
 # activities/calculus_geometric_sequence_limit.py
-# 등비수열 r^n (초항 1 고정) 수렴/발산 시뮬레이션
+# 등비수열 r^n (초항 1 고정) 수렴/발산 탐구활동
+# - 탭 환경에서 위젯 충돌 방지: key_prefix 사용
+# - 라우터에서 탭이 제목 역할을 하므로 show_title 옵션 제공
 # - 메모리 안정형: tick/grid 폭발 방지
 # - 정수 기준 가이드선: x축(정수) + y축(정수 간격)
 # - 그래프는 점만 표시
@@ -40,11 +42,7 @@ def _safe_sequence_r_pow_n(r: float, n_max: int) -> np.ndarray:
 
 
 def _nice_int_step(y_min: float, y_max: float, target_ticks: int = 7, min_step: int = 1) -> int:
-    """
-    y 범위에 맞춰 '정수 간격' 자동 결정.
-    - tick 폭발 방지를 위해 min_step 이상 보장
-    - 1,2,5,10 * 10^k 후보 중 선택
-    """
+    """y 범위에 맞춰 '정수 간격' 자동 결정(틱 폭발 방지)."""
     if not np.isfinite(y_min) or not np.isfinite(y_max):
         return min_step
 
@@ -69,7 +67,7 @@ def _x_step_for_integers(n_max: int, max_ticks: int = 15) -> int:
     return int(np.ceil(n_max / max_ticks))
 
 
-def _set_reasonable_ylim(ax, y: np.ndarray, pad_ratio: float = 0.08):
+def _set_reasonable_ylim(ax, y: np.ndarray, pad_ratio: float = 0.08) -> None:
     """finite 값 기준으로 y축 범위를 고정(오토스케일 폭주 방지)."""
     finite = y[np.isfinite(y)]
     if finite.size == 0:
@@ -80,7 +78,6 @@ def _set_reasonable_ylim(ax, y: np.ndarray, pad_ratio: float = 0.08):
     y_max = float(np.max(finite))
 
     if y_min == y_max:
-        # 값이 거의 일정한 경우
         pad = 1.0 if y_min == 0 else abs(y_min) * 0.2
         ax.set_ylim(y_min - pad, y_max + pad)
         return
@@ -90,8 +87,9 @@ def _set_reasonable_ylim(ax, y: np.ndarray, pad_ratio: float = 0.08):
     ax.set_ylim(y_min - pad, y_max + pad)
 
 
-def render():
-    st.title(TITLE)
+def render(show_title: bool = True, key_prefix: str = "geom_seq") -> None:
+    if show_title:
+        st.title(TITLE)
 
     with st.container(border=True):
         st.subheader("입력값 설정")
@@ -99,14 +97,28 @@ def render():
         col1, col2 = st.columns([2, 1])
 
         with col1:
-            # ✅ 범위 축소: 값 폭주 완화
-            r = st.slider("공비 r", min_value=-1.3, max_value=1.3, value=0.7, step=0.01)
+            # 범위 축소: 값 폭주 완화
+            r = st.slider(
+                "공비 r",
+                min_value=-1.3,
+                max_value=1.3,
+                value=0.7,
+                step=0.01,
+                key=f"{key_prefix}_r",
+            )
 
         with col2:
-            # ✅ n 범위 축소
-            n_max = st.slider("표시할 항의 개수 n", min_value=5, max_value=50, value=35, step=1)
+            # n 범위 축소
+            n_max = st.slider(
+                "표시할 항의 개수 n",
+                min_value=5,
+                max_value=50,
+                value=35,
+                step=1,
+                key=f"{key_prefix}_n",
+            )
 
-        show_abs = st.checkbox("|rⁿ|", value=False)
+        show_abs = st.checkbox("|rⁿ|", value=False, key=f"{key_prefix}_abs")
 
     verdict, desc = _classify_textbook(float(r))
     if verdict == "수렴":
@@ -130,11 +142,11 @@ def render():
     ax.set_xlabel("n")
     ax.set_ylabel(r"$r^n$")
 
-    # ✅ x축 정수 grid 유지하되, tick 개수 제한(메모리 안정)
+    # x축 정수 grid 유지하되 tick 개수 제한
     x_step = _x_step_for_integers(int(n_max), max_ticks=15)
     ax.xaxis.set_major_locator(MultipleLocator(x_step))
 
-    # ✅ y축 정수 간격 자동 + 최소 간격 보장(폭발 방지)
+    # y축 정수 간격 자동
     finite_y = a_n[np.isfinite(a_n)]
     if finite_y.size > 0:
         y_min, y_max = float(np.min(finite_y)), float(np.max(finite_y))
@@ -143,10 +155,9 @@ def render():
         y_step = 1
     ax.yaxis.set_major_locator(MultipleLocator(y_step))
 
-    # ✅ y축 범위 고정(오토스케일/틱 생성 폭주 방지)
     _set_reasonable_ylim(ax, a_n)
-
     ax.grid(True, which="major", linestyle="--", linewidth=0.5, alpha=0.6)
+
     st.pyplot(fig)
 
     # ----------------------------
@@ -174,11 +185,11 @@ def render():
         ax2.yaxis.set_major_locator(MultipleLocator(y_step2))
 
         _set_reasonable_ylim(ax2, abs_vals)
-
         ax2.grid(True, which="major", linestyle="--", linewidth=0.5, alpha=0.6)
+
         st.pyplot(fig2)
 
-    st.markdown("### 등비수열 {$r^n$}의 수렴과 발산 ")
+    st.markdown(r"### 등비수열 $r^n$의 수렴과 발산")
     st.markdown(r"""
 - $$r>1 \Rightarrow \lim_{n\to\infty} r^n = \infty \;(\text{발산})$$
 - $$r=1 \Rightarrow \lim_{n\to\infty} r^n = 1 \;(\text{수렴})$$
