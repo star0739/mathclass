@@ -139,7 +139,7 @@ def render(show_title: bool = True, key_prefix: str = "geom_seq") -> None:
     ax.plot(n, a_n, marker="o", linestyle="None")
     ax.axhline(0, linewidth=1)
 
-    ax.set_xlabel("n")
+    ax.set_xlabel("$n$")
     ax.set_ylabel(r"$r^n$")
 
     # x축 정수 grid 유지하되 tick 개수 제한
@@ -170,7 +170,7 @@ def render(show_title: bool = True, key_prefix: str = "geom_seq") -> None:
         abs_vals = np.abs(a_n)
         ax2.plot(n, abs_vals, marker="o", linestyle="None")
 
-        ax2.set_xlabel("n")
+        ax2.set_xlabel("$n$")
         ax2.set_ylabel(r"$|r^n|$")
 
         x_step2 = _x_step_for_integers(int(n_max), max_ticks=15)
