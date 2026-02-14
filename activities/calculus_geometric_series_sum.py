@@ -202,8 +202,8 @@ S_n=na
     # ----------------------------
     # 교과서 정리
     # ----------------------------
-    st.markdown("### 등비급수의 수렴과 발산($$a \neq 0$$)")
+    st.markdown("### 등비급수의 수렴과 발산 ($a \\neq 0$)")
     st.markdown(r"""
-- $$|r|<1 \Rightarrow \sum_{n=1}^{\infty} ar^{n-1} \text{ 는 수렴하고, 합은 } \frac{a}{1-r}$$
+- $$|r|<1 \Rightarrow \sum_{n=1}^{\infty} ar^{n-1} \text{ 는 수렴하고 그 합은 } \frac{a}{1-r}$$
 - $$|r|\ge1 \Rightarrow \text{ 발산한다.}$$
 """)
