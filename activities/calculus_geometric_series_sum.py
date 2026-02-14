@@ -16,20 +16,6 @@ TITLE = "등비급수의 수렴과 발산"
 
 
 # --------------------------------------------------
-# 판정
-# --------------------------------------------------
-def _classify_series(a: float, r: float) -> tuple[str, str]:
-    eps = 1e-12
-
-    if abs(a) < eps:
-        return "수렴", r"$a=0$ 이므로 모든 부분합이 0이고, 합은 0입니다."
-
-    if abs(r) < 1 - eps:
-        return "수렴", r"$|r|<1$ 이므로 급수는 수렴합니다."
-    return "발산", r"$|r|\ge 1$ 이면 급수는 발산합니다."
-
-
-# --------------------------------------------------
 # 부분합 계산
 # --------------------------------------------------
 def _partial_sums(a: float, r: float, n_max: int) -> np.ndarray:
@@ -43,6 +29,22 @@ def _partial_sums(a: float, r: float, n_max: int) -> np.ndarray:
 
     S[np.isinf(S) | (np.abs(S) > 1e308)] = np.nan
     return S
+
+
+
+# --------------------------------------------------
+# 판정
+# --------------------------------------------------
+def _classify_series(a: float, r: float) -> tuple[str, str]:
+    eps = 1e-12
+
+    if abs(a) < eps:
+        return "수렴", r"$a=0$ 이므로 모든 부분합이 0이고, 급수는 0으로 수렴합니다."
+
+    if abs(r) < 1 - eps:
+        return "수렴", r"$|r|<1$ 이므로 급수는 수렴합니다."
+    return "발산", r"$|r|\ge 1$ 이면 급수는 발산합니다."
+
 
 
 # --------------------------------------------------
@@ -97,15 +99,6 @@ def render():
     st.title(TITLE)
 
     # ----------------------------
-    # 정의 설명
-    # ----------------------------
-    st.markdown("""
-### 부분합과 무한급수의 정의
-급수 $$ \\sum_{n=1}^{\\infty} a_n $$는 부분합 $$ S_n = \\sum_{k=1}^{n} a_k $$을 이용하여 $$ \\sum_{n=1}^{\\infty} a_n=\\lim_{n \\to \\infty} S_n$$ 으로 정의합니다.
-""")
-
-
-    # ----------------------------
     # 부분합 수식 설명
     # ----------------------------
     st.markdown("""
@@ -113,6 +106,17 @@ def render():
 등비급수 $$a_k = a r^{k-1}$$의 부분합은 $$S_n = a + ar + ar^2 + \\cdots + ar^{n-1}$$입니다.
 """)
     
+
+    
+    # ----------------------------
+    # 정의 설명
+    # ----------------------------
+    st.markdown("""
+### 부분합과 무한급수의 정의
+급수 $$ \\sum_{n=1}^{\\infty} a_n $$는 부분합 $$ S_n = \\sum_{k=1}^{n} a_k $$을 이용하여 $$ \\sum_{n=1}^{\\infty} a_n=\\lim_{n \\to \\infty} S_n$$입니다.
+""")
+
+
     
     # ----------------------------
     # 입력 UI
@@ -172,9 +176,9 @@ S_n=na
     ax = fig.add_subplot(111)
 
     ax.plot(n, S, marker="o", linestyle="None")
-    ax.set_title("S_n")
+    ax.set_title("$S_n$")
     ax.set_xlabel("n")
-    ax.set_ylabel("S_n")
+    ax.set_ylabel("$S_n$")
     ax.axhline(0, linewidth=1)
 
     if limit_val is not None and np.isfinite(limit_val):
