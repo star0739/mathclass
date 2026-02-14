@@ -2,8 +2,7 @@
 # 미적분 탐구활동 라우터 페이지
 # - 단원: 버튼식
 # - 활동: 탭
-# - 단원 반복 표기 제거
-# - 활동명은 TITLE 그대로 사용
+# - 위젯 충돌 방지: key_prefix 전달 구조
 
 from __future__ import annotations
 
@@ -24,10 +23,10 @@ if str(CURRENT_DIR) not in sys.path:
 import calculus_geometric_sequence_limit as geom_seq_limit
 import calculus_geometric_series_sum as geom_series_sum
 
-# (Ⅱ. 미분법) 추가 예정
+# (Ⅱ. 미분법 추가 예정)
 # import calculus_derivative_limit_definition as deriv_def
 
-# (Ⅲ. 적분법) 추가 예정
+# (Ⅲ. 적분법 추가 예정)
 # import calculus_riemann_sum_area as riemann_area
 
 
@@ -48,32 +47,40 @@ UNIT_ACTIVITIES = {
 }
 
 
+# --------------------------------------------------
+# 4. 세션 상태 초기화
+# --------------------------------------------------
 def _init_state():
     if "selected_unit" not in st.session_state:
         st.session_state.selected_unit = list(UNIT_ACTIVITIES.keys())[0]
 
 
+# --------------------------------------------------
+# 5. 활동 렌더링 (key_prefix 전달)
+# --------------------------------------------------
 def _render_activity(module):
-    """
-    활동 모듈 호출
-    - render(show_title=False) 지원 시 제목 숨김
-    - 미지원 시 기본 render() 호출
-    """
+    key_prefix = module.__name__  # 모듈명은 유니크하므로 prefix로 적합
+
     try:
-        module.render(show_title=False)  # type: ignore
+        # 최신 버전 render(show_title=False, key_prefix=...)
+        module.render(show_title=False, key_prefix=key_prefix)
     except TypeError:
+        # 구버전 render()만 있는 경우
         module.render()
 
 
+# --------------------------------------------------
+# 6. 메인
+# --------------------------------------------------
 def main():
     st.set_page_config(page_title="미적분 탐구활동", layout="wide")
     _init_state()
 
     st.title("📘 미적분 탐구활동")
 
-    # --------------------------------------------------
+    # -----------------------------
     # 단원 선택 버튼
-    # --------------------------------------------------
+    # -----------------------------
     unit_names = list(UNIT_ACTIVITIES.keys())
     cols = st.columns(len(unit_names))
 
@@ -92,9 +99,9 @@ def main():
         st.info("이 단원에 연결된 탐구활동이 아직 없습니다.")
         return
 
-    # --------------------------------------------------
+    # -----------------------------
     # 활동 탭 (TITLE 그대로 사용)
-    # --------------------------------------------------
+    # -----------------------------
     tab_labels = [module.TITLE for module in activities]
     tabs = st.tabs(tab_labels)
 
