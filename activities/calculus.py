@@ -23,12 +23,15 @@ if str(CURRENT_DIR) not in sys.path:
 # --------------------------------------------------
 import calculus_geometric_sequence_limit as geom_seq_limit
 
-
-# --------------------------------------------------
-# 3. 시뮬레이션 등록
-# --------------------------------------------------
 SIMULATIONS = {
     geom_seq_limit.TITLE: geom_seq_limit,
+}
+
+import calculus_geometric_series_sum as geom_series_sum
+
+SIMULATIONS = {
+    geom_seq_limit.TITLE: geom_seq_limit,
+    geom_series_sum.TITLE: geom_series_sum,
 }
 
 
@@ -42,7 +45,6 @@ def main():
     )
 
     st.title("📘 미적분 시뮬레이션")
-    st.markdown("단원을 선택하여 개념을 탐구하세요.")
 
     st.divider()
 
