@@ -107,16 +107,17 @@ def render():
 $$ S_n = a + ar + ar^2 + \\cdots + ar^{n-1}= \\sum_{k=1}^{n} a r^{k-1} $$
 """)
     
-    st.markdown("<br>", unsafe_allow_html=True)
+    st.markdown("", unsafe_allow_html=True)
     
     # ----------------------------
     # 정의 설명
     # ----------------------------
     st.markdown("""
 ### 부분합과 무한급수의 정의
-$$ \\lim_{n \\to \\infty} S_n = \\lim_{n \\to \\infty} \\sum_{k=1}^{n} a_k = S $$이면, 급수 $$\\sum_{n=1}^{\\infty} a_n = S$$이다.
+$$ \\lim_{n \\to \\infty} S_n= S $$이면, 급수 $$\\sum_{n=1}^{\\infty} ar^{n-1} = S$$이다.
 """)
 
+    st.markdown("", unsafe_allow_html=True)
 
     
     # ----------------------------
