@@ -111,16 +111,6 @@ def _set_reasonable_ylim(ax, y: np.ndarray, pad_ratio: float = 0.08):
 def render():
     st.title(TITLE)
 
-    st.markdown(
-        r"""
-등비급수
-\[
-\sum_{n=1}^{\infty} ar^{n-1}=a+ar+ar^2+\cdots
-\]
-의 **부분합 \(S_n\)** 을 관찰하여 수렴/발산을 확인합니다.
-"""
-    )
-
     # ----------------------------
     # 입력 UI (본문 상단 + 박스)
     # ----------------------------
@@ -137,7 +127,7 @@ def render():
             r = st.slider("공비 r", min_value=-1.3, max_value=1.3, value=0.7, step=0.01)
 
         with col3:
-            n_max = st.slider("부분합 항의 개수 n", min_value=5, max_value=80, value=40, step=1)
+            n_max = st.slider("부분합 항의 개수 n", min_value=5, max_value=50, value=40, step=1)
 
     verdict, desc = _classify_series(float(a), float(r))
     if verdict == "수렴":
@@ -201,7 +191,7 @@ def render():
     # ----------------------------
     # 교과서 핵심 정리
     # ----------------------------
-    st.markdown("### 교과서 핵심 정리(조건별)")
+    st.markdown("### 등비급수의 수렴과 발산")
     st.markdown(r"""
 - $$|r|<1 \Rightarrow \sum_{n=1}^{\infty} ar^{n-1} \text{ 는 수렴하고, 합은 } \frac{a}{1-r} \text{ 이다.}$$
 - $$|r|\ge 1 \Rightarrow \sum_{n=1}^{\infty} ar^{n-1} \text{ 는 발산한다.}$$
