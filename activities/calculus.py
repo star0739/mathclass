@@ -47,7 +47,7 @@ def main():
     st.divider()
 
     # 단원 구분 (현재는 수열의 극한만 구성)
-    st.header("수열의 극한")
+    st.header("Ⅰ.수열의 극한")
 
     selected_title = st.selectbox(
         "실행할 시뮬레이션을 선택하세요",
