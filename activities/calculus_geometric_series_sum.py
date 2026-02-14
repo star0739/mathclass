@@ -192,9 +192,8 @@ def render(show_title: bool = True, key_prefix: str = "geom_series") -> None:
     ax = fig.add_subplot(111)
 
     ax.plot(n, S, marker="o", linestyle="None")
-    ax.set_title("S_n")  # 그래프 제목은 깨짐 방지로 단순 텍스트
-    ax.set_xlabel("n")
-    ax.set_ylabel("S_n")
+    ax.set_xlabel("$n$")
+    ax.set_ylabel("$S_n$")
     ax.axhline(0, linewidth=1)
 
     if limit_val is not None and np.isfinite(limit_val):
