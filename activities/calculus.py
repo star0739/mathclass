@@ -57,7 +57,7 @@ def main():
     _init_state()
 
     st.title("📖 미적분 탐구활동")
-    st.divider()
+    
 
     # --------------------------------------------------
     # 단원 선택 (버튼식)
@@ -75,7 +75,7 @@ def main():
             st.session_state.selected_unit = unit
             st.rerun()
 
-    st.divider()
+   
 
     selected_unit = st.session_state.selected_unit
     st.header(selected_unit)
@@ -90,7 +90,6 @@ def main():
         return
 
     selected_title = st.selectbox("탐구활동을 선택하세요", list(sims.keys()))
-    st.divider()
 
     sims[selected_title].render()
 
