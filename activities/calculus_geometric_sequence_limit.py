@@ -115,7 +115,7 @@ a_n = a\,r^{\,n-1}
     a_n = _safe_sequence(float(a), float(r), int(n_max))
 
     # --- Plot 1: a_n (또는 log 모드에서는 |a_n|) ---
-    fig = plt.figure()
+    fig = plt.figure(figsize=(6, 4))
     ax = fig.add_subplot(111)
 
     if use_log:
@@ -149,7 +149,7 @@ a_n = a\,r^{\,n-1}
 
     # --- Plot 2: |a_n| optional (일반 모드에서만) ---
     if show_abs and not use_log:
-        fig2 = plt.figure()
+        fig2 = plt.figure(figsize=(6, 3.5))
         ax2 = fig2.add_subplot(111)
 
         abs_vals = np.abs(a_n)
@@ -163,12 +163,11 @@ a_n = a\,r^{\,n-1}
         st.pyplot(fig2)
 
     # --- Key cases summary ---
-    st.markdown(
-        r"""
-### 핵심 정리(조건별)
-- \(|r|<1\)  → \(a_n \to 0\)
-- \(r=1\)    → \(a_n=a\) (상수 수열)  
-- \(r=-1\)   → \(a,-a,a,-a,\dots\) (진동, 극한 없음)
-- \(|r|>1\)  → \(|a_n|\to \infty\) (발산; \(r<0\)이면 진동하며 크기 증가)
-"""
-    )
+    st.markdown("<h2>등비수열의 수렴과 발산</h2>", unsafe_allow_html=True)
+
+st.markdown(r"""
+- $$|r| < 1 \quad \Rightarrow \quad a_n \to 0$$
+- $$r = 1 \quad \Rightarrow \quad a_n = a$$
+- $$r = -1 \quad \Rightarrow \quad a, -a, a, -a, \dots$$
+- $$|r| > 1 \quad \Rightarrow \quad |a_n| \to \infty$$
+""")
