@@ -12,7 +12,7 @@ import streamlit as st
 import matplotlib.pyplot as plt
 from matplotlib.ticker import MultipleLocator
 
-TITLE = "등비수열 {r^n}의 수렴과 발산"
+TITLE = "등비수열 {$r^n$}의 수렴과 발산"
 
 
 def _classify_textbook(r: float) -> tuple[str, str]:
@@ -104,7 +104,7 @@ def render():
 
         with col2:
             # ✅ n 범위 축소
-            n_max = st.slider("표시할 항의 개수 n", min_value=5, max_value=60, value=35, step=1)
+            n_max = st.slider("표시할 항의 개수 n", min_value=5, max_value=50, value=35, step=1)
 
         show_abs = st.checkbox("|rⁿ|", value=False)
 
