@@ -129,7 +129,7 @@ $$ \\lim_{n \\to \\infty} S_n= S $$이면, 급수 $$\\sum_{n=1}^{\\infty} ar^{n-
         col1, col2, col3 = st.columns([1, 1, 1])
 
         with col1:
-            a = st.number_input("초항 a", value=2.0, step=0.5)
+            a = st.number_input("초항 a", min_value=-5.0, max_value=5.0, value=2.0, step=0.5)
 
         with col2:
             r = st.slider("공비 r", -1.3, 1.3, 0.7, 0.01)
@@ -202,7 +202,7 @@ S_n=na
     # ----------------------------
     # 교과서 정리
     # ----------------------------
-    st.markdown("### 교과서 핵심 정리")
+    st.markdown("### 등비급수의 수렴과 발산($$a!=0$$)")
     st.markdown(r"""
 - $$|r|<1 \Rightarrow \sum_{n=1}^{\infty} ar^{n-1} \text{ 는 수렴하고, 합은 } \frac{a}{1-r}$$
 - $$|r|\ge1 \Rightarrow \text{ 발산한다.}$$
