@@ -111,7 +111,7 @@ def render():
             r = st.slider("공비 r", -1.3, 1.3, 0.7, 0.01)
 
         with col3:
-            n_max = st.slider("부분합 항의 개수 n", 5, 60, 35, 1)
+            n_max = st.slider("부분합 항의 개수 n", 5, 50, 35, 1)
 
     verdict, desc = _classify_series(float(a), float(r))
     if verdict == "수렴":
@@ -125,38 +125,44 @@ def render():
     # ----------------------------
     st.markdown("### 부분합과 무한급수의 정의")
 
-    st.markdown(r"""
+st.markdown("""
+### 부분합과 무한급수의 정의
 급수
-\[
-\sum_{n=1}^{\infty} a_n
-\]
+$$
+\\sum_{n=1}^{\\infty} a_n
+$$
 는 부분합
-\[
-S_n=\sum_{k=1}^{n} a_k
-\]
+$$
+S_n = \\sum_{k=1}^{n} a_k
+$$
 을 이용하여
-
-\[
-\sum_{n=1}^{\infty} a_n = \lim_{n\to\infty} S_n
-\]
-
+$$
+\\sum_{n=1}^{\\infty} a_n
+=
+\\lim_{n \\to \\infty} S_n
+$$
 으로 정의합니다.
 """)
+
 
     # ----------------------------
     # 부분합 수식 설명
     # ----------------------------
-    st.markdown("### 등비급수의 부분합")
+st.markdown("""
+### 등비급수의 부분합
 
-    st.markdown(r"""
 등비급수
-\[
-a_k=ar^{k-1}
-\]
+
+$$
+a_k = a r^{k-1}
+$$
+
 의 부분합은
-\[
-S_n=a+ar+ar^2+\cdots+ar^{n-1}
-\]
+
+$$
+S_n = a + ar + ar^2 + \\cdots + ar^{n-1}
+$$
+
 입니다.
 """)
 
