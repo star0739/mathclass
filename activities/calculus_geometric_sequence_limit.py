@@ -118,7 +118,7 @@ def render(show_title: bool = True, key_prefix: str = "geom_seq") -> None:
                 key=f"{key_prefix}_n",
             )
 
-        show_abs = st.checkbox("|rⁿ|", value=False, key=f"{key_prefix}_abs")
+        show_abs = st.checkbox("|rⁿ| 그래프 함께 확인하기", value=False, key=f"{key_prefix}_abs")
 
     verdict, desc = _classify_textbook(float(r))
     if verdict == "수렴":
