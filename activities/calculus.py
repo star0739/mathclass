@@ -1,5 +1,5 @@
 # activities/calculus.py
-# 미적분 시뮬레이션 라우터 페이지
+# 미적분 탐구활동 라우터 페이지
 
 from __future__ import annotations
 
@@ -16,13 +16,13 @@ if str(CURRENT_DIR) not in sys.path:
     sys.path.insert(0, str(CURRENT_DIR))
 
 # --------------------------------------------------
-# 2. 시뮬레이션 모듈 import (한 곳에서만)
+# 2. 탐구활동 모듈 import (한 곳에서만)
 # --------------------------------------------------
 import calculus_geometric_sequence_limit as geom_seq_limit
 import calculus_geometric_series_sum as geom_series_sum
 
 # --------------------------------------------------
-# 3. 시뮬레이션 등록 (딱 한 번만)
+# 3. 탐구활동 등록 (딱 한 번만)
 # --------------------------------------------------
 SIMULATIONS = {
     geom_seq_limit.TITLE: geom_seq_limit,
@@ -33,22 +33,22 @@ SIMULATIONS = {
 # 4. 메인 라우터
 # --------------------------------------------------
 def main():
-    st.set_page_config(page_title="미적분 시뮬레이션", layout="wide")
+    st.set_page_config(page_title="미적분 탐구활동", layout="wide")
 
-    st.title("📘 미적분 시뮬레이션")
+    st.title("📘 미적분 탐구활동")
     st.divider()
 
     # 단원 구분
     st.header("Ⅰ. 수열의 극한")
 
     selected_title = st.selectbox(
-        "실행할 시뮬레이션을 선택하세요",
+        "실행할 탐구활동을 선택하세요",
         list(SIMULATIONS.keys()),
     )
 
     st.divider()
 
-    # 선택된 시뮬레이션 실행
+    # 선택된 탐구활동 실행
     SIMULATIONS[selected_title].render()
 
 # --------------------------------------------------
