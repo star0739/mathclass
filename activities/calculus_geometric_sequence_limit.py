@@ -1,5 +1,5 @@
 # activities/calculus_geometric_sequence_limit.py
-# 등비수열의 극한 시뮬레이션 (matplotlib 호환 + LaTeX 핵심정리 + 그래프 축소)
+# 등비수열의 극한 시뮬레이션 (입력 박스 + 점만 표시 + 로그 스케일 제거)
 
 from __future__ import annotations
 
@@ -28,7 +28,6 @@ def _classify_behavior(a: float, r: float) -> tuple[str, str]:
             return "수렴 (상수 수열)", r"$r=1$ 이므로 $a_n=a$로 일정합니다. 극한은 $a$."
         return "수렴하지 않음 (진동)", r"$r=-1$ 이면 $a,-a,a,-a,\dots$ 로 진동하여 극한이 없습니다."
 
-    # |r| > 1
     if r > 1:
         return "발산 (크기 증가)", r"$r>1$ 이면 $|a_n|$이 무한히 커집니다."
     if r < -1:
@@ -38,10 +37,7 @@ def _classify_behavior(a: float, r: float) -> tuple[str, str]:
 
 
 def _safe_sequence(a: float, r: float, n_max: int) -> np.ndarray:
-    """
-    a_n = a * r^(n-1) 계산.
-    너무 큰 값은 NaN으로 바꿔 시각화가 깨지지 않게 함.
-    """
+    """a_n = a * r^(n-1) 계산. 너무 큰 값은 NaN 처리."""
     n = np.arange(1, n_max + 1, dtype=float)
 
     if a == 0:
@@ -60,16 +56,6 @@ def _safe_sequence(a: float, r: float, n_max: int) -> np.ndarray:
     return arr
 
 
-def _stem(ax, x, y):
-    """matplotlib 버전 차이에 안전한 stem(use_line_collection 제거)"""
-    container = ax.stem(x, y)
-    try:
-        container.baseline.set_linewidth(1.0)
-    except Exception:
-        pass
-    return container
-
-
 def render():
     st.title(TITLE)
 
@@ -83,16 +69,36 @@ a_n = a\,r^{\,n-1}
 """
     )
 
-    # --- Sidebar controls ---
-    st.sidebar.header("입력값")
-    a = st.sidebar.number_input("초항 a", value=2.0, step=0.5, format="%.6f")
-    r = st.sidebar.number_input("공비 r", value=0.7, step=0.1, format="%.6f")
-    n_max = st.sidebar.slider("표시할 항의 개수 (n_max)", min_value=5, max_value=200, value=60, step=1)
+    # ----------------------------
+    # 입력 UI (본문 상단 + 박스)
+    # ----------------------------
+    with st.container(border=True):
+        st.subheader("입력값 설정")
 
-    st.sidebar.divider()
-    show_stems = st.sidebar.checkbox("점+수직선(stem) 스타일로 보기", value=True)
-    show_abs = st.sidebar.checkbox("|aₙ|도 함께 보기(보조 그래프)", value=False)
-    use_log = st.sidebar.checkbox("y축 로그 스케일(절댓값 기준)", value=False)
+        col1, col2, col3 = st.columns(3)
+
+        with col1:
+            a = st.number_input("초항 a", value=2.0, step=0.5, format="%.6f")
+
+        with col2:
+            r = st.slider(
+                "공비 r",
+                min_value=-2.0,
+                max_value=2.0,
+                value=0.7,
+                step=0.01,
+            )
+
+        with col3:
+            n_max = st.slider(
+                "표시할 항의 개수 n",
+                min_value=5,
+                max_value=200,
+                value=60,
+                step=1,
+            )
+
+        show_abs = st.checkbox("|aₙ|도 함께 보기(보조 그래프)", value=False)
 
     # --- 판정 표시 ---
     label, desc = _classify_behavior(float(a), float(r))
@@ -105,52 +111,38 @@ a_n = a\,r^{\,n-1}
     st.markdown(desc)
 
     # --- 수열 계산 ---
-    n = np.arange(1, n_max + 1)
+    n = np.arange(1, int(n_max) + 1)
     a_n = _safe_sequence(float(a), float(r), int(n_max))
 
-    # --- Plot 1: a_n (또는 log 모드에서는 |a_n|) ---
-    fig = plt.figure(figsize=(6, 4))  # ✅ 그래프 크기 축소
+    # ----------------------------
+    # Plot 1: a_n (점만 표시)
+    # ----------------------------
+    fig = plt.figure(figsize=(6, 4))  # 그래프 크기 축소
     ax = fig.add_subplot(111)
 
-    if use_log:
-        # 로그축은 음수 불가 → |a_n|을 로그축으로 표시
-        y = np.abs(a_n)
+    # ✅ 점만 표시: linestyle="None"
+    ax.plot(n, a_n, marker="o", linestyle="None")
 
-        if show_stems:
-            _stem(ax, n, y)
-        else:
-            ax.plot(n, y, marker="o", linestyle="-")
-
-        ax.set_yscale("log")
-        ax.set_xlabel("n")
-        ax.set_ylabel(r"$|a_n|$ (log scale)")
-        ax.set_title(r"등비수열의 크기 $|a_n|$ (로그 스케일)")
-        ax.grid(True, which="both", linestyle="--", linewidth=0.5, alpha=0.6)
-    else:
-        # 일반 모드에서는 a_n 자체를 표시
-        if show_stems:
-            _stem(ax, n, a_n)
-        else:
-            ax.plot(n, a_n, marker="o", linestyle="-")
-
-        ax.axhline(0, linewidth=1)
-        ax.set_xlabel("n")
-        ax.set_ylabel(r"$a_n$")
-        ax.set_title(r"등비수열 $a_n$의 변화")
-        ax.grid(True, linestyle="--", linewidth=0.5, alpha=0.6)
+    ax.axhline(0, linewidth=1)
+    ax.set_xlabel("n")
+    ax.set_ylabel(r"$a_n$")
+    ax.set_title(r"등비수열 $a_n$의 변화 (점 그래프)")
+    ax.grid(True, linestyle="--", linewidth=0.5, alpha=0.6)
 
     st.pyplot(fig)
 
-    # --- Plot 2: |a_n| optional (일반 모드에서만) ---
-    if show_abs and not use_log:
-        fig2 = plt.figure(figsize=(6, 3.5))  # ✅ 보조 그래프도 축소
+    # ----------------------------
+    # Plot 2: |a_n| optional
+    # ----------------------------
+    if show_abs:
+        fig2 = plt.figure(figsize=(6, 3.5))
         ax2 = fig2.add_subplot(111)
 
         abs_vals = np.abs(a_n)
-        ax2.plot(n, abs_vals, marker="o", linestyle="-")
+        ax2.plot(n, abs_vals, marker="o", linestyle="None")  # ✅ 점만 표시
         ax2.set_xlabel("n")
         ax2.set_ylabel(r"$|a_n|$")
-        ax2.set_title(r"크기 $|a_n|$의 변화")
+        ax2.set_title(r"크기 $|a_n|$의 변화 (점 그래프)")
         ax2.grid(True, linestyle="--", linewidth=0.5, alpha=0.6)
 
         st.pyplot(fig2)
