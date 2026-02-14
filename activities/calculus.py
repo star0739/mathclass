@@ -1,5 +1,5 @@
 # activities/calculus.py
-# 미적분 탐구활동 라우터 페이지 (단원 선택형)
+# 미적분 탐구활동 라우터 페이지 (단원 버튼 선택형)
 
 from __future__ import annotations
 
@@ -15,8 +15,7 @@ if str(CURRENT_DIR) not in sys.path:
     sys.path.insert(0, str(CURRENT_DIR))
 
 # --------------------------------------------------
-# 2. 시뮬레이션(탐구활동) 모듈 import
-#    - 파일은 activities/ 폴더에 있어야 함
+# 2. 탐구활동 모듈 import (activities/ 폴더 내)
 # --------------------------------------------------
 import calculus_geometric_sequence_limit as geom_seq_limit
 import calculus_geometric_series_sum as geom_series_sum
@@ -34,26 +33,45 @@ UNIT_SIMULATIONS = {
         geom_series_sum.TITLE: geom_series_sum,
     },
     "Ⅱ. 미분법": {
-        # 예시) 미분법 활동 파일을 만들면 아래처럼 추가
         # deriv_def.TITLE: deriv_def,
         # tangent_slope.TITLE: tangent_slope,
     },
 }
 
 
+def _init_state():
+    if "selected_unit" not in st.session_state:
+        # 기본 단원: 첫 번째 단원
+        st.session_state.selected_unit = list(UNIT_SIMULATIONS.keys())[0]
+
+
 def main():
     st.set_page_config(page_title="미적분 탐구활동", layout="wide")
+    _init_state()
 
     st.title("📘 미적분 탐구활동")
     st.divider()
 
     # --------------------------------------------------
-    # 단원 선택
+    # 단원 선택 (버튼식)
     # --------------------------------------------------
+    st.subheader("단원 선택")
+
     unit_names = list(UNIT_SIMULATIONS.keys())
-    selected_unit = st.radio("단원을 선택하세요", unit_names, horizontal=True)
+    cols = st.columns(len(unit_names))
+
+    for i, unit in enumerate(unit_names):
+        is_selected = (st.session_state.selected_unit == unit)
+        label = f"✅ {unit}" if is_selected else unit
+
+        if cols[i].button(label, use_container_width=True):
+            st.session_state.selected_unit = unit
+            # 단원 바뀌면 아래 선택 박스가 즉시 반영되도록 rerun
+            st.rerun()
 
     st.divider()
+
+    selected_unit = st.session_state.selected_unit
     st.header(selected_unit)
 
     # --------------------------------------------------
@@ -62,13 +80,12 @@ def main():
     sims = UNIT_SIMULATIONS[selected_unit]
 
     if not sims:
-        st.info("이 단원에 연결된 탐구활동이 아직 없습니다. 활동 파일을 추가한 뒤 등록해주세요.")
+        st.info("이 단원에 연결된 탐구활동이 아직 없습니다.")
         return
 
     selected_title = st.selectbox("탐구활동을 선택하세요", list(sims.keys()))
     st.divider()
 
-    # 실행
     sims[selected_title].render()
 
 
