@@ -102,8 +102,9 @@ def render():
     # 부분합 수식 설명
     # ----------------------------
     st.markdown("""
-### 등비급수의 제$$n$$항까지의 부분합
-$$S_n = a + ar + ar^2 + \\cdots + ar^{n-1} = sum_{k=1}^{\\n} a_k $$
+### 등비급수의 제 $n$항까지의 부분합
+
+$$ S_n = a + ar + ar^2 + \\cdots + ar^{n-1}= \\sum_{k=1}^{n} a r^{k-1} $$
 """)
     
     st.markdown("<br>", unsafe_allow_html=True)
@@ -113,7 +114,7 @@ $$S_n = a + ar + ar^2 + \\cdots + ar^{n-1} = sum_{k=1}^{\\n} a_k $$
     # ----------------------------
     st.markdown("""
 ### 부분합과 무한급수의 정의
- $$ lim_{n \\to \\infty}S_n = lim_{n\\ to \\ infty} \\sum_{k=1}^{\\n} a_k=S$$이면, 급수 $$ sum_{n=1}^{\\infty}a_n=S$$이다.
+$$ \\lim_{n \\to \\infty} S_n = \\lim_{n \\to \\infty} \\sum_{k=1}^{n} a_k = S $$이면, 급수 $$\\sum_{n=1}^{\\infty} a_n = S$$이다.
 """)
 
 
