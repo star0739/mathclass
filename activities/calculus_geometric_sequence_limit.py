@@ -56,15 +56,6 @@ def _safe_sequence_r_pow_n(r: float, n_max: int) -> np.ndarray:
 def render():
     st.title(TITLE)
 
-    st.markdown(
-        r"""
-학생들이 배우는 등비수열을 **초항 1로 고정**하여  
-\[
-a_n = r^n \quad (n=1,2,3,\dots)
-\]
-의 수렴/발산을 공비 \(r\) 값에 따라 관찰합니다.
-"""
-    )
 
     # ----------------------------
     # 입력 UI (본문 상단 + 박스)
@@ -92,7 +83,7 @@ a_n = r^n \quad (n=1,2,3,\dots)
                 step=1,
             )
 
-        show_abs = st.checkbox("|rⁿ|도 함께 보기(보조 그래프)", value=False)
+        show_abs = st.checkbox("|rⁿ|", value=False)
 
     # --- 판정 표시 (교과서 기준) ---
     verdict, desc = _classify_textbook(float(r))
@@ -117,7 +108,7 @@ a_n = r^n \quad (n=1,2,3,\dots)
 
     ax.set_xlabel("n")
     ax.set_ylabel(r"$r^n$")
-    ax.set_title(r"$r^n$의 변화 (점 그래프)")
+    ax.set_title(r"$r^n$")
     ax.grid(True, linestyle="--", linewidth=0.5, alpha=0.6)
 
     st.pyplot(fig)
@@ -139,7 +130,7 @@ a_n = r^n \quad (n=1,2,3,\dots)
         st.pyplot(fig2)
 
     # --- 핵심 정리: 교과서 문장/조건 반영 ---
-    st.markdown("### 교과서 핵심 정리(조건별)")
+    st.markdown("### 등비수열의 수렴과 발")
     st.markdown(r"""
 - $$r>1 \quad \Rightarrow \quad \lim_{n\to\infty} r^n = \infty \;(\text{발산})$$
 - $$r=1 \quad \Rightarrow \quad \lim_{n\to\infty} r^n = 1 \;(\text{수렴})$$
