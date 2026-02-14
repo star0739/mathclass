@@ -1,9 +1,11 @@
 # activities/calculus_geometric_series_sum.py
-# 등비급수의 수렴과 발산 시뮬레이션
+# 등비급수의 수렴과 발산 탐구활동
 # - 교과서 정의: sum_{n=1}^∞ a_n = lim_{n→∞} S_n
 # - r=1 / r≠1 부분합 공식 분기
 # - |r|<1일 때만 극한값 수평선 표시
 # - 점 그래프, 정수 기준 grid (안정형)
+# - 탭 환경 위젯 충돌 방지: key_prefix 사용
+# - 라우터에서 탭이 제목 역할 → show_title 옵션 제공
 
 from __future__ import annotations
 
@@ -25,11 +27,10 @@ def _partial_sums(a: float, r: float, n_max: int) -> np.ndarray:
         return a * n  # S_n = na
 
     with np.errstate(over="ignore", invalid="ignore"):
-        S = a * (1 - r ** n) / (1 - r)
+        S = a * (1 - r**n) / (1 - r)
 
     S[np.isinf(S) | (np.abs(S) > 1e308)] = np.nan
     return S
-
 
 
 # --------------------------------------------------
@@ -44,7 +45,6 @@ def _classify_series(a: float, r: float) -> tuple[str, str]:
     if abs(r) < 1 - eps:
         return "수렴", r"$|r|<1$ 이므로 급수는 수렴합니다."
     return "발산", r"$|r|\ge 1$ 이면 급수는 발산합니다."
-
 
 
 # --------------------------------------------------
@@ -74,7 +74,7 @@ def _x_step(n_max: int, max_ticks: int = 15) -> int:
     return int(np.ceil(n_max / max_ticks))
 
 
-def _set_ylim(ax, y: np.ndarray):
+def _set_ylim(ax, y: np.ndarray) -> None:
     finite = y[np.isfinite(y)]
     if finite.size == 0:
         ax.set_ylim(-1, 1)
@@ -95,31 +95,49 @@ def _set_ylim(ax, y: np.ndarray):
 # --------------------------------------------------
 # 메인
 # --------------------------------------------------
-def render():
-    st.title(TITLE)
+def render(show_title: bool = True, key_prefix: str = "geom_series") -> None:
+    if show_title:
+        st.title(TITLE)
 
     # ----------------------------
     # 부분합 수식 설명
     # ----------------------------
-    st.markdown("""
+    st.markdown(
+        r"""
 ### 등비급수의 제 $n$항까지의 부분합
 
-$$ S_n = a + ar + ar^2 + \\cdots + ar^{n-1}= \\sum_{k=1}^{n} a r^{k-1} $$
-""")
-    
-    st.markdown("", unsafe_allow_html=True)
-    
+$$
+S_n = a + ar + ar^2 + \cdots + ar^{n-1}
+= \sum_{k=1}^{n} a r^{k-1}
+$$
+"""
+    )
+
+    st.markdown("<br>", unsafe_allow_html=True)
+
     # ----------------------------
     # 정의 설명
     # ----------------------------
-    st.markdown("""
+    st.markdown(
+        r"""
 ### 부분합과 무한급수의 정의
-$$ \\lim_{n \\to \\infty} S_n= S $$이면, 급수 $$\\sum_{n=1}^{\\infty} ar^{n-1} = S$$이다.
-""")
 
-    st.markdown("", unsafe_allow_html=True)
+$$
+\lim_{n \to \infty} S_n = S
+$$
 
-    
+이면, 급수
+
+$$
+\sum_{n=1}^{\infty} ar^{n-1} = S
+$$
+
+이다.
+"""
+    )
+
+    st.markdown("<br>", unsafe_allow_html=True)
+
     # ----------------------------
     # 입력 UI
     # ----------------------------
@@ -129,13 +147,34 @@ $$ \\lim_{n \\to \\infty} S_n= S $$이면, 급수 $$\\sum_{n=1}^{\\infty} ar^{n-
         col1, col2, col3 = st.columns([1, 1, 1])
 
         with col1:
-            a = st.number_input("초항 a", min_value=-5.0, max_value=5.0, value=2.0, step=0.5)
+            a = st.number_input(
+                "초항 a",
+                min_value=-5.0,
+                max_value=5.0,
+                value=2.0,
+                step=0.5,
+                key=f"{key_prefix}_a",
+            )
 
         with col2:
-            r = st.slider("공비 r", -1.3, 1.3, 0.7, 0.01)
+            r = st.slider(
+                "공비 r",
+                -1.3,
+                1.3,
+                0.7,
+                0.01,
+                key=f"{key_prefix}_r",
+            )
 
         with col3:
-            n_max = st.slider("부분합 항의 개수 n", 5, 50, 35, 1)
+            n_max = st.slider(
+                "부분합 항의 개수 n",
+                5,
+                50,
+                35,
+                1,
+                key=f"{key_prefix}_n",
+            )
 
     verdict, desc = _classify_series(float(a), float(r))
     if verdict == "수렴":
@@ -144,32 +183,31 @@ $$ \\lim_{n \\to \\infty} S_n= S $$이면, 급수 $$\\sum_{n=1}^{\\infty} ar^{n-
         st.warning(f"판정: {verdict}")
     st.markdown(desc)
 
-
-    if abs(r - 1) < 1e-12:
+    # ----------------------------
+    # 현재 S_n 표시 (r=1 / r≠1)
+    # ----------------------------
+    if abs(float(r) - 1.0) < 1e-12:
         st.markdown(r"""
-\(r=1\)일 때
-\[
-S_n=na
-\]
+\(r=1\)일 때 \(S_n=na\).
 """)
-        current = a * n_max
-        st.markdown(rf"$S_{{{n_max}}}={n_max}\times {a:.4g}={current:.6g}$")
+        current = float(a) * int(n_max)
+        st.markdown(rf"$S_{{{int(n_max)}}}={int(n_max)}\times {float(a):.4g}={current:.6g}$")
     else:
-        current = a * (1 - r**n_max) / (1 - r)
+        current = float(a) * (1 - float(r) ** int(n_max)) / (1 - float(r))
         st.markdown(
-            rf"$S_{{{n_max}}}=\frac{{{a:.4g}(1-({r:.4g})^{{{n_max}}})}}{{1-{r:.4g}}}={current:.6g}$"
+            rf"$S_{{{int(n_max)}}}=\frac{{{float(a):.4g}\left(1-({float(r):.4g})^{{{int(n_max)}}}\right)}}{{1-{float(r):.4g}}}={current:.6g}$"
         )
 
     # ----------------------------
     # 부분합 계산
     # ----------------------------
-    n = np.arange(1, n_max + 1)
+    n = np.arange(1, int(n_max) + 1)
     S = _partial_sums(float(a), float(r), int(n_max))
 
-    # 극한값
+    # 극한값(|r|<1일 때)
     limit_val = None
-    if abs(r) < 1 - 1e-12:
-        limit_val = a / (1 - r)
+    if abs(float(r)) < 1 - 1e-12:
+        limit_val = float(a) / (1 - float(r))
 
     # ----------------------------
     # 그래프
@@ -178,15 +216,15 @@ S_n=na
     ax = fig.add_subplot(111)
 
     ax.plot(n, S, marker="o", linestyle="None")
-    ax.set_title("$S_n$")
+    ax.set_title("S_n")  # 그래프 제목은 깨짐 방지로 단순 텍스트
     ax.set_xlabel("n")
-    ax.set_ylabel("$S_n$")
+    ax.set_ylabel("S_n")
     ax.axhline(0, linewidth=1)
 
     if limit_val is not None and np.isfinite(limit_val):
         ax.axhline(limit_val, linewidth=1)
 
-    ax.xaxis.set_major_locator(MultipleLocator(_x_step(n_max)))
+    ax.xaxis.set_major_locator(MultipleLocator(_x_step(int(n_max))))
     finite_y = S[np.isfinite(S)]
     if finite_y.size > 0:
         y_step = _nice_int_step(float(np.min(finite_y)), float(np.max(finite_y)))
