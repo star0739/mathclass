@@ -97,6 +97,24 @@ def render():
     st.title(TITLE)
 
     # ----------------------------
+    # 정의 설명
+    # ----------------------------
+    st.markdown("""
+### 부분합과 무한급수의 정의
+급수 $$ \\sum_{n=1}^{\\infty} a_n $$는 부분합 $$ S_n = \\sum_{k=1}^{n} a_k $$을 이용하여 $$ \\sum_{n=1}^{\\infty} a_n=\\lim_{n \\to \\infty} S_n$$ 으로 정의합니다.
+""")
+
+
+    # ----------------------------
+    # 부분합 수식 설명
+    # ----------------------------
+    st.markdown("""
+### 등비급수의 부분합
+등비급수 $$a_k = a r^{k-1}$$의 부분합은 $$S_n = a + ar + ar^2 + \\cdots + ar^{n-1}$$입니다.
+""")
+    
+    
+    # ----------------------------
     # 입력 UI
     # ----------------------------
     with st.container(border=True):
@@ -120,22 +138,6 @@ def render():
         st.warning(f"판정: {verdict}")
     st.markdown(desc)
 
-    # ----------------------------
-    # 정의 설명
-    # ----------------------------
-    st.markdown("""
-### 부분합과 무한급수의 정의
-급수 $$ \\sum_{n=1}^{\\infty} a_n $$는 부분합 $$ S_n = \\sum_{k=1}^{n} a_k $$을 이용하여 $$ \\sum_{n=1}^{\\infty} a_n=\\lim_{n \\to \\infty} S_n$$ 으로 정의합니다.
-""")
-
-
-    # ----------------------------
-    # 부분합 수식 설명
-    # ----------------------------
-    st.markdown("""
-### 등비급수의 부분합
-등비급수 $$a_k = a r^{k-1}$$의 부분합은 $$S_n = a + ar + ar^2 + \\cdots + ar^{n-1}$$입니다.
-""")
 
     if abs(r - 1) < 1e-12:
         st.markdown(r"""
@@ -147,12 +149,6 @@ S_n=na
         current = a * n_max
         st.markdown(rf"$S_{{{n_max}}}={n_max}\times {a:.4g}={current:.6g}$")
     else:
-        st.markdown(r"""
-\(r\neq1\)일 때
-\[
-S_n=\frac{a(1-r^n)}{1-r}
-\]
-""")
         current = a * (1 - r**n_max) / (1 - r)
         st.markdown(
             rf"$S_{{{n_max}}}=\frac{{{a:.4g}(1-({r:.4g})^{{{n_max}}})}}{{1-{r:.4g}}}={current:.6g}$"
