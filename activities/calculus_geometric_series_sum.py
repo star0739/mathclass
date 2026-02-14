@@ -102,18 +102,18 @@ def render():
     # 부분합 수식 설명
     # ----------------------------
     st.markdown("""
-### 등비급수의 부분합
-등비급수 $$a_k = a r^{k-1}$$의 부분합은 $$S_n = a + ar + ar^2 + \\cdots + ar^{n-1}$$입니다.
+### 등비급수의 제$$n$$항까지의 부분합
+$$S_n = a + ar + ar^2 + \\cdots + ar^{n-1} = sum_{k=1}^{\\n} a_k $$
 """)
     
-    st.markdown("<br><br>", unsafe_allow_html=True)
+    st.markdown("<br>", unsafe_allow_html=True)
     
     # ----------------------------
     # 정의 설명
     # ----------------------------
     st.markdown("""
 ### 부분합과 무한급수의 정의
-급수 $$ \\sum_{n=1}^{\\infty} a_n $$는 부분합 $$ S_n = \\sum_{k=1}^{n} a_k $$을 이용하여 $$ \\sum_{n=1}^{\\infty} a_n=\\lim_{n \\to \\infty} S_n$$입니다.
+ $$ lim_{n \\to \\infty}S_n = lim_{n\\ to \\ infty} \\sum_{k=1}^{\\n} a_k=S$$이면, 급수 $$ sum_{n=1}^{\\infty}a_n=S$$이다.
 """)
 
 
