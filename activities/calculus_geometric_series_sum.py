@@ -43,8 +43,8 @@ def _classify_series(a: float, r: float) -> tuple[str, str]:
         return "수렴", r"$a=0$ 이므로 모든 부분합이 0이고, 급수는 0으로 수렴합니다."
 
     if abs(r) < 1 - eps:
-        return "수렴", r"$|r|<1$이면" r"$\lim_{n\to\infty} S_n" r"=\lim_{n\to\infty} \frac{a(1-r^n)}{1-r}" r"=\frac{a}{1-r}$이므로 급수는 수렴합니다."
-    return "발산", r"$|r|\ge 1$이면" r"$\lim_{n\to\infty} ar^{\,n-1}\neq 0$이므로 급수는 발산합니다."
+        return "수렴", r"$|r|<1$이면 $\lim_{n\to\infty} S_n =\lim_{n\to\infty} \frac{a(1-r^n)}{1-r} =\frac{a}{1-r}$이므로 급수는 수렴"
+    return "발산", r"$|r|\ge 1$이면 $\lim_{n\to\infty} ar^{\,n-1}\neq 0$이므로 급수는 발산"
 
 
 # --------------------------------------------------
