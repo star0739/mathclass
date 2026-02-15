@@ -1,0 +1,266 @@
+# activities/calculus_e_definition_limit.py
+# Ⅱ. 미분법 - 자연상수 e의 정의(극한) 탐구활동
+# - (1) 연속형: f(x) = (1+x)^(1/x),  x→0에서 e로 수렴
+# - (2) 수열형: g(n) = (1+1/n)^n,  n→∞에서 e로 수렴
+# - 입력: 본문 상단 박스(container border)
+# - 탭 환경 위젯 충돌 방지: key_prefix 사용
+# - 그래프: 점만 표시 + 정수/적당 간격 grid(안정형)
+
+from __future__ import annotations
+
+import numpy as np
+import streamlit as st
+import matplotlib.pyplot as plt
+from matplotlib.ticker import MultipleLocator
+
+TITLE = "자연상수 e의 정의(극한) 탐구활동"
+
+
+def _safe_f_of_x(x: np.ndarray) -> np.ndarray:
+    """
+    f(x) = (1+x)^(1/x)
+    x=0은 정의되지 않으므로 입력에서 제외해야 함.
+    x>-1 조건 필요(1+x 양수).
+    """
+    with np.errstate(over="ignore", invalid="ignore", divide="ignore"):
+        y = (1.0 + x) ** (1.0 / x)
+    y[np.isinf(y) | (np.abs(y) > 1e308)] = np.nan
+    return y
+
+
+def _safe_g_of_n(n: np.ndarray) -> np.ndarray:
+    """
+    g(n) = (1+1/n)^n
+    """
+    n = n.astype(float)
+    with np.errstate(over="ignore", invalid="ignore", divide="ignore"):
+        y = (1.0 + 1.0 / n) ** n
+    y[np.isinf(y) | (np.abs(y) > 1e308)] = np.nan
+    return y
+
+
+def _nice_step(span: float, target_ticks: int = 7) -> float:
+    """
+    y축 tick 폭발 방지용 '적당한 간격' (실수 간격)
+    1,2,5,10 * 10^k 후보 중 선택.
+    """
+    if not np.isfinite(span) or span <= 0:
+        return 1.0
+
+    raw = span / max(target_ticks, 1)
+    if raw <= 0:
+        return 1.0
+
+    k = 10 ** int(np.floor(np.log10(raw)))
+    candidates = np.array([1, 2, 5, 10], dtype=float) * k
+    return float(candidates[np.argmin(np.abs(candidates - raw))])
+
+
+def _set_reasonable_ylim(ax, y: np.ndarray, pad_ratio: float = 0.08) -> None:
+    finite = y[np.isfinite(y)]
+    if finite.size == 0:
+        ax.set_ylim(0, 4)
+        return
+
+    y_min = float(np.min(finite))
+    y_max = float(np.max(finite))
+
+    if y_min == y_max:
+        pad = 0.2 if y_min == 0 else abs(y_min) * 0.1
+        ax.set_ylim(y_min - pad, y_max + pad)
+        return
+
+    span = y_max - y_min
+    pad = span * pad_ratio
+    ax.set_ylim(y_min - pad, y_max + pad)
+
+
+def render(show_title: bool = True, key_prefix: str = "e_def") -> None:
+    if show_title:
+        st.title(TITLE)
+
+    st.markdown(
+        r"""
+자연상수 \(e\)는 다음 극한으로 정의할 수 있습니다.
+
+- 연속형:
+\[
+\lim_{x\to 0}(1+x)^{1/x}=e
+\]
+- 수열형:
+\[
+\lim_{n\to\infty}\left(1+\frac{1}{n}\right)^n=e
+\]
+
+아래에서 \(x\)를 0에 가깝게, \(n\)을 크게 바꾸며 두 식이 같은 값 \(e\)로 수렴하는지 관찰해보세요.
+"""
+    )
+
+    # ----------------------------
+    # 입력 UI
+    # ----------------------------
+    with st.container(border=True):
+        st.subheader("입력값 설정")
+
+        col1, col2, col3 = st.columns([1.3, 1.0, 1.0])
+
+        with col1:
+            # x는 -0.9보다 크게 잡아야 (1+x)>0
+            x0 = st.slider(
+                "관찰할 x 값(0 제외)",
+                min_value=-0.9,
+                max_value=0.9,
+                value=0.1,
+                step=0.001,
+                key=f"{key_prefix}_x0",
+            )
+            # 0에 너무 가까우면 수치가 불안정할 수 있어 안전장치
+            if abs(x0) < 1e-6:
+                st.info("x가 0에 너무 가까우면 계산이 불안정할 수 있어요. x를 조금만 더 떨어뜨려보세요.")
+
+        with col2:
+            n_max = st.slider(
+                "수열 관찰 최대 n",
+                min_value=10,
+                max_value=500,
+                value=100,
+                step=10,
+                key=f"{key_prefix}_nmax",
+            )
+
+        with col3:
+            # 연속형 그래프의 샘플 수(너무 크면 렌더/메모리 부담)
+            samples = st.slider(
+                "연속형 그래프 샘플 수",
+                min_value=50,
+                max_value=250,
+                value=120,
+                step=10,
+                key=f"{key_prefix}_samples",
+            )
+
+        show_hline = st.checkbox("y = e 기준선 표시", value=True, key=f"{key_prefix}_hline")
+
+    # e 값
+    e_val = float(np.e)
+
+    # ----------------------------
+    # 수치 계산(현재 값)
+    # ----------------------------
+    # 연속형 현재값
+    if abs(float(x0)) < 1e-12:
+        fx0 = np.nan
+    else:
+        fx0 = float(_safe_f_of_x(np.array([float(x0)], dtype=float))[0])
+
+    # 수열형 현재값
+    n_end = int(n_max)
+    gx = float(_safe_g_of_n(np.array([n_end], dtype=int))[0])
+
+    c1, c2, c3 = st.columns(3)
+    c1.metric("e (기준값)", f"{e_val:.10f}")
+    c2.metric("f(x) = (1+x)^(1/x)", f"{fx0:.10f}" if np.isfinite(fx0) else "정의/계산 불가")
+    c3.metric(f"g(n) = (1+1/n)^n (n={n_end})", f"{gx:.10f}" if np.isfinite(gx) else "계산 불가")
+
+    # ----------------------------
+    # 그래프 영역: 좌(연속형) / 우(수열형)
+    # ----------------------------
+    left, right = st.columns(2)
+
+    # ---- (A) 연속형: x→0에서 f(x)
+    with left:
+        st.markdown("#### 연속형:  $(1+x)^{1/x}$  (x → 0)")
+
+        # x=0을 피해서 좌/우 구간을 샘플링
+        # - 작은 구간에서 관찰되도록 [-0.5, -eps] ∪ [eps, 0.5] 형태로 구성
+        eps = 1e-3
+        half = 0.5
+
+        m = int(samples)
+        m_left = m // 2
+        m_right = m - m_left
+
+        xs_left = np.linspace(-half, -eps, m_left, dtype=float)
+        xs_right = np.linspace(eps, half, m_right, dtype=float)
+        xs = np.concatenate([xs_left, xs_right], axis=0)
+
+        ys = _safe_f_of_x(xs)
+
+        fig = plt.figure(figsize=(6, 4))
+        ax = fig.add_subplot(111)
+
+        ax.plot(xs, ys, marker="o", linestyle="None", markersize=3)
+        ax.axvline(0, linewidth=1)
+
+        if show_hline:
+            ax.axhline(e_val, linewidth=1)
+
+        ax.set_xlabel("x")
+        ax.set_ylabel("f(x)")
+
+        # x축: 0.1 단위 정도가 보기 좋음(정수 기준은 아니지만 과밀 방지)
+        ax.xaxis.set_major_locator(MultipleLocator(0.1))
+
+        finite_y = ys[np.isfinite(ys)]
+        if finite_y.size > 0:
+            step = _nice_step(float(np.max(finite_y) - np.min(finite_y)), target_ticks=6)
+            ax.yaxis.set_major_locator(MultipleLocator(step))
+        else:
+            ax.yaxis.set_major_locator(MultipleLocator(1.0))
+
+        _set_reasonable_ylim(ax, ys)
+        ax.grid(True, which="major", linestyle="--", linewidth=0.5, alpha=0.6)
+
+        st.pyplot(fig)
+        plt.close(fig)
+
+        if np.isfinite(fx0):
+            st.caption(f"x={x0:.6f}일 때 f(x)≈{fx0:.10f}, |f(x)-e|≈{abs(fx0-e_val):.3e}")
+        else:
+            st.caption("선택한 x에서 f(x)를 계산할 수 없습니다. (x=0 또는 1+x≤0 등)")
+
+    # ---- (B) 수열형: n→∞에서 g(n)
+    with right:
+        st.markdown(r"#### 수열형:  $\left(1+\frac{1}{n}\right)^n$  (n → ∞)")
+
+        ns = np.arange(1, int(n_max) + 1, dtype=int)
+        ys2 = _safe_g_of_n(ns)
+
+        fig2 = plt.figure(figsize=(6, 4))
+        ax2 = fig2.add_subplot(111)
+
+        ax2.plot(ns, ys2, marker="o", linestyle="None", markersize=3)
+
+        if show_hline:
+            ax2.axhline(e_val, linewidth=1)
+
+        ax2.set_xlabel("n")
+        ax2.set_ylabel("g(n)")
+
+        # x축 정수 tick 과밀 방지
+        x_step = max(1, int(np.ceil(int(n_max) / 10)))
+        ax2.xaxis.set_major_locator(MultipleLocator(x_step))
+
+        finite_y2 = ys2[np.isfinite(ys2)]
+        if finite_y2.size > 0:
+            step2 = _nice_step(float(np.max(finite_y2) - np.min(finite_y2)), target_ticks=6)
+            ax2.yaxis.set_major_locator(MultipleLocator(step2))
+        else:
+            ax2.yaxis.set_major_locator(MultipleLocator(1.0))
+
+        _set_reasonable_ylim(ax2, ys2)
+        ax2.grid(True, which="major", linestyle="--", linewidth=0.5, alpha=0.6)
+
+        st.pyplot(fig2)
+        plt.close(fig2)
+
+        if np.isfinite(gx):
+            st.caption(f"n={n_end}일 때 g(n)≈{gx:.10f}, |g(n)-e|≈{abs(gx-e_val):.3e}")
+
+    st.markdown(
+        r"""
+### 관찰 포인트
+- \(x\)를 0에 가깝게 할수록 \((1+x)^{1/x}\) 값이 \(e\)에 가까워지는지 확인해보세요.
+- \(n\)을 크게 할수록 \(\left(1+\frac{1}{n}\right)^n\) 값이 \(e\)에 가까워지는지 확인해보세요.
+"""
+    )
