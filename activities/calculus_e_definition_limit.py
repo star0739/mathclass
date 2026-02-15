@@ -1,11 +1,3 @@
-# activities/calculus_e_definition_limit.py
-# Ⅱ. 미분법 - 자연상수 e의 정의(극한) 탐구활동
-# - (1) 연속형: f(x) = (1+x)^(1/x),  x→0에서 e로 수렴
-# - (2) 수열형: g(n) = (1+1/n)^n,  n→∞에서 e로 수렴
-# - 입력: 본문 상단 박스(container border)
-# - 탭 환경 위젯 충돌 방지: key_prefix 사용
-# - 그래프: 점만 표시 + 정수/적당 간격 grid(안정형)
-
 from __future__ import annotations
 
 import numpy as np
@@ -13,14 +5,15 @@ import streamlit as st
 import matplotlib.pyplot as plt
 from matplotlib.ticker import MultipleLocator
 
-TITLE = "자연상수 e의 정의(극한) 탐구활동"
+TITLE = "자연상수 $e$"
 
 
 def _safe_f_of_x(x: np.ndarray) -> np.ndarray:
-    """
-    f(x) = (1+x)^(1/x)
-    x=0은 정의되지 않으므로 입력에서 제외해야 함.
-    x>-1 조건 필요(1+x 양수).
+    r"""
+    \( f(x) = (1+x)^{1/x} \)
+
+    - \(x=0\)은 정의되지 않으므로 입력에서 제외해야 함.
+    - \(1+x>0\) (즉 \(x>-1\)) 조건 필요.
     """
     with np.errstate(over="ignore", invalid="ignore", divide="ignore"):
         y = (1.0 + x) ** (1.0 / x)
@@ -29,8 +22,8 @@ def _safe_f_of_x(x: np.ndarray) -> np.ndarray:
 
 
 def _safe_g_of_n(n: np.ndarray) -> np.ndarray:
-    """
-    g(n) = (1+1/n)^n
+    r"""
+    \( g(n) = \left(1+\frac{1}{n}\right)^n \)
     """
     n = n.astype(float)
     with np.errstate(over="ignore", invalid="ignore", divide="ignore"):
@@ -79,20 +72,30 @@ def render(show_title: bool = True, key_prefix: str = "e_def") -> None:
     if show_title:
         st.title(TITLE)
 
+    # ----------------------------
+    # 개념/정의(LaTeX)
+    # ----------------------------
     st.markdown(
         r"""
 자연상수 \(e\)는 다음 극한으로 정의할 수 있습니다.
 
-- 연속형:
+- 연속형 정의:
 \[
 \lim_{x\to 0}(1+x)^{1/x}=e
 \]
-- 수열형:
+
+- 수열형 정의:
 \[
 \lim_{n\to\infty}\left(1+\frac{1}{n}\right)^n=e
 \]
+"""
+    )
 
-아래에서 \(x\)를 0에 가깝게, \(n\)을 크게 바꾸며 두 식이 같은 값 \(e\)로 수렴하는지 관찰해보세요.
+    st.markdown(
+        r"""
+### 관찰 포인트
+- \(x\)를 \(0\)에 가깝게 할수록 \(\,(1+x)^{1/x}\,\) 값이 \(e\)에 가까워지는지 확인해보세요.
+- \(n\)을 크게 할수록 \(\left(1+\frac{1}{n}\right)^n\) 값이 \(e\)에 가까워지는지 확인해보세요.
 """
     )
 
@@ -105,16 +108,14 @@ def render(show_title: bool = True, key_prefix: str = "e_def") -> None:
         col1, col2, col3 = st.columns([1.3, 1.0, 1.0])
 
         with col1:
-            # x는 -0.9보다 크게 잡아야 (1+x)>0
             x0 = st.slider(
                 "관찰할 x 값(0 제외)",
-                min_value=-0.9,
-                max_value=0.9,
+                min_value=-0.5,
+                max_value=0.5,
                 value=0.1,
                 step=0.001,
                 key=f"{key_prefix}_x0",
             )
-            # 0에 너무 가까우면 수치가 불안정할 수 있어 안전장치
             if abs(x0) < 1e-6:
                 st.info("x가 0에 너무 가까우면 계산이 불안정할 수 있어요. x를 조금만 더 떨어뜨려보세요.")
 
@@ -122,18 +123,17 @@ def render(show_title: bool = True, key_prefix: str = "e_def") -> None:
             n_max = st.slider(
                 "수열 관찰 최대 n",
                 min_value=10,
-                max_value=500,
+                max_value=200,
                 value=100,
                 step=10,
                 key=f"{key_prefix}_nmax",
             )
 
         with col3:
-            # 연속형 그래프의 샘플 수(너무 크면 렌더/메모리 부담)
             samples = st.slider(
                 "연속형 그래프 샘플 수",
                 min_value=50,
-                max_value=250,
+                max_value=200,
                 value=120,
                 step=10,
                 key=f"{key_prefix}_samples",
@@ -147,20 +147,18 @@ def render(show_title: bool = True, key_prefix: str = "e_def") -> None:
     # ----------------------------
     # 수치 계산(현재 값)
     # ----------------------------
-    # 연속형 현재값
     if abs(float(x0)) < 1e-12:
         fx0 = np.nan
     else:
         fx0 = float(_safe_f_of_x(np.array([float(x0)], dtype=float))[0])
 
-    # 수열형 현재값
     n_end = int(n_max)
     gx = float(_safe_g_of_n(np.array([n_end], dtype=int))[0])
 
     c1, c2, c3 = st.columns(3)
-    c1.metric("e (기준값)", f"{e_val:.10f}")
-    c2.metric("f(x) = (1+x)^(1/x)", f"{fx0:.10f}" if np.isfinite(fx0) else "정의/계산 불가")
-    c3.metric(f"g(n) = (1+1/n)^n (n={n_end})", f"{gx:.10f}" if np.isfinite(gx) else "계산 불가")
+    c1.metric(r"$e$ (기준값)", f"{e_val:.10f}")
+    c2.metric(r"$f(x)=(1+x)^{1/x}$", f"{fx0:.10f}" if np.isfinite(fx0) else "정의/계산 불가")
+    c3.metric(rf"$g(n)=\left(1+\frac{{1}}{{n}}\right)^n$  (n={n_end})", f"{gx:.10f}" if np.isfinite(gx) else "계산 불가")
 
     # ----------------------------
     # 그래프 영역: 좌(연속형) / 우(수열형)
@@ -169,10 +167,8 @@ def render(show_title: bool = True, key_prefix: str = "e_def") -> None:
 
     # ---- (A) 연속형: x→0에서 f(x)
     with left:
-        st.markdown("#### 연속형:  $(1+x)^{1/x}$  (x → 0)")
+        st.markdown(r"#### 연속형:  $f(x)=(1+x)^{1/x}$  \((x \to 0)\)")
 
-        # x=0을 피해서 좌/우 구간을 샘플링
-        # - 작은 구간에서 관찰되도록 [-0.5, -eps] ∪ [eps, 0.5] 형태로 구성
         eps = 1e-3
         half = 0.5
 
@@ -198,7 +194,6 @@ def render(show_title: bool = True, key_prefix: str = "e_def") -> None:
         ax.set_xlabel("x")
         ax.set_ylabel("f(x)")
 
-        # x축: 0.1 단위 정도가 보기 좋음(정수 기준은 아니지만 과밀 방지)
         ax.xaxis.set_major_locator(MultipleLocator(0.1))
 
         finite_y = ys[np.isfinite(ys)]
@@ -215,13 +210,16 @@ def render(show_title: bool = True, key_prefix: str = "e_def") -> None:
         plt.close(fig)
 
         if np.isfinite(fx0):
-            st.caption(f"x={x0:.6f}일 때 f(x)≈{fx0:.10f}, |f(x)-e|≈{abs(fx0-e_val):.3e}")
+            st.caption(
+                rf"$x={x0:.6f}$일 때  $f(x)\approx {fx0:.10f}$,  "
+                rf"$|f(x)-e|\approx {abs(fx0-e_val):.3e}$"
+            )
         else:
-            st.caption("선택한 x에서 f(x)를 계산할 수 없습니다. (x=0 또는 1+x≤0 등)")
+            st.caption(r"선택한 \(x\)에서 \(f(x)\)를 계산할 수 없습니다. (\(x=0\) 또는 \(1+x\le 0\) 등)")
 
     # ---- (B) 수열형: n→∞에서 g(n)
     with right:
-        st.markdown(r"#### 수열형:  $\left(1+\frac{1}{n}\right)^n$  (n → ∞)")
+        st.markdown(r"#### 수열형:  $g(n)=\left(1+\frac{1}{n}\right)^n$  \((n \to \infty)\)")
 
         ns = np.arange(1, int(n_max) + 1, dtype=int)
         ys2 = _safe_g_of_n(ns)
@@ -237,7 +235,6 @@ def render(show_title: bool = True, key_prefix: str = "e_def") -> None:
         ax2.set_xlabel("n")
         ax2.set_ylabel("g(n)")
 
-        # x축 정수 tick 과밀 방지
         x_step = max(1, int(np.ceil(int(n_max) / 10)))
         ax2.xaxis.set_major_locator(MultipleLocator(x_step))
 
@@ -255,12 +252,7 @@ def render(show_title: bool = True, key_prefix: str = "e_def") -> None:
         plt.close(fig2)
 
         if np.isfinite(gx):
-            st.caption(f"n={n_end}일 때 g(n)≈{gx:.10f}, |g(n)-e|≈{abs(gx-e_val):.3e}")
-
-    st.markdown(
-        r"""
-### 관찰 포인트
-- \(x\)를 0에 가깝게 할수록 \((1+x)^{1/x}\) 값이 \(e\)에 가까워지는지 확인해보세요.
-- \(n\)을 크게 할수록 \(\left(1+\frac{1}{n}\right)^n\) 값이 \(e\)에 가까워지는지 확인해보세요.
-"""
-    )
+            st.caption(
+                rf"$n={n_end}$일 때  $g(n)\approx {gx:.10f}$,  "
+                rf"$|g(n)-e|\approx {abs(gx-e_val):.3e}$"
+            )
