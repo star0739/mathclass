@@ -105,7 +105,7 @@ def render(show_title: bool = True, key_prefix: str = "geom_series") -> None:
     st.markdown(r""" ### 부분합과 급수의 관계
     $$ S_n = \sum_{k=1}^{n} a_k $$ 
     
-    $$ \lim_{n \to \infty} S_n = S \;\Longleftrightarrow\; \sum_{k=1}^{\infty} u_k = S$$
+    $$ \lim_{n \to \infty} S_n = S \;\Longleftrightarrow\; \sum_{k=1}^{\infty} a_k = S$$
     """)
     st.markdown("", unsafe_allow_html=True)
 
