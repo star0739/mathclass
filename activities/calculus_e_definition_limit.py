@@ -104,6 +104,9 @@ def render(show_title: bool = True, key_prefix: str = "e_def") -> None:
                 step=0.001,
                 key=f"{key_prefix}_x0",
             )
+
+            st.markdown(rf"현재 선택된 값:  \(\displaystyle x = {x0:.3f}\)")
+            
             if abs(x0) < 1e-6:
                 st.info("x가 0에 너무 가까우면 계산이 불안정할 수 있어요. x를 조금만 더 떨어뜨려보세요.")
 
