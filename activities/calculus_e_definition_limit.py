@@ -1,3 +1,9 @@
+# activities/calculus_e_definition_limit.py
+# Ⅱ. 미분법 - 자연상수 e (정의/극한) 탐구활동
+# - 탭 환경 위젯 충돌 방지: key_prefix 사용
+# - show_title 옵션 제공(라우터 탭이 제목 역할)
+# - 메모리 안정: 샘플 수/틱 간격 제한, figure close
+
 from __future__ import annotations
 
 import numpy as np
@@ -72,11 +78,28 @@ def render(show_title: bool = True, key_prefix: str = "e_def") -> None:
     if show_title:
         st.title(TITLE)
 
+    # ----------------------------
+    # 정의/관찰 포인트 (LaTeX)
+    # ----------------------------
+    st.markdown(
+        r"""
+자연상수 \(e\)는 다음 극한으로 정의할 수 있습니다.
+
+\[
+\lim_{x\to 0}(1+x)^{1/x}=e
+\qquad\text{and}\qquad
+\lim_{n\to\infty}\left(1+\frac{1}{n}\right)^n=e
+\]
+"""
+    )
+
     st.markdown("### 관찰 포인트")
-    st.markdown(r"""
+    st.markdown(
+        r"""
 - $x$를 $0$에 가깝게 할수록 $(1+x)^{1/x}$ 값이 $e$에 가까워지는지 확인해보세요.
 - $n$을 크게 할수록 $\left(1+\frac{1}{n}\right)^n$ 값이 $e$에 가까워지는지 확인해보세요.
-""")
+"""
+    )
 
     # ----------------------------
     # 입력 UI
@@ -120,7 +143,6 @@ def render(show_title: bool = True, key_prefix: str = "e_def") -> None:
 
         show_hline = st.checkbox("y = e 기준선 표시", value=True, key=f"{key_prefix}_hline")
 
-    # e 값
     e_val = float(np.e)
 
     # ----------------------------
@@ -137,14 +159,17 @@ def render(show_title: bool = True, key_prefix: str = "e_def") -> None:
     c1, c2, c3 = st.columns(3)
     c1.metric(r"$e$ (기준값)", f"{e_val:.10f}")
     c2.metric(r"$f(x)=(1+x)^{1/x}$", f"{fx0:.10f}" if np.isfinite(fx0) else "정의/계산 불가")
-    c3.metric(rf"$g(n)=\left(1+\frac{{1}}{{n}}\right)^n$  (n={n_end})", f"{gx:.10f}" if np.isfinite(gx) else "계산 불가")
+    c3.metric(
+        rf"$g(n)=\left(1+\frac{{1}}{{n}}\right)^n$  (n={n_end})",
+        f"{gx:.10f}" if np.isfinite(gx) else "계산 불가",
+    )
 
     # ----------------------------
     # 그래프 영역: 좌(연속형) / 우(수열형)
     # ----------------------------
     left, right = st.columns(2)
 
-    # ---- (A) 연속형: x→0에서 f(x)
+    # ---- (A) 연속형
     with left:
         st.markdown(r"#### 연속형:  $f(x)=(1+x)^{1/x}$  $(x \to 0)$")
 
@@ -166,7 +191,6 @@ def render(show_title: bool = True, key_prefix: str = "e_def") -> None:
 
         ax.plot(xs, ys, marker="o", linestyle="None", markersize=3)
         ax.axvline(0, linewidth=1)
-
         if show_hline:
             ax.axhline(e_val, linewidth=1)
 
@@ -196,7 +220,7 @@ def render(show_title: bool = True, key_prefix: str = "e_def") -> None:
         else:
             st.caption(r"선택한 \(x\)에서 \(f(x)\)를 계산할 수 없습니다. (\(x=0\) 또는 \(1+x\le 0\) 등)")
 
-    # ---- (B) 수열형: n→∞에서 g(n)
+    # ---- (B) 수열형
     with right:
         st.markdown(r"#### 수열형:  $g(n)=\left(1+\frac{1}{n}\right)^n$  $(n \to \infty)$")
 
@@ -207,7 +231,6 @@ def render(show_title: bool = True, key_prefix: str = "e_def") -> None:
         ax2 = fig2.add_subplot(111)
 
         ax2.plot(ns, ys2, marker="o", linestyle="None", markersize=3)
-
         if show_hline:
             ax2.axhline(e_val, linewidth=1)
 
@@ -235,3 +258,17 @@ def render(show_title: bool = True, key_prefix: str = "e_def") -> None:
                 rf"$n={n_end}$일 때  $g(n)\approx {gx:.10f}$,  "
                 rf"$|g(n)-e|\approx {abs(gx-e_val):.3e}$"
             )
+
+    # ----------------------------
+    # 마무리(정리)
+    # ----------------------------
+    st.markdown(
+        r"""
+### 정리
+\[
+\lim_{x\to 0}(1+x)^{1/x}=e,
+\qquad
+\lim_{n\to\infty}\left(1+\frac{1}{n}\right)^n=e
+\]
+"""
+    )
