@@ -67,11 +67,26 @@ def render(show_title: bool = True, key_prefix: str = "sinx_over_x_area") -> Non
     c2.metric("sin x / x", f"{val:.10f}")
     c3.metric("1", "1.0000000000")
 
-    
+
+    # ----------------------------
+    # 넓이 비교(수치)
+    # ----------------------------
+    st.markdown("### 넓이 비교(단위원)")
+
+    st.markdown(
+        f"""
+$$
+\\dfrac12\\sin x \\approx {area_triangle_inner:.6f}, \qquad
+\\dfrac12 x \\approx {area_sector:.6f}, \qquad
+\\dfrac12\\tan x \\approx {area_triangle_outer:.6f}
+$$
+"""
+    )
+
     # ----------------------------
     # 도식(단위원)
     # ----------------------------
-    st.markdown("### 단위원 도식")
+    st.markdown("### 단위원 도식(개념 확인용)")
 
     fig = plt.figure(figsize=(6, 4))
     ax = fig.add_subplot(111)
@@ -116,4 +131,3 @@ def render(show_title: bool = True, key_prefix: str = "sinx_over_x_area") -> Non
 
     st.pyplot(fig)
     plt.close(fig)
-
