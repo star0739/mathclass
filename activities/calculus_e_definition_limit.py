@@ -72,32 +72,15 @@ def render(show_title: bool = True, key_prefix: str = "e_def") -> None:
     if show_title:
         st.title(TITLE)
 
-    # ----------------------------
-    # 개념/정의(LaTeX)
-    # ----------------------------
     st.markdown(
         r"""
-자연상수 \(e\)는 다음 극한으로 정의할 수 있습니다.
-
-- 연속형 정의:
-\[
-\lim_{x\to 0}(1+x)^{1/x}=e
-\]
-
-- 수열형 정의:
-\[
-\lim_{n\to\infty}\left(1+\frac{1}{n}\right)^n=e
-\]
-"""
-    )
-
     st.markdown(
-        r"""
+    r"""
 ### 관찰 포인트
 - \(x\)를 \(0\)에 가깝게 할수록 \(\,(1+x)^{1/x}\,\) 값이 \(e\)에 가까워지는지 확인해보세요.
 - \(n\)을 크게 할수록 \(\left(1+\frac{1}{n}\right)^n\) 값이 \(e\)에 가까워지는지 확인해보세요.
 """
-    )
+)
 
     # ----------------------------
     # 입력 UI
@@ -167,7 +150,7 @@ def render(show_title: bool = True, key_prefix: str = "e_def") -> None:
 
     # ---- (A) 연속형: x→0에서 f(x)
     with left:
-        st.markdown(r"#### 연속형:  $f(x)=(1+x)^{1/x}$  \((x \to 0)\)")
+        st.markdown(r"#### 연속형:  $f(x)=(1+x)^{1/x}$  $x to 0$")
 
         eps = 1e-3
         half = 0.5
@@ -219,7 +202,7 @@ def render(show_title: bool = True, key_prefix: str = "e_def") -> None:
 
     # ---- (B) 수열형: n→∞에서 g(n)
     with right:
-        st.markdown(r"#### 수열형:  $g(n)=\left(1+\frac{1}{n}\right)^n$  \((n \to \infty)\)")
+        st.markdown(r"#### 수열형:  $g(n)=\left(1+\frac{1}{n}\right)^n$  $n to infty$")
 
         ns = np.arange(1, int(n_max) + 1, dtype=int)
         ys2 = _safe_g_of_n(ns)
