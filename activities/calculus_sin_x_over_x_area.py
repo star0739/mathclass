@@ -37,7 +37,7 @@ def render(show_title: bool = True, key_prefix: str = "sinx_over_x_area") -> Non
             min_value=0.001,
             max_value=float(np.pi / 2 - 0.01),
             value=0.5,
-            step=0.001,
+            step=0.01,
             key=f"{key_prefix}_x",
         )
 
