@@ -6,7 +6,7 @@ import numpy as np
 import streamlit as st
 import matplotlib.pyplot as plt
 
-TITLE = r"삼각함수의 극한(넓이 비교) : $\dfrac{\sin x}{x}$"
+TITLE = r"삼각함수의 극한: $\dfrac{\sin x}{x}$"
 
 
 def _safe_sin_over_x(x: float) -> float:
@@ -22,8 +22,7 @@ def render(show_title: bool = True, key_prefix: str = "sinx_over_x_area") -> Non
     st.markdown("### 관찰 포인트")
     st.markdown(
         r"""
-- $x$를 $0$에 가깝게 할수록 $\dfrac{\sin x}{x}$ 값이 $1$에 가까워지는지 확인해보세요.
-- $x$를 작게 할수록 $\cos x$와 $\dfrac{\sin x}{x}$가 모두 $1$에 가까워지는지 확인해보세요.
+- $x$를 $0$에 가깝게 할수록 $\cos x$와 $\dfrac{\sin x}{x}$가 모두 $1$에 가까워지는지 확인해보세요.
 """
     )
 
@@ -42,7 +41,6 @@ def render(show_title: bool = True, key_prefix: str = "sinx_over_x_area") -> Non
             key=f"{key_prefix}_x",
         )
 
-        st.caption("단위: 라디안(rad)")
 
         # 현재 선택값 (가장 안정적인 $$ 블록)
         st.markdown(
