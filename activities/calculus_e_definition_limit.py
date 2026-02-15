@@ -117,15 +117,6 @@ def render(show_title: bool = True, key_prefix: str = "e_def") -> None:
                 key=f"{key_prefix}_nmax",
             )
 
-        with col3:
-            samples = st.slider(
-                "연속형 그래프 샘플 수",
-                min_value=50,
-                max_value=200,
-                value=120,
-                step=10,
-                key=f"{key_prefix}_samples",
-            )
 
         show_hline = st.checkbox("y = e 기준선 표시", value=True, key=f"{key_prefix}_hline")
 
@@ -159,6 +150,11 @@ def render(show_title: bool = True, key_prefix: str = "e_def") -> None:
     with left:
         st.markdown(r"#### 연속형:  $f(x)=(1+x)^{1/x}$  $(x \to 0)$")
 
+        SAMPLES = 120
+        m = SAMPLES
+        m_left = m // 2
+        m_right = m - m_left
+        
         eps = 1e-3
         half = 0.5
 
