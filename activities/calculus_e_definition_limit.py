@@ -175,7 +175,7 @@ def render(show_title: bool = True, key_prefix: str = "e_def") -> None:
         ax.set_xlabel("x")
         ax.set_ylabel("f(x)")
 
-        ax.xaxis.set_major_locator(MultipleLocator(0.1))
+        ax.xaxis.set_major_locator(MultipleLocator(0.001))
 
         finite_y = ys[np.isfinite(ys)]
         if finite_y.size > 0:
