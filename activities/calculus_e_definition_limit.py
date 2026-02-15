@@ -158,10 +158,6 @@ def render(show_title: bool = True, key_prefix: str = "e_def") -> None:
         eps = 1e-3
         half = 0.5
 
-        m = int(samples)
-        m_left = m // 2
-        m_right = m - m_left
-
         xs_left = np.linspace(-half, -eps, m_left, dtype=float)
         xs_right = np.linspace(eps, half, m_right, dtype=float)
         xs = np.concatenate([xs_left, xs_right], axis=0)
