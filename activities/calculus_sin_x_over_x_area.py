@@ -19,43 +19,6 @@ def render(show_title: bool = True, key_prefix: str = "sinx_over_x_area") -> Non
     if show_title:
         st.title(TITLE)
 
-    # ----------------------------
-    # 개념 설명(수식은 $ / $$ 만)
-    # ----------------------------
-    st.markdown(
-        r"""
-단위원(반지름 1)에서 $0<x<\dfrac{\pi}{2}$일 때, 다음 세 넓이를 비교합니다.
-
-- 내접삼각형 넓이: $$\dfrac12\sin x$$
-- 부채꼴 넓이(라디안): $$\dfrac12 x$$
-- 외접삼각형 넓이: $$\dfrac12\tan x$$
-
-따라서
-$$
-\dfrac12\sin x \;<\; \dfrac12 x \;<\; \dfrac12\tan x
-$$
-즉,
-$$
-\sin x \;<\; x \;<\; \tan x
-$$
-
-양변을 $\sin x$로 나누면
-$$
-1 \;<\; \dfrac{x}{\sin x} \;<\; \dfrac{1}{\cos x}
-$$
-
-역수를 취하면(모두 양수이므로 부등호 방향 유지)
-$$
-\cos x \;<\; \dfrac{\sin x}{x} \;<\; 1
-$$
-
-그리고 $x\to 0$일 때 $\cos x\to 1$ 이므로
-$$
-\lim_{x\to 0}\dfrac{\sin x}{x}=1
-$$
-"""
-    )
-
     st.markdown("### 관찰 포인트")
     st.markdown(
         r"""
@@ -113,15 +76,6 @@ $$
     c2.metric("sin x / x", f"{val:.10f}")
     c3.metric("1", "1.0000000000")
 
-    # 오차도 같이 보여주면 관찰이 쉬움
-    st.markdown(
-        f"""
-$$
-|1-\cos x| \approx {abs(1 - cosx):.3e}, \qquad
-\\left|1-\\dfrac{{\sin x}}{{x}}\\right| \approx {abs(1 - val):.3e}
-$$
-"""
-    )
 
     # ----------------------------
     # 넓이 비교(수치)
@@ -187,4 +141,3 @@ $$
     st.pyplot(fig)
     plt.close(fig)
 
-    st.caption("Tip: x를 0.5 → 0.2 → 0.1 → 0.05처럼 줄이며 sin x / x 값이 1로 가까워지는지 확인해보세요.")
