@@ -44,7 +44,7 @@ def _classify_series(a: float, r: float) -> tuple[str, str]:
 
     if abs(r) < 1 - eps:
         return "수렴", r"$|r|<1$이면  $\lim_{n\to\infty} S_n$이 수렴하므로 급수는 수렴"
-    return "발산", r"$|r|\ge 1$이면  $\lim_{n\to\infty} S_n$이 발산하므 급수는 발산"
+    return "발산", r"$|r|\ge 1$이면  $\lim_{n\to\infty} S_n$이 발산하므로 급수는 발산"
 
 
 # --------------------------------------------------
@@ -100,18 +100,19 @@ def render(show_title: bool = True, key_prefix: str = "geom_series") -> None:
         st.title(TITLE)
 
     # ----------------------------
-    # 부분합 수식 설명
+    # 부분합과 급수의 관계
     # ----------------------------
-    st.markdown(""" ### 등비급수의 제 $n$항까지의 부분합
-    $$ S_n = a + ar + ar^2 + \\cdots + ar^{n-1}= \\sum_{k=1}^{n} a r^{k-1} $$ 
+    st.markdown(""" ### 부분합과 급수의 관계
+    $$ S_n = \sum_{k=1}^{n} a_k $$ 
+    $$ \lim_{n \to \infty} S_n = S \;\Longleftrightarrow\; \sum_{k=1}^{\infty} u_k = S$$
     """)
     st.markdown("", unsafe_allow_html=True)
 
     # ----------------------------
-    # 정의 설명
+    # 등비급수의 제 n항까지의 부분합
     # ----------------------------
-    st.markdown(""" ### 부분합과 급수의 관계
-    $$ \\lim_{n \\to \\infty} S_n= S $$이면, 급수 $$\\sum_{n=1}^{\\infty} ar^{n-1} = S$$이다. """)
+    st.markdown(""" ### 등비급수의 제 $n$항까지의 부분합
+    $$ S_n = a + ar + ar^2 + \cdots + ar^{n-1} = \sum_{k=1}^{n} a r^{k-1}$$이다. """)
     st.markdown("", unsafe_allow_html=True)
 
     # ----------------------------
