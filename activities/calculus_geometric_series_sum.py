@@ -43,8 +43,8 @@ def _classify_series(a: float, r: float) -> tuple[str, str]:
         return "수렴", r"$a=0$ 이므로 모든 부분합이 0이고, 급수는 0으로 수렴합니다."
 
     if abs(r) < 1 - eps:
-        return "수렴", r"$|r|<1$이면  $\lim_{n\to\infty} S_n =\lim_{n\to\infty} \frac{a(1-r^n)}{1-r} =\frac{a}{1-r}$이므로 급수는 수렴"
-    return "발산", r"$|r|\ge 1$이면  $\lim_{n\to\infty} ar^{\,n-1}\neq 0$이므로 급수는 발산"
+        return "수렴", r"$|r|<1$이면  $\lim_{n\to\infty} S_n$이 수렴하므로 급수는 수렴"
+    return "발산", r"$|r|\ge 1$이면  $\lim_{n\to\infty} S_n$이 발산하므 급수는 발산"
 
 
 # --------------------------------------------------
@@ -110,7 +110,7 @@ def render(show_title: bool = True, key_prefix: str = "geom_series") -> None:
     # ----------------------------
     # 정의 설명
     # ----------------------------
-    st.markdown(""" ### 부분합과 무한급수의 정의
+    st.markdown(""" ### 부분합과 급수의 관계
     $$ \\lim_{n \\to \\infty} S_n= S $$이면, 급수 $$\\sum_{n=1}^{\\infty} ar^{n-1} = S$$이다. """)
     st.markdown("", unsafe_allow_html=True)
 
