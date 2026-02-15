@@ -102,8 +102,9 @@ def render(show_title: bool = True, key_prefix: str = "geom_series") -> None:
     # ----------------------------
     # 부분합과 급수의 관계
     # ----------------------------
-    st.markdown(""" ### 부분합과 급수의 관계
+    st.markdown(r""" ### 부분합과 급수의 관계
     $$ S_n = \sum_{k=1}^{n} a_k $$ 
+    
     $$ \lim_{n \to \infty} S_n = S \;\Longleftrightarrow\; \sum_{k=1}^{\infty} u_k = S$$
     """)
     st.markdown("", unsafe_allow_html=True)
@@ -111,7 +112,7 @@ def render(show_title: bool = True, key_prefix: str = "geom_series") -> None:
     # ----------------------------
     # 등비급수의 제 n항까지의 부분합
     # ----------------------------
-    st.markdown(""" ### 등비급수의 제 $n$항까지의 부분합
+    st.markdown(r""" ### 등비급수의 제 $n$항까지의 부분합
     $$ S_n = a + ar + ar^2 + \cdots + ar^{n-1} = \sum_{k=1}^{n} a r^{k-1}$$이다. """)
     st.markdown("", unsafe_allow_html=True)
 
