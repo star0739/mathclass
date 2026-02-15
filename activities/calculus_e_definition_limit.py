@@ -98,8 +98,8 @@ def render(show_title: bool = True, key_prefix: str = "e_def") -> None:
         with col1:
             x0 = st.slider(
                 "관찰할 x 값(0 제외)",
-                min_value=-0.5,
-                max_value=0.5,
+                min_value=-0.3,
+                max_value=0.3,
                 value=0.1,
                 step=0.001,
                 key=f"{key_prefix}_x0",
