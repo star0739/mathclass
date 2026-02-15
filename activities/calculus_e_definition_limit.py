@@ -78,20 +78,6 @@ def render(show_title: bool = True, key_prefix: str = "e_def") -> None:
     if show_title:
         st.title(TITLE)
 
-    # ----------------------------
-    # 정의/관찰 포인트 (LaTeX)
-    # ----------------------------
-    st.markdown(
-        r"""
-자연상수 \(e\)는 다음 극한으로 정의할 수 있습니다.
-
-\[
-\lim_{x\to 0}(1+x)^{1/x}=e
-\qquad\text{and}\qquad
-\lim_{n\to\infty}\left(1+\frac{1}{n}\right)^n=e
-\]
-"""
-    )
 
     st.markdown("### 관찰 포인트")
     st.markdown(
@@ -212,14 +198,6 @@ def render(show_title: bool = True, key_prefix: str = "e_def") -> None:
         st.pyplot(fig)
         plt.close(fig)
 
-        if np.isfinite(fx0):
-            st.caption(
-                rf"$x={x0:.6f}$일 때  $f(x)\approx {fx0:.10f}$,  "
-                rf"$|f(x)-e|\approx {abs(fx0-e_val):.3e}$"
-            )
-        else:
-            st.caption(r"선택한 \(x\)에서 \(f(x)\)를 계산할 수 없습니다. (\(x=0\) 또는 \(1+x\le 0\) 등)")
-
     # ---- (B) 수열형
     with right:
         st.markdown(r"#### 수열형:  $g(n)=\left(1+\frac{1}{n}\right)^n$  $(n \to \infty)$")
@@ -253,22 +231,4 @@ def render(show_title: bool = True, key_prefix: str = "e_def") -> None:
         st.pyplot(fig2)
         plt.close(fig2)
 
-        if np.isfinite(gx):
-            st.caption(
-                rf"$n={n_end}$일 때  $g(n)\approx {gx:.10f}$,  "
-                rf"$|g(n)-e|\approx {abs(gx-e_val):.3e}$"
-            )
 
-    # ----------------------------
-    # 마무리(정리)
-    # ----------------------------
-    st.markdown(
-        r"""
-### 정리
-\[
-\lim_{x\to 0}(1+x)^{1/x}=e,
-\qquad
-\lim_{n\to\infty}\left(1+\frac{1}{n}\right)^n=e
-\]
-"""
-    )
