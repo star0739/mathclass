@@ -23,7 +23,7 @@ def render(show_title: bool = True, key_prefix: str = "sinx_over_x_area") -> Non
     # ----------------------------
     st.markdown(
         r"""
-단위원(반지름 \(1\))에서 \(0<x<\frac{\pi}{2}\)일 때 다음 세 넓이를 비교합니다.
+반지름이 1인 단위원에서 $(0<x<frac{pi}{2})$일 때 다음 세 넓이를 비교합니다.
 
 - **내접삼각형** 넓이:
 \[
