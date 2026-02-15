@@ -22,9 +22,8 @@ if str(CURRENT_DIR) not in sys.path:
 # --------------------------------------------------
 import calculus_geometric_sequence_limit as geom_seq_limit
 import calculus_geometric_series_sum as geom_series_sum
+import calculus_e_definition_limit as e_def
 
-# (Ⅱ. 미분법 추가 예정)
-# import calculus_derivative_limit_definition as deriv_def
 
 # (Ⅲ. 적분법 추가 예정)
 # import calculus_riemann_sum_area as riemann_area
@@ -39,7 +38,7 @@ UNIT_ACTIVITIES = {
         geom_series_sum,
     ],
     "Ⅱ. 미분법": [
-        # deriv_def,
+        e_def,
     ],
     "Ⅲ. 적분법": [
         # riemann_area,
