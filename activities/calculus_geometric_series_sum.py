@@ -217,6 +217,6 @@ def render(show_title: bool = True, key_prefix: str = "geom_series") -> None:
     # ----------------------------
     st.markdown(r"### 등비급수 $\sum_{n=1}^{\infty} ar^{n-1}$ ($a \neq 0$)의 수렴과 발산")
     st.markdown(r"""
-- $$|r|<1 \Rightarrow  \text{ 는 수렴하고 그 합은 } \frac{a}{1-r}$$
-- $$|r|\ge1 \Rightarrow  \text{  발산한다.}$$
+- $$|r|<1 \Rightarrow  \text{ 등비급수는 수렴하고 그 합은 } \frac{a}{1-r}$$
+- $$|r|\ge1 \Rightarrow  \text{ 등비급수는 발산한다.}$$
 """)
