@@ -46,14 +46,7 @@ def render(show_title: bool = True, key_prefix: str = "sinx_over_x_area") -> Non
 
         # 현재 선택값 (가장 안정적인 $$ 블록)
         st.markdown(
-            f"""
-현재 선택 값:
-
-$$
-x = {x:.3f}
-$$
-"""
-        )
+            f""" 현재 선택 값: $$ x = {x:.3f} $$ """)
 
     # ----------------------------
     # 계산
@@ -134,8 +127,8 @@ $$
     ax.set_aspect("equal", adjustable="box")
     ax.set_xlim(-0.2, 1.4)
     ax.set_ylim(-0.2, max(1.1, ty + 0.2))
-    ax.set_xlabel("x")
-    ax.set_ylabel("y")
+    ax.set_xlabel("$x$")
+    ax.set_ylabel("$y$")
     ax.grid(True, linestyle="--", linewidth=0.5, alpha=0.6)
 
     st.pyplot(fig)
