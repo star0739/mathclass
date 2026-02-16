@@ -208,16 +208,34 @@ st.subheader("Step5) 그래프 해석")
 
 prev = get_step1_summary()
 
-data_source = st.text_input("데이터 출처", prev.get("data_source", ""))
-feature1 = st.text_area("추세 특징 1", prev.get("feature1", ""))
-feature2 = st.text_area("추세 특징 2", prev.get("feature2", ""))
-question = st.text_area("분석 질문", prev.get("question", ""))
+data_source = st.text_input(
+    "데이터 출처(링크/기관명 등) (필수)",
+    value=prev.get("data_source", ""),
+    placeholder="예: KOSIS / 공공데이터포털 / URL 등",
+    key="step1_data_source",
+)
+
+feature1 = st.text_area(
+    "추세 기반 특징 (필수)",
+    value=prev.get("feature1", ""),
+    height=90,
+    placeholder="예: 시간이 지날수록 y가 증가(감소)한다. 특정 구간에서 변화가 급격해진다. 주기성이 나타난다.",
+    key="step1_feature1",
+)
+
+question = st.text_area(
+    "분석 질문(문장) (필수)",
+    value=prev.get("question", ""),
+    height=90,
+    placeholder="예: 이 추세는 선형/지수/로그 중 무엇에 가까운가? 변화율은 시간이 지날수록 어떻게 달라지는가?",
+    key="step1_question",
+)
 
 save = st.button("💾 저장")
 next_step = st.button("➡️ 2차시로 이동")
 
 if save or next_step:
-    if not all([data_source.strip(), feature1.strip(), feature2.strip(), question.strip()]):
+    if not all([data_source.strip(), feature1.strip(), question.strip()]):
         st.warning("모든 항목을 입력하세요.")
         st.stop()
 
@@ -225,7 +243,6 @@ if save or next_step:
         {
             "data_source": data_source,
             "feature1": feature1,
-            "feature2": feature2,
             "question": question,
             "valid_n": valid_n,
         }
