@@ -73,18 +73,20 @@ finalseat_page = st.Page(
     icon="✅",
 )
 
-pages = {
-    "Home": [home_page],
-    "📖 교과 학습": [calculus_page, ai_math_page],
-    "🪑 좌석 관리": [seat_page, finalseat_page],
-}
-
 # ✅ (추가) Test 페이지 등록
 test_page = st.Page(
     "sub/test.py",
     title="Test",
     icon="🧪",
 )
+
+
+pages = {
+    "Home": [home_page],
+    "📖 교과 학습": [calculus_page, ai_math_page],
+    "🪑 좌석 관리": [seat_page, finalseat_page],
+}
+
 
 # 기본 네비게이션은 숨기고, 우리가 만든 사이드바로만 이동
 pg = st.navigation(pages, position="hidden")
