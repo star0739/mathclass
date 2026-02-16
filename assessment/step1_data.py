@@ -73,7 +73,7 @@ def build_backup_text(payload: dict) -> str:
     lines.append("공공데이터 분석 수행 (1차시) 백업")
     lines.append("=" * 40)
     lines.append(f"저장시각: {pd.Timestamp.now().strftime('%Y-%m-%d %H:%M:%S')}")
-    lines.append(f"학번(예: 30901): {payload.get('student_id','')}")
+    lines.append(f"학번: {payload.get('student_id','')}")
     lines.append("")
     lines.append("[데이터 정보]")
     lines.append(f"- 데이터 출처: {payload.get('data_source','')}")
