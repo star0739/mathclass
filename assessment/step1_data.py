@@ -111,6 +111,7 @@ st.subheader("Step1) 🔎 공공데이터 선택")
 st.link_button("📊 KOSIS에서 데이터 다운로드", "https://kosis.kr")
 st.markdown(
     """
+- 공공데이터포털(data.go.kr), 서울 열린데이터 광장(data.seoul.go.kr) 등 다른 사이트도 가능
 - **연도/월 등 시간에 따른 변화**를 분석할 수 있는 데이터를 선택하세요.
 - 데이터는 **숫자 데이터**여야 합니다. (예: 인구 수, 비율, 농도, 금액 등)
 - 다운로드 파일은 **CSV(UTF-8 권장)**  
