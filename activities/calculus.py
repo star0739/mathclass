@@ -36,7 +36,7 @@ import calculus_geometric_series_sum as geom_series_sum
 
 import calculus_e_definition_limit as e_def
 import calculus_sin_x_over_x_area as sinx_over_x_area
-import calculus_circle_param_line_t.py as circle_param_t
+import calculus_circle_param_line_t as circle_param_t
 
 # (Ⅲ. 적분법 추가 예정)
 # import calculus_riemann_sum_area as riemann_area
