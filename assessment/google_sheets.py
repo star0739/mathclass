@@ -33,7 +33,6 @@ def append_step1_row(
     student_id: str,
     data_source: str,
     feature1: str,
-    feature2: str,
     question: str,
     valid_n: int,
 ):
@@ -45,7 +44,6 @@ def append_step1_row(
             student_id,
             data_source,
             feature1,
-            feature2,
             question,
             valid_n,
         ],
