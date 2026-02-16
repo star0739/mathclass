@@ -84,7 +84,7 @@ test_page = st.Page(
 pages = {
     "Home": [home_page],
     "📖 교과 학습": [calculus_page, ai_math_page],
-    "🪑 좌석 관리": [seat_page, finalseat_page],
+    "🪑 좌석 관리": [seat_page, finalseat_page, test_page],
 }
 
 
