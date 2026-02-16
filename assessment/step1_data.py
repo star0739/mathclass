@@ -8,6 +8,7 @@ import streamlit as st
 import pandas as pd
 import numpy as np
 import csv
+from assessment.google_sheets import append_step1_row
 
 # 그래프 라이브러리 (plotly 있으면 사용, 없으면 matplotlib)
 PLOTLY_AVAILABLE = True
@@ -235,22 +236,40 @@ save = st.button("💾 저장")
 next_step = st.button("➡️ 2차시로 이동")
 
 if save or next_step:
-    if not all([data_source.strip(), feature1.strip(), question.strip()]):
+    if not all([data_source.strip(), feature1.strip(), feature2.strip(), question.strip()]):
         st.warning("모든 항목을 입력하세요.")
         st.stop()
 
+    # 세션 저장(다음 차시용)
     set_step1_summary(
         {
             "data_source": data_source,
             "feature1": feature1,
+            "feature2": feature2,
             "question": question,
             "valid_n": valid_n,
         }
     )
-    st.success("저장 완료")
+
+    # 🔥 Google Sheet에 한 줄 추가
+    try:
+        append_step1_row(
+            student_id=student_id,
+            data_source=data_source,
+            feature1=feature1,
+            feature2=feature2,
+            question=question,
+            valid_n=valid_n,
+        )
+        st.success("✅ 저장 완료! (Google Sheet에 기록되었습니다)")
+    except Exception as e:
+        st.error("⚠️ Google Sheet 저장 중 오류가 발생했습니다.")
+        st.exception(e)
+        st.stop()
 
     if next_step:
-        if not quality_ok:
+        if valid_n < MIN_VALID_POINTS:
             st.error("데이터 개수 조건을 만족해야 2차시로 이동할 수 있습니다.")
             st.stop()
         st.switch_page("assessment/step2_model.py")
+
