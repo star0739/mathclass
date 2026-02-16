@@ -34,7 +34,7 @@ def render(show_title: bool = True, key_prefix: str = "circle_param_t") -> None:
     st.markdown(
         r"""
 원 $x^2+y^2=1$ 위의 점을, 점 $(-1,0)$을 지나는 직선 $y=t(x+1)$과 원의 **다른 교점**으로 잡습니다.
-$x=\frac{1-t^2}{1+t^2},\qquad y=\frac{2t}{1+t^2}\quad (t\in\mathbb{R})$
+$$ x=\frac{1-t^2}{1+t^2},\qquad y=\frac{2t}{1+t^2}\quad (t\in\mathbb{R})$$
 """
     )
 
