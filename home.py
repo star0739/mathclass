@@ -127,7 +127,7 @@ with st.sidebar:
 
     # ✅ (추가) Test 버튼
     if st.button("Test1", use_container_width=True, key="sb_test"):
-        st.switch_page(test1_page)
+        st.switch_page(test_page)
 
 
 # -----------------------------
