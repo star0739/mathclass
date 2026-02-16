@@ -245,7 +245,6 @@ if save or next_step:
         {
             "data_source": data_source,
             "feature1": feature1,
-            "feature2": feature2,
             "question": question,
             "valid_n": valid_n,
         }
@@ -257,7 +256,6 @@ if save or next_step:
             student_id=student_id,
             data_source=data_source,
             feature1=feature1,
-            feature2=feature2,
             question=question,
             valid_n=valid_n,
         )
