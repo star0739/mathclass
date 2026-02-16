@@ -79,6 +79,13 @@ pages = {
     "🪑 좌석 관리": [seat_page, finalseat_page],
 }
 
+# ✅ (추가) Test 페이지 등록
+test_page = st.Page(
+    "sub/test.py",
+    title="Test",
+    icon="🧪",
+)
+
 # 기본 네비게이션은 숨기고, 우리가 만든 사이드바로만 이동
 pg = st.navigation(pages, position="hidden")
 
@@ -115,6 +122,11 @@ with st.sidebar:
 
     if st.button("좌석 확인", use_container_width=True, key="sb_finalseat"):
         st.switch_page(finalseat_page)
+
+    # ✅ (추가) Test 버튼
+    if st.button("Test", use_container_width=True, key="sb_test"):
+        st.switch_page(test_page)
+
 
 # -----------------------------
 # 현재 선택된 페이지 실행
