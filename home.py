@@ -75,7 +75,7 @@ finalseat_page = st.Page(
 
 # ✅ (추가) Test 페이지 등록
 test_page = st.Page(
-    "test/test1.py",
+    "test/test.py",
     title="Test",
     icon="🧪",
 )
