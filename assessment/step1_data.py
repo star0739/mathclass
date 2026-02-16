@@ -102,7 +102,7 @@ def build_backup_text(payload: dict) -> str:
 init_assessment_session()
 student_id = require_student_id("학번 또는 식별 코드를 입력하세요.")
 
-st.title("공공데이터 분석 수행 (1차시) — 데이터 탐색 & 모델링 가설")
+st.title("(1차시) 데이터 탐색 & 모델링 가설")
 st.caption("그래프를 보고 특징을 정리한 뒤, 어떤 함수 모델이 적절할지 가설을 세웁니다.")
 st.divider()
 
@@ -111,20 +111,22 @@ st.subheader("Step1) 🔎 공공데이터 선택")
 st.link_button("📊 KOSIS에서 데이터 다운로드", "https://kosis.kr")
 st.markdown(
     """
-- CSV 권장(UTF-8 권장) — 앱이 자동으로 읽기를 시도합니다.
-- X축이 `2015.01` 같은 **년월 형식**이어도 가능합니다.
-- 유효 데이터 점 **30개 이상** 권장
-"""
+- **연도/월 등 시간에 따른 변화**를 분석할 수 있는 데이터를 선택하세요.
+- 데이터는 **숫자 데이터**여야 합니다. (예: 인구 수, 비율, 농도, 금액 등)
+- 다운로드 파일은 **CSV(UTF-8 권장)**  
+- 너무 짧은 데이터는 비선형 모델 비교가 어렵습니다. **유효 데이터 점 30개 이상 권장**"""
 )
 
 # Step2
-st.subheader("Step2) 🛠️ 전처리(권장)")
+st.subheader("Step2) 🛠️ 업로드 전 전처리")
 with st.expander("파일 규칙(권장)", expanded=True):
     st.markdown(
         """
-- 첫 행은 **열 이름(헤더)**
-- 불필요한 행/열(주석/합계/공백) 삭제
-- X/Y로 쓸 열이 최소 2개 이상
+- 파일 형식: **CSV(UTF-8 권장)**
+- 첫 행: **열 이름(헤더)**
+- **불필요한 행/열(주석, 합계, 공백 행 등)** 삭제
+- X축, Y축으로 사용할 **2개의 열**이 포함되어 있어야 함
+- X축이 `2015.01`처럼 **년월**인 경우 그대로 두어도 됩니다.
 """
     )
 
@@ -151,6 +153,16 @@ if df is None:
 
 st.markdown("#### 참고: 데이터 미리보기")
 st.dataframe(get_df_preview(df), use_container_width=True)
+
+# 품질 점검
+st.divider()
+st.subheader("✅ 데이터 개 점검")
+valid_n = int(len(xv))
+st.metric("유효 데이터 점(숫자 쌍) 개수", valid_n)
+quality_ok = valid_n >= MIN_VALID_POINTS
+if not quality_ok:
+    st.error(f"유효 데이터 점이 {MIN_VALID_POINTS}개 미만입니다. (2차시 이동 제한)")
+st.caption("※ 2차시 이동은 유효 데이터 점 30개 이상일 때만 허용합니다.")
 
 # Step4
 st.divider()
@@ -220,19 +232,10 @@ else:
         ax.set_ylabel(str(y_col))
         st.pyplot(fig, use_container_width=True)
 
-# 품질 점검
-st.divider()
-st.subheader("A) ✅ 데이터 품질 점검(간단)")
-valid_n = int(len(xv))
-st.metric("유효 데이터 점(숫자 쌍) 개수", valid_n)
-quality_ok = valid_n >= MIN_VALID_POINTS
-if not quality_ok:
-    st.error(f"유효 데이터 점이 {MIN_VALID_POINTS}개 미만입니다. (2차시 이동 제한)")
-st.caption("※ 저장은 가능하지만, 2차시 이동은 유효 데이터 점 30개 이상일 때만 허용합니다.")
 
 # Step5
 st.divider()
-st.subheader("Step5) 🧠 그래프 특징 & 함수 모델링 가설")
+st.subheader("Step5) 그래프 특징 & 함수 모델링 가설")
 
 prev = get_step1_summary()
 
