@@ -34,12 +34,9 @@ if str(CURRENT_DIR) not in sys.path:
 import calculus_geometric_sequence_limit as geom_seq_limit
 import calculus_geometric_series_sum as geom_series_sum
 
-# Ⅱ. 미분법: e 정의(극한) 탐구활동
 import calculus_e_definition_limit as e_def
 import calculus_sin_x_over_x_area as sinx_over_x_area
-
-# (Ⅱ. 미분법 추가 예정)
-# import calculus_derivative_limit_definition as deriv_def
+import calculus_circle_param_line_t.py as circle_param_t
 
 # (Ⅲ. 적분법 추가 예정)
 # import calculus_riemann_sum_area as riemann_area
@@ -55,7 +52,7 @@ UNIT_ACTIVITIES = {
     "Ⅱ. 미분법": [
         e_def,
         sinx_over_x_area,
-        
+        circle_param_t,
     ],
     "Ⅲ. 적분법": [
         # riemann_area,
