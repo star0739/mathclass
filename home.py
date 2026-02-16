@@ -75,7 +75,7 @@ finalseat_page = st.Page(
 
 # ✅ (추가) Test 페이지 등록
 test_page = st.Page(
-    "sub/test.py",
+    "test/test1.py",
     title="Test",
     icon="🧪",
 )
@@ -126,8 +126,8 @@ with st.sidebar:
         st.switch_page(finalseat_page)
 
     # ✅ (추가) Test 버튼
-    if st.button("Test", use_container_width=True, key="sb_test"):
-        st.switch_page(test_page)
+    if st.button("Test1", use_container_width=True, key="sb_test"):
+        st.switch_page(test1_page)
 
 
 # -----------------------------
