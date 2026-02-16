@@ -6,11 +6,6 @@ from google.oauth2.service_account import Credentials
 # -----------------------------
 # 기본 설정
 # -----------------------------
-st.set_page_config(
-    page_title="Test1 | Google Sheets 연동 테스트",
-    page_icon="🧪",
-    layout="centered",
-)
 
 st.title("🧪 Test1 : Google Sheets 연동 테스트")
 st.caption("제출 버튼을 누르면 구글 시트에 한 줄이 추가됩니다.")
