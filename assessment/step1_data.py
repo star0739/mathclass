@@ -154,15 +154,6 @@ if df is None:
 st.markdown("#### 참고: 데이터 미리보기")
 st.dataframe(get_df_preview(df), use_container_width=True)
 
-# 품질 점검
-st.divider()
-st.subheader("✅ 데이터 개 점검")
-valid_n = int(len(xv))
-st.metric("유효 데이터 점(숫자 쌍) 개수", valid_n)
-quality_ok = valid_n >= MIN_VALID_POINTS
-if not quality_ok:
-    st.error(f"유효 데이터 점이 {MIN_VALID_POINTS}개 미만입니다. (2차시 이동 제한)")
-st.caption("※ 2차시 이동은 유효 데이터 점 30개 이상일 때만 허용합니다.")
 
 # Step4
 st.divider()
@@ -232,6 +223,15 @@ else:
         ax.set_ylabel(str(y_col))
         st.pyplot(fig, use_container_width=True)
 
+# 품질 점검
+st.divider()
+st.subheader("✅ 데이터 개수 점검")
+valid_n = int(len(xv))
+st.metric("유효 데이터 점(숫자 쌍) 개수", valid_n)
+quality_ok = valid_n >= MIN_VALID_POINTS
+if not quality_ok:
+    st.error(f"유효 데이터 점이 {MIN_VALID_POINTS}개 미만입니다. (2차시 이동 제한)")
+st.caption("※ 2차시 이동은 유효 데이터 점 30개 이상일 때만 허용합니다.")
 
 # Step5
 st.divider()
