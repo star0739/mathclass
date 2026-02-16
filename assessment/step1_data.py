@@ -115,53 +115,58 @@ uploaded = st.file_uploader(
     type=["csv"],  # ✅ CSV만 허용
 )
 
-def read_csv_relaxed(file) -> pd.DataFrame:
-    """
-    CSV를 최대한 관대하게 읽는다.
-    - 구분자 자동 추정
-    - 파싱 오류 줄은 스킵
-    - 인코딩은 pandas 기본 동작에 맡김
-    """
-    # 구분자 자동 추정
-    file.seek(0)
-    sample = file.read(4096)
-    file.seek(0)
+def read_csv_kosis_robust(file) -> tuple[pd.DataFrame, str]:
+    encodings_to_try = ["utf-8-sig", "utf-8", "cp949", "euc-kr", "utf-16", "utf-16le"]
 
-    sep = ","
-    try:
-        dialect = csv.Sniffer().sniff(sample.decode(errors="ignore"), delimiters=[",", ";", "\t", "|"])
-        sep = dialect.delimiter
-    except Exception:
-        sep = ","
+    last_err = None
+    for enc in encodings_to_try:
+        try:
+            file.seek(0)
+            df = pd.read_csv(
+                file,
+                encoding=enc,
+                sep=None,
+                engine="python",
+                on_bad_lines="skip",
+            )
 
-    # 관대하게 읽기
-    file.seek(0)
-    return pd.read_csv(
-        file,
-        sep=sep,
-        engine="python",
-        on_bad_lines="skip",
-    )
+            if df.shape[1] == 1:
+                file.seek(0)
+                df_tab = pd.read_csv(file, encoding=enc, sep="\t", engine="python", on_bad_lines="skip")
+                if df_tab.shape[1] > 1:
+                    return df_tab, enc
+
+                file.seek(0)
+                df_sc = pd.read_csv(file, encoding=enc, sep=";", engine="python", on_bad_lines="skip")
+                if df_sc.shape[1] > 1:
+                    return df_sc, enc
+
+            return df, enc
+
+        except Exception as e:
+            last_err = e
+            continue
+
+    raise last_err
 
 if uploaded is not None:
     try:
-        df = read_csv_relaxed(uploaded)
+        df, used_enc = read_csv_kosis_robust(uploaded)
 
-        # 세션 저장(메모리 안전 검증은 common.py에서 수행)
         meta = {
             "uploaded_filename": uploaded.name,
             "uploaded_at": pd.Timestamp.now().isoformat(),
             "rows": int(df.shape[0]),
             "cols": int(df.shape[1]),
-            "encoding_note": "utf-8 / utf-8-sig",
+            "encoding_used": used_enc,
         }
         set_df(df, meta=meta)
-        st.success(f"업로드 완료: {uploaded.name}  ({df.shape[0]:,}행 × {df.shape[1]:,}열)")
-    except UnicodeDecodeError:
-        st.error("CSV 인코딩 오류입니다. **UTF-8로 다시 다운로드**한 뒤 업로드하세요.")
-        st.stop()
+        st.success(
+            f"업로드 완료: {uploaded.name}  ({df.shape[0]:,}행 × {df.shape[1]:,}열) / encoding={used_enc}"
+        )
+
     except Exception as e:
-        st.error("파일을 읽는 중 오류가 발생했습니다.")
+        st.error("파일을 읽는 중 오류가 발생했습니다. (인코딩/구분자/CSV 구조 문제일 수 있음)")
         st.exception(e)
         st.stop()
 
