@@ -73,18 +73,10 @@ finalseat_page = st.Page(
     icon="✅",
 )
 
-# ✅ (추가) Test 페이지 등록
-test_page = st.Page(
-    "test/test.py",
-    title="Test",
-    icon="🧪",
-)
-
-
 pages = {
     "Home": [home_page],
     "📖 교과 학습": [calculus_page, ai_math_page],
-    "🪑 좌석 관리": [seat_page, finalseat_page, test_page],
+    "🪑 좌석 관리": [seat_page, finalseat_page],
 }
 
 
@@ -124,10 +116,6 @@ with st.sidebar:
 
     if st.button("좌석 확인", use_container_width=True, key="sb_finalseat"):
         st.switch_page(finalseat_page)
-
-    # ✅ (추가) Test 버튼
-    if st.button("Test", use_container_width=True, key="sb_test"):
-        st.switch_page("test/test.py")
 
 
 # -----------------------------
