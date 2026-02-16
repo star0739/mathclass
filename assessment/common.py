@@ -126,7 +126,7 @@ def require_student_id(message: str = "학번/식별 코드를 먼저 입력하�
 
     st.warning(message)
     with st.form("assess_student_id_form"):
-        sid_in = st.text_input("학번/식별 코드", placeholder="예: 30215")
+        sid_in = st.text_input("학번", placeholder="예: 30901")
         ok = st.form_submit_button("저장")
     if ok:
         set_student_id(sid_in)
