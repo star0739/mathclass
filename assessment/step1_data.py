@@ -236,7 +236,7 @@ save = st.button("💾 저장")
 next_step = st.button("➡️ 2차시로 이동")
 
 if save or next_step:
-    if not all([data_source.strip(), feature1.strip(), feature2.strip(), question.strip()]):
+    if not all([data_source.strip(), feature1.strip(), question.strip()]):
         st.warning("모든 항목을 입력하세요.")
         st.stop()
 
