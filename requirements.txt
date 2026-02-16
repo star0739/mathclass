@@ -3,4 +3,5 @@ streamlit-autorefresh
 matplotlib
 gspread
 google-auth
+plotly
 
