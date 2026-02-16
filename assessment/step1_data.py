@@ -73,7 +73,7 @@ def build_backup_text(payload: dict) -> str:
     lines.append("공공데이터 분석 수행 (1차시) 백업")
     lines.append("=" * 40)
     lines.append(f"저장시각: {pd.Timestamp.now().strftime('%Y-%m-%d %H:%M:%S')}")
-    lines.append(f"학번/식별코드: {payload.get('student_id','')}")
+    lines.append(f"학번(예: 30901): {payload.get('student_id','')}")
     lines.append("")
     lines.append("[데이터 정보]")
     lines.append(f"- 데이터 출처: {payload.get('data_source','')}")
@@ -100,7 +100,7 @@ def build_backup_text(payload: dict) -> str:
 # 세션 초기화
 # -----------------------------
 init_assessment_session()
-student_id = require_student_id("학번 또는 식별 코드를 입력하세요.")
+student_id = require_student_id("학번을 입력하세요.")
 
 st.title("(1차시) 데이터 탐색 & 모델링 가설")
 st.caption("그래프를 보고 특징을 정리한 뒤, 어떤 함수 모델이 적절할지 가설을 세웁니다.")
