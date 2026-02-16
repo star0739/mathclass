@@ -126,8 +126,8 @@ with st.sidebar:
         st.switch_page(finalseat_page)
 
     # ✅ (추가) Test 버튼
-    if st.button("Test1", use_container_width=True, key="sb_test"):
-        st.switch_page("test/test1.py")
+    if st.button("Test", use_container_width=True, key="sb_test"):
+        st.switch_page("test/test.py")
 
 
 # -----------------------------
