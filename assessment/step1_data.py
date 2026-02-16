@@ -17,6 +17,7 @@
 # ------------------------------------------------------------
 
 import streamlit as st
+import csv
 import pandas as pd
 import numpy as np
 
@@ -54,7 +55,7 @@ CURVATURE_LOW = 0.05               # 곡률 지표가 너무 낮으면(거의 �
 init_assessment_session()
 student_id = require_student_id("1차시를 시작하기 전에 학번/식별 코드를 입력하세요.")
 
-st.title("Step1) 🔎 데이터 탐색")
+st.title("1차시 🔎 데이터 탐색")
 st.caption("CSV(UTF-8) 데이터를 업로드하고, (X, Y) 그래프의 추세를 관찰하여 특징과 분석 질문을 작성합니다.")
 st.divider()
 
@@ -114,21 +115,37 @@ uploaded = st.file_uploader(
     type=["csv"],  # ✅ CSV만 허용
 )
 
-def read_csv_utf8_only(file) -> pd.DataFrame:
+def read_csv_relaxed(file) -> pd.DataFrame:
     """
-    UTF-8 계열로만 읽도록 강제(실패 시 안내).
-    - utf-8-sig: BOM 포함 가능성 대응
-    - utf-8: 일반 UTF-8
+    CSV를 최대한 관대하게 읽는다.
+    - 구분자 자동 추정
+    - 파싱 오류 줄은 스킵
+    - 인코딩은 pandas 기본 동작에 맡김
     """
+    # 구분자 자동 추정
+    file.seek(0)
+    sample = file.read(4096)
+    file.seek(0)
+
+    sep = ","
     try:
-        return pd.read_csv(file, encoding="utf-8-sig")
+        dialect = csv.Sniffer().sniff(sample.decode(errors="ignore"), delimiters=[",", ";", "\t", "|"])
+        sep = dialect.delimiter
     except Exception:
-        file.seek(0)
-        return pd.read_csv(file, encoding="utf-8")
+        sep = ","
+
+    # 관대하게 읽기
+    file.seek(0)
+    return pd.read_csv(
+        file,
+        sep=sep,
+        engine="python",
+        on_bad_lines="skip",
+    )
 
 if uploaded is not None:
     try:
-        df = read_csv_utf8_only(uploaded)
+        df = read_csv_relaxed(uploaded)
 
         # 세션 저장(메모리 안전 검증은 common.py에서 수행)
         meta = {
