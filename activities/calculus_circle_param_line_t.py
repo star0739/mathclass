@@ -65,7 +65,7 @@ $$
                 min_value=-10.0,
                 max_value=10.0,
                 value=1.0,
-                step=0.5,
+                step=0.2,
                 key=f"{key_prefix}_t",
             )
 
