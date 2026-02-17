@@ -176,7 +176,7 @@ def build_step2_backup(payload: dict) -> bytes:
     lines.append(f"- 1차시 가설 모델: {payload.get('model_hypothesis_step1','')}")
     lines.append(f"- 가설 판단: {payload.get('hypothesis_decision','')}")
     if payload.get("hypothesis_decision") == "가설 수정":
-        lines.append(f"- 수정한 모델: {payload.get('revised_model','')}")
+        lines.append(f"- 수정한 가설 모델: {payload.get('revised_model','')}")
     lines.append("")
 
     lines.append("[데이터 정보]")
@@ -520,7 +520,7 @@ if hypothesis_decision == "가설 수정":
         key="revised_model",
     )
     st.warning(
-        "가설 수정이 필요하다면 **수정된 모델을 기준으로** AI에게 다시 분석을 요청하세요."
+        "**수정된 모델을 기준으로** AI에게 다시 분석을 요청하고, 항목 3)을 재작성 하세요."
     )
 
 # ✅ 항상 정의되도록 '안전 문자열'을 여기서 만들기
@@ -532,10 +532,10 @@ revised_model_safe = revised_model.strip() if hypothesis_decision == "가설 수
 st.subheader("4) 미분 관점의 모델 해석")
 
 st.info(
-    "Δy/Δt 그래프의 변화율 특징을 두 가지 이상 찾아보고,\n"
-    "AI의 도함수 f'(t)가 이를 얼마나 잘 설명하는지 논리적으로 서술하세요.\n"
-    "다음으로 Δ²y/Δt² 그래프에 나타난 오목·볼록의 변화를\n"
-    "AI의 이계도함수 f''(t)와 비교해 보세요.\n"
+    "Δy/Δt 그래프의 변화율 특징을 두 가지 이상 찾아보고, \n"
+    "AI의 도함수 f'(t)가 이를 얼마나 잘 설명하는지 논리적으로 서술하세요. \n"
+    "다음으로 Δ²y/Δt² 그래프에 나타난 오목·볼록의 변화를 \n"
+    "AI의 이계도함수 f''(t)와 비교해 보세요. \n"
     "마지막으로 모델이 실제 현상을 충분히 설명하지 못하는 구간을 한 곳 제시하고, 그 원인이 무엇인지 분석하세요."
 )
 
