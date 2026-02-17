@@ -97,7 +97,7 @@ def build_backup_text(payload: dict) -> str:
 init_assessment_session()
 student_id = require_student_id("학번을 입력하세요.")
 
-st.title("(1차시) 데이터 탐색 & 모델링 가설")
+st.title("1차시: 데이터 탐색 & 모델링 가설")
 st.caption("그래프를 보고 특징을 정리한 뒤, 어떤 함수 모델이 적절할지 가설을 세웁니다.")
 st.divider()
 
