@@ -597,9 +597,7 @@ if save_clicked or download_clicked or go_next:
             st.error(f"⚠️ 구글 시트 저장 오류: {e}")
             st.stop()
 
-    # (3) 다음 차시 이동
+# (3) 다음 차시 이동 로직
     if go_next:
-        if not quality_ok:
-            st.error(f"미분 관점의 모델 분석 내용을 작성해야 3차시로 이동할 수 있습니다.")
-            st.stop()
+        st.success("3차시로 이동합니다.")
         st.switch_page("assessment/step3_integral.py")
