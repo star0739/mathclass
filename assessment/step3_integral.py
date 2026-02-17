@@ -320,7 +320,7 @@ def build_step3_backup(payload: dict) -> bytes:
         review = "(미입력)"
 
     lines: list[str] = []
-    lines.append("공공데이터 기반 함수 모델링과 미적분적 해석 (3차시 백업)")
+    lines.append("공공데이터 분석 수행 (3차시) 백업")
     lines.append("=" * 56)
     lines.append(f"저장시각: {ts}")
     lines.append(f"학번: {student_id}")
@@ -683,7 +683,6 @@ if save_clicked or download_clicked or go_next:
         try:
             # 구글시트 컬럼(기존 append_step3_row) 호환을 위해:
             # A_data는 공란, A_model은 모델 정적분, relative_error는 사다리꼴 상대오차로 저장
-            rel_trap = float(err_trap / (abs(I_model) + 1e-12))
             append_step3_row(
                 student_id=payload["student_id"],
                 data_source=payload["data_source"],
@@ -698,7 +697,7 @@ if save_clicked or download_clicked or go_next:
                 I_model=payload["I_model"],
                 err_rect=payload["err_rect"],
                 err_trap=payload["err_trap"],
-                rel_trap=rel_trap,
+                rel_trap=payload["rel_trap"],
                 student_critical_review2=payload["student_critical_review2"],
             )
             st.success("✅ 구글 시트에 성공적으로 저장되었습니다.")
