@@ -264,149 +264,17 @@ if csv_file is not None:
         st.error("CSV를 읽지 못했습니다.")
         st.exception(e)
 
-df = get_df()
-if df is not None:
-    st.markdown("#### 참고: 현재 데이터 미리보기")
-    st.dataframe(get_df_preview(df), use_container_width=True)
+# df = get_df()
+# if df is not None:
+#    st.markdown("#### 참고: 현재 데이터 미리보기")
+#    st.dataframe(get_df_preview(df), use_container_width=True)
 
 st.divider()
 
 # ============================================================
-# 1) 데이터 시각화 + 데이터 기반 변화율(근사 도함수) 자동 계산
+# 1) AI 프롬프트 자동 생성 (통합 템플릿)
 # ============================================================
-st.subheader("1) 데이터 기반 변화율 확인")
-
-if df is None:
-    st.info("CSV를 업로드하면 2차시에서 변화율 그래프를 자동으로 확인할 수 있습니다.")
-else:
-    cols = list(df.columns)
-    x_prev, y_prev = get_xy()
-    # step1 기록이 있으면 우선 적용
-    x_init = step1.get("x_col") if step1.get("x_col") in cols else (x_prev if x_prev in cols else cols[0])
-    y_init = step1.get("y_col") if step1.get("y_col") in cols else (y_prev if y_prev in cols else (cols[1] if len(cols) > 1 else cols[0]))
-
-    x_col = st.selectbox("X축", cols, index=cols.index(x_init), key="step2_x_col")
-    y_col = st.selectbox("Y축", cols, index=cols.index(y_init), key="step2_y_col")
-    set_xy(x_col, y_col)
-
-    x_mode = st.radio(
-        "X축 해석 방식",
-        ["자동(권장)", "날짜(년월)", "숫자"],
-        horizontal=True,
-        key="step2_x_mode",
-    )
-
-    y = pd.to_numeric(df[y_col], errors="coerce")
-
-    if x_mode == "숫자":
-        x = pd.to_numeric(df[x_col], errors="coerce")
-        x_type = "numeric"
-    else:
-        x_dt = parse_year_month(df[x_col])
-        if x_mode == "자동(권장)" and x_dt.notna().mean() < 0.6:
-            x = pd.to_numeric(df[x_col], errors="coerce")
-            x_type = "numeric"
-        else:
-            x = x_dt
-            x_type = "datetime"
-
-    valid = x.notna() & y.notna()
-    xv = x[valid]
-    yv = y[valid]
-
-    if len(xv) < 30:
-        st.warning("유효 데이터가 부족하여 변화율 계산이 어렵습니다. (최소 30점 이상 권장)")
-    else:
-        # 정렬
-        order = np.argsort(xv.values) if x_type == "datetime" else np.argsort(xv.to_numpy())
-        xv = xv.iloc[order]
-        yv = yv.iloc[order]
-
-        # t 수치화: datetime이면 월 인덱스, numeric이면 그대로
-        if x_type == "datetime":
-            base = xv.iloc[0]
-            t = ((xv.dt.year - base.year) * 12 + (xv.dt.month - base.month)).to_numpy(dtype=float)
-        else:
-            t = xv.to_numpy(dtype=float)
-
-        y_arr = yv.to_numpy(dtype=float)
-        dy, d2y = compute_derivatives(t, y_arr)
-        
-        valid_n = int(len(t))
-        st.session_state["step2_valid_n"] = valid_n
-        st.metric("유효 데이터 점 개수", valid_n)
-
-        # ---------------------------------------------------------
-        # [신규] AI 모델 수식 계산 (eval 사용)
-        # ---------------------------------------------------------
-        # UI에서 입력받은 py_model, py_d1, py_d2 세션 값을 가져옵니다.
-        expr_model = st.session_state.get("py_model", "").strip()
-        expr_d1 = st.session_state.get("py_d1", "").strip()
-        expr_d2 = st.session_state.get("py_d2", "").strip()
-
-        ai_y, ai_dy, ai_d2y = None, None, None
-        
-        # 안전한 계산을 위한 환경 설정 (numpy와 변수 t 제공)
-        eval_env = {"np": np, "t": t, "exp": np.exp, "sin": np.sin, "cos": np.cos, "log": np.log}
-
-        try:
-            if expr_model: ai_y = eval(expr_model, eval_env)
-            if expr_d1: ai_dy = eval(expr_d1, eval_env)
-            if expr_d2: ai_d2y = eval(expr_d2, eval_env)
-        except Exception as e:
-            st.error(f"AI 수식 계산 중 오류 발생: {e}")
-
-        # ---------------------------------------------------------
-        # 그래프(원자료/변화율/가속) 시각화
-        # ---------------------------------------------------------
-        if PLOTLY_AVAILABLE:
-            # 1) 원자료 그래프
-            fig1 = go.Figure()
-            fig1.add_trace(go.Scatter(x=xv, y=y_arr, mode="markers", name="실제 데이터(y)", marker=dict(color='gray', opacity=0.5)))
-            if ai_y is not None:
-                fig1.add_trace(go.Scatter(x=xv, y=ai_y, mode="lines", name="AI 모델 곡선", line=dict(color='red', width=3)))
-            fig1.update_layout(height=320, margin=dict(l=40, r=20, t=20, b=40), xaxis_title=str(x_col), yaxis_title=str(y_col))
-            st.plotly_chart(fig1, use_container_width=True)
-
-            # 2) 변화율 그래프
-            fig2 = go.Figure()
-            fig2.add_trace(go.Scatter(x=xv, y=dy, mode="markers", name="데이터 변화율(Δy/Δt)", marker=dict(color='gray', opacity=0.5)))
-            if ai_dy is not None:
-                fig2.add_trace(go.Scatter(x=xv, y=ai_dy, mode="lines", name="AI 도함수 f'(t)", line=dict(color='blue', width=3)))
-            fig2.update_layout(height=320, margin=dict(l=40, r=20, t=20, b=40), xaxis_title=str(x_col), yaxis_title="도함수 비교")
-            st.plotly_chart(fig2, use_container_width=True)
-
-            # 3) 이계도함수 그래프
-            fig3 = go.Figure()
-            fig3.add_trace(go.Scatter(x=xv, y=d2y, mode="markers", name="데이터 이계변화율(Δ²y)", marker=dict(color='gray', opacity=0.5)))
-            if ai_d2y is not None:
-                fig3.add_trace(go.Scatter(x=xv, y=ai_d2y, mode="lines", name="AI 이계도함수 f''(t)", line=dict(color='green', width=3)))
-            fig3.update_layout(height=320, margin=dict(l=40, r=20, t=20, b=40), xaxis_title=str(x_col), yaxis_title="이계도함수 비교")
-            st.plotly_chart(fig3, use_container_width=True)
-
-        else:
-            # Matplotlib 대응 (Plotly 미설치 시)
-            def plot_with_ai(x, data, ai_data, title, ylabel, color):
-                fig, ax = plt.subplots()
-                ax.scatter(x, data, color='gray', alpha=0.5, label='Actual')
-                if ai_data is not None:
-                    ax.plot(x, ai_data, color=color, linewidth=2, label='AI Model')
-                ax.set_title(title)
-                ax.set_ylabel(ylabel)
-                ax.legend()
-                st.pyplot(fig, use_container_width=True)
-
-            plot_with_ai(xv, y_arr, ai_y, "원자료 vs AI모델", str(y_col), 'red')
-            plot_with_ai(xv, dy, ai_dy, "변화율 vs AI도함수", "Δy/Δt", 'blue')
-            plot_with_ai(xv, d2y, ai_d2y, "이계변화율 vs AI이계도함수", "Δ²y/Δt²", 'green')
-
-st.divider()
-
-
-# ============================================================
-# 2) AI 프롬프트 자동 생성 (통합 템플릿)
-# ============================================================
-st.subheader("2) AI로 모델식(y=f(t)) 제안 받기")
+st.subheader("1) AI로 모델식(y=f(t)) 제안 받기")
 
 st.info(
     "1차시에서 세운 가설 모델과 그 근거를 바탕으로,\n"
@@ -483,58 +351,20 @@ ai_prompt = st.text_area(
 st.divider()
 
 # ============================================================
-# 3) AI 출력 결과 입력(LaTeX) + 미리보기
+# 2) AI 출력 결과 입력(LaTeX) + 미리보기
 # ============================================================
-st.subheader("3) AI 출력 식 입력 — LaTeX 그대로 붙여넣기")
+st.subheader("2) AI 출력 식 입력")
 
-ai_model_latex = st.text_area(
-    "AI가 제안한 모델식 f(t) (LaTeX 포함)",
-    value=step2_prev.get("ai_model_latex", ""),
-    height=120,
-    placeholder="예: $$ y = 3.2 e^{0.04 t} $$",
-)
-
-ai_derivative_latex = st.text_area(
-    "AI가 제안한 도함수 f'(t) (LaTeX 포함)",
-    value=step2_prev.get("ai_derivative_latex", ""),
-    height=120,
-    placeholder="예: $$ f'(t) = 0.128 e^{0.04 t} $$",
-)
-
-ai_second_derivative_latex = st.text_area(
-    "AI가 제안한 이계도함수 f''(t) (LaTeX 포함)",
-    value=step2_prev.get("ai_second_derivative_latex", ""),
-    height=120,
-    placeholder="예: $$ f''(t) = 0.00512 e^{0.04 t} $$",
-)
-
-ai_limitations = st.text_area(
-    "AI가 제시한 모델의 한계 (문장 그대로 붙여넣기)",
-    value=step2_prev.get("ai_limitations", ""),
-    height=120,
-    placeholder="AI가 제시한 '모델의 한계' 내용을 그대로 붙여넣으세요.",
-)
-
-# LaTeX 미리보기
-with st.expander("LaTeX 미리보기(깨짐 확인)", expanded=True):
-    blocks = extract_latex_blocks(ai_model_latex) + extract_latex_blocks(ai_derivative_latex) + extract_latex_blocks(ai_second_derivative_latex)
-    if not blocks:
-        st.caption("LaTeX 형식을 올바르게 입력하면 수식이 정상적으로 출력됩니다.")
-    else:
-        for b in blocks[:10]:
-            try:
-                st.latex(b)
-            except Exception:
-                st.code(b)
-
-# numpy용 입력 받기
-with st.expander("파이썬 식 입력", expanded=True):
-    st.caption("AI가 제공한 '파이썬 계산용 식'을 입력하세요. (변수는 t 사용)")
-    py_model = st.text_input("모델식 f(t) 파이썬 식", value="3.2 * np.exp(0.04 * t)", key="py_model")
-    py_d1 = st.text_input("도함수 f'(t) 파이썬 식", value="0.128 * np.exp(0.04 * t)", key="py_d1")
-    py_d2 = st.text_input("이계도함수 f''(t) 파이썬 식", value="0.00512 * np.exp(0.04 * t)", key="py_d2")
-
-st.divider()
+col1, col2 = st.columns(2)
+with col1:
+    ai_model_latex = st.text_area("AI 모델식 f(t) (LaTeX)", value=step2_prev.get("ai_model_latex", ""), height=100)
+    ai_derivative_latex = st.text_area("AI 도함수 f'(t) (LaTeX)", value=step2_prev.get("ai_derivative_latex", ""), height=100)
+    ai_second_derivative_latex = st.text_area("AI 이계도함수 f''(t) (LaTeX)", value=step2_prev.get("ai_second_derivative_latex", ""), height=100)
+with col2:
+    # eval()용 파이썬 수식 입력창
+    py_model = st.text_input("모델식 f(t) 파이썬 식", value=step2_prev.get("py_model", ""), placeholder="3.2 * np.exp(0.04 * t)")
+    py_d1 = st.text_input("도함수 f'(t) 파이썬 식", value=step2_prev.get("py_d1", ""), placeholder="0.128 * np.exp(0.04 * t)")
+    py_d2 = st.text_input("이계도함수 f''(t) 파이썬 식", value=step2_prev.get("py_d2", ""), placeholder="0.00512 * np.exp(0.04 * t)")
 
 st.subheader("가설 재평가")
 
@@ -564,7 +394,60 @@ if hypothesis_decision == "가설 수정":
 
 # ✅ 항상 정의되도록 '안전 문자열'을 여기서 만들기
 revised_model_safe = revised_model.strip() if hypothesis_decision == "가설 수정" else ""
+
+# ============================================================
+# 3) 데이터 및 AI 모델 그래프 확인 (기존 1번 - 위치 이동)
+# ============================================================
+st.subheader("3) 데이터 기반 변화율 및 AI 모델 비교")
+
+df = get_df()
+if df is None:
+    st.info("CSV를 업로드하면 그래프를 확인할 수 있습니다.")
+else:
+    # ... (x_col, y_col 선택 및 데이터 전처리 로직) ...
     
+    if len(xv) < 30:
+        st.warning("유효 데이터가 부족합니다.")
+    else:
+        # 데이터 기반 수치 미분 계산
+        dy, d2y = compute_derivatives(t, y_arr)
+        st.session_state["step2_valid_n"] = int(len(t)) # 세션 저장
+        
+        # --- eval()을 이용한 AI 수식 계산 ---
+        eval_env = {"np": np, "t": t, "exp": np.exp, "sin": np.sin, "cos": np.cos, "log": np.log}
+        ai_y, ai_dy, ai_d2y = None, None, None
+        try:
+            if py_model: ai_y = eval(py_model, eval_env)
+            if py_d1: ai_dy = eval(py_d1, eval_env)
+            if py_d2: ai_d2y = eval(py_d2, eval_env)
+        except Exception as e:
+            st.error(f"수식 계산 오류: {e}")
+
+        # --- 그래프 출력 (Plotly) ---
+        # 1) 원함수 그래프 (데이터 점 + AI 선)
+        fig1 = go.Figure()
+        fig1.add_trace(go.Scatter(x=xv, y=y_arr, mode="markers", name="실제 데이터", marker=dict(color='gray', opacity=0.5)))
+        if ai_y is not None:
+            fig1.add_trace(go.Scatter(x=xv, y=ai_y, mode="lines", name="AI 모델식", line=dict(color='red', width=2)))
+        st.plotly_chart(fig1, use_container_width=True)
+
+        # 2) 도함수 그래프 (데이터 변화율 + AI 도함수 선)
+        fig2 = go.Figure()
+        fig2.add_trace(go.Scatter(x=xv, y=dy, mode="markers", name="데이터 변화율", marker=dict(color='gray', opacity=0.5)))
+        if ai_dy is not None:
+            fig2.add_trace(go.Scatter(x=xv, y=ai_dy, mode="lines", name="AI 도함수", line=dict(color='blue', width=2)))
+        st.plotly_chart(fig2, use_container_width=True)
+
+        # 3) 이계도함수 그래프 (데이터 이계변화율 + AI 이계도함수 선)
+        fig3 = go.Figure()
+        fig3.add_trace(go.Scatter(x=xv, y=d2y, mode="markers", name="데이터 이계변화율", marker=dict(color='gray', opacity=0.5)))
+        if ai_d2y is not None:
+            fig3.add_trace(go.Scatter(x=xv, y=ai_d2y, mode="lines", name="AI 이계도함수", line=dict(color='green', width=2)))
+        st.plotly_chart(fig3, use_container_width=True)
+
+st.divider()
+
+
 # ============================================================
 # 4) 학생 검증/비판(핵심 제출물)
 # ============================================================
