@@ -245,20 +245,15 @@ def _latex_to_numpy_expr(expr_text: str) -> str | None:
 
     s = s.replace("\\,", " ").replace("\\;", " ").replace("\n", " ").strip()
 
-    replacements = {
-        "\\cdot": "*",
-        "\\times": "*",
-        "−": "-",
-        "–": "-",
-        "—": "-",
-        "\\left": "",
-        "\\right": "",
-        "\\,": "",
-        "\\;": "",
-    }
-    for k, v in replacements.items():
-        s = s.replace(k, v)
+    # \left, \right 제거
+    s = s.replace("\\left", "").replace("\\right", "")
 
+    # (1) 상수/기호 치환
+    s = s.replace("\\pi", "np.pi")
+
+    # (2) 함수 치환: \cos(, \cos\(...), \cos\left(... 모두 커버
+    #    일단 \cos, \sin 등을 np.cos, np.sin 으로 바꾼 뒤
+    #    남는 역슬래시/공백을 정리한다.
     func_map = {
         "\\sin": "np.sin",
         "\\cos": "np.cos",
@@ -271,6 +266,10 @@ def _latex_to_numpy_expr(expr_text: str) -> str | None:
     for k, v in func_map.items():
         s = s.replace(k, v)
 
+    # 곱셈 기호 치환
+    s = s.replace("\\cdot", "*").replace("\\times", "*")
+
+    # (3) \frac{a}{b} 처리 (중첩은 제한적)
     frac_pat = re.compile(r"\\frac\s*\{([^{}]+)\}\s*\{([^{}]+)\}")
     for _ in range(10):
         new_s = frac_pat.sub(r"(\1)/(\2)", s)
@@ -278,17 +277,33 @@ def _latex_to_numpy_expr(expr_text: str) -> str | None:
             break
         s = new_s
 
+    # (4) 지수 처리
     s = re.sub(r"\^\{([^{}]+)\}", r"**(\1)", s)
     s = re.sub(r"\^([0-9t])", r"**\1", s)
 
-    s = re.sub(r"\be\*\*\(([^)]+)\)", r"np.exp(\1)", s)
-    s = re.sub(r"\be\^\{([^{}]+)\}", r"np.exp(\1)", s)
-
+    # (5) 공백 제거
     s = re.sub(r"\s+", "", s)
+
+    # (6) LaTeX에서 곱셈이 생략된 패턴들에 '*' 삽입
+    # 6-1) 숫자 바로 뒤에 변수/np/괄호가 오면: 12t, 2np.pi, 3(...
+    s = re.sub(r"(\d)(t)", r"\1*\2", s)
+    s = re.sub(r"(\d)(np\.)", r"\1*\2", s)
+    s = re.sub(r"(\d)\(", r"\1*(", s)
+
+    # 6-2) 변수/닫는괄호 뒤에 np.pi 등이 오면: tnp.pi, )np.pi
+    s = re.sub(r"(t)(np\.)", r"\1*\2", s)
+    s = re.sub(r"(\))(np\.)", r"\1*\2", s)
+
+    # 6-3) t 바로 뒤에 '('가 오면: t( ... )  -> t*( ... )
+    s = re.sub(r"(t)\(", r"\1*(", s)
+
+    # (7) e^{...}를 np.exp로 처리하려면, "e**(...)" 패턴을 잡아 변환(선택)
+    s = re.sub(r"\be\*\*\(([^)]+)\)", r"np.exp(\1)", s)
 
     if not s:
         return None
     return s
+
 
 
 class _SafeExprChecker(ast.NodeVisitor):
