@@ -257,42 +257,106 @@ def _sympy_definite_integral(py_expr: str, a: float, b: float) -> float:
 # Step3 백업 생성
 # -----------------------------
 def build_step3_backup(payload: dict) -> bytes:
-    def fnum(v) -> str:
+    """
+    3차시 백업 TXT(학생 복구/증빙용)
+    - 구글시트 저장 필드와 동일한 핵심 값들을 사람이 읽기 좋게 출력
+    - payload 키:
+      student_id, data_source, x_col, y_col, valid_n, i0, i1,
+      py_model, A_rect, A_trap, I_model, err_rect, err_trap, rel_trap,
+      student_critical_review2
+    """
+    def _s(v) -> str:
+        return "" if v is None else str(v).strip()
+
+    def _num(v) -> str:
         if v is None or v == "":
             return ""
         try:
-            return f"{float(v):.12g}"
+            x = float(v)
+        except Exception:
+            return str(v)
+        # 너무 긴 소수는 줄이고, 지수표기/일반표기 모두 자연스럽게
+        return f"{x:,.12g}"
+
+    def _pct(v) -> str:
+        if v is None or v == "":
+            return ""
+        try:
+            x = float(v)
+            return f"{x:.3%}"
         except Exception:
             return str(v)
 
+    ts = pd.Timestamp.now().strftime("%Y-%m-%d %H:%M:%S")
+
+    student_id = _s(payload.get("student_id"))
+    data_source = _s(payload.get("data_source"))
+    x_col = _s(payload.get("x_col"))
+    y_col = _s(payload.get("y_col"))
+    valid_n = _s(payload.get("valid_n"))
+    i0 = _s(payload.get("i0"))
+    i1 = _s(payload.get("i1"))
+
+    py_model = _s(payload.get("py_model"))
+
+    A_rect = _num(payload.get("A_rect"))
+    A_trap = _num(payload.get("A_trap"))
+    I_model = _num(payload.get("I_model"))
+    err_rect = _num(payload.get("err_rect"))
+    err_trap = _num(payload.get("err_trap"))
+
+    # rel_trap은 payload에 없을 수도 있으니 계산 시도
+    rel_trap_val = payload.get("rel_trap", "")
+    if rel_trap_val in ("", None):
+        try:
+            if payload.get("err_trap") not in ("", None) and payload.get("I_model") not in ("", None):
+                rel_trap_val = float(payload["err_trap"]) / (abs(float(payload["I_model"])) + 1e-12)
+        except Exception:
+            rel_trap_val = ""
+    rel_trap = _pct(rel_trap_val)
+
+    review = _s(payload.get("student_critical_review2"))
+    if not review:
+        review = "(미입력)"
+
     lines: list[str] = []
-    lines.append("공공데이터 분석 수행 (3차시) 백업")
-    lines.append("=" * 40)
-    lines.append(f"저장시각: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
-    lines.append(f"학번: {payload.get('student_id','')}")
+    lines.append("공공데이터 기반 함수 모델링과 미적분적 해석 (3차시 백업)")
+    lines.append("=" * 56)
+    lines.append(f"저장시각: {ts}")
+    lines.append(f"학번: {student_id}")
     lines.append("")
+
     lines.append("[데이터 정보]")
-    lines.append(f"- 데이터 출처: {payload.get('data_source','')}")
-    lines.append(f"- X축: {payload.get('x_col','')} | Y축: {payload.get('y_col','')}")
-    lines.append(f"- 유효 데이터 점: {payload.get('valid_n','')}")
-    lines.append(f"- 적분 구간 인덱스: {payload.get('i0','')} ~ {payload.get('i1','')}")
+    lines.append(f"- 데이터 출처: {data_source}")
+    lines.append(f"- X축(시간): {x_col}")
+    lines.append(f"- Y축(수치): {y_col}")
+    lines.append(f"- 유효 데이터 점: {valid_n}")
+    lines.append(f"- 적분 구간(인덱스): {i0} ~ {i1}")
     lines.append("")
-    lines.append("[모델식(py_model)]")
-    lines.append(payload.get("py_model", "").strip() or "(미입력)")
+
+    lines.append("[모델식 f(t) (py_model)]")
+    lines.append(py_model if py_model else "(미입력)")
     lines.append("")
-    lines.append("[비교 결과]")
-    lines.append(f"- 직사각형(좌) 값(데이터): {fnum(payload.get('A_rect'))}")
-    lines.append(f"- 사다리꼴 값(데이터): {fnum(payload.get('A_trap'))}")
-    lines.append(f"- 정적분 값(모델): {fnum(payload.get('I_model'))}")
-    lines.append(f"- 직사각형 오차 |A-I|: {fnum(payload.get('err_rect'))}")
-    lines.append(f"- 사다리꼴 오차 |A-I|: {fnum(payload.get('err_trap'))}")
+
+    lines.append("[적분 비교 결과]")
+    lines.append("※ 데이터 기반 수치적분(직사각형/사다리꼴) vs 모델 정적분")
+    lines.append(f"- 직사각형 값(데이터, 좌측): {A_rect}")
+    lines.append(f"- 사다리꼴 값(데이터): {A_trap}")
+    lines.append(f"- 정적분 값(모델): {I_model}")
     lines.append("")
-    lines.append("[종합 결론(학생 작성)]")
-    lines.append(payload.get("student_critical_review2", "").strip() or "(미입력)")
+    lines.append("[오차]")
+    lines.append(f"- 직사각형 오차 |A_rect - I_model|: {err_rect}")
+    lines.append(f"- 사다리꼴 오차 |A_trap - I_model|: {err_trap}")
+    lines.append(f"- 사다리꼴 상대오차: {rel_trap}")
     lines.append("")
-    lines.append("[추가 메모]")
+
+    lines.append("[4) 적분 관점의 모델 분석(학생 서술)]")
+    lines.append(review)
     lines.append("")
+
+    lines.append("※ 이 파일은 학생 개인 백업용입니다. 필요 시 앱에 값을 다시 입력하는 데 활용하세요.")
     return "\n".join(lines).encode("utf-8-sig")
+
 
 
 # ============================================================
@@ -580,6 +644,9 @@ payload = {
     "err_trap": float(err_trap),
     "student_critical_review2": student_critical_review2.strip(),
 }
+
+rel_trap = float(err_trap / (abs(I_model) + 1e-12))
+payload["rel_trap"] = rel_trap
 
 col1, col2, col3 = st.columns([1, 1, 1.2])
 save_clicked = col1.button("💾 저장(구글시트)", use_container_width=True)
