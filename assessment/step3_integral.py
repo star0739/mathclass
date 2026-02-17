@@ -603,7 +603,7 @@ st.info(
     "이 값이 나타내는 전체 변화량 또는 누적 효과를 구체적으로 설명하시오.\n\n"
 )
 
-student_critical_review = st.text_area(
+student_critical_review2 = st.text_area(
     "적분 분석 내용(필수)",
     value=step2_prev.get("student_critical_review2", ""),
     height=220,
