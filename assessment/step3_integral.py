@@ -625,10 +625,13 @@ if save_clicked or download_clicked or go_next:
                 valid_n=payload["valid_n"],
                 i0=payload["i0"],
                 i1=payload["i1"],
-                A_data="",  # 기존 컬럼 유지용
-                A_model=float(I_model),
-                relative_error=rel_trap,
                 py_model=payload["py_model"],
+                A_rect=payload["A_rect"],
+                A_trap=payload["A_trap"],
+                I_model=payload["I_model"],
+                err_rect=payload["err_rect"],
+                err_trap=payload["err_trap"],
+                rel_trap=rel_trap,
                 student_critical_review2=payload["student_critical_review2"],
             )
             st.success("✅ 구글 시트에 성공적으로 저장되었습니다.")
