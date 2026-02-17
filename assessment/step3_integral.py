@@ -347,57 +347,46 @@ if df is None:
     st.info("CSV를 업로드하면 다음 단계(적분 비교)로 진행할 수 있습니다.")
     st.stop()
 
-with st.expander("참고: 데이터 미리보기", expanded=False):
-    st.dataframe(get_df_preview(df), use_container_width=True)
-
 st.divider()
 
 # ============================================================
 # 1) X/Y 선택(통일 규칙) + X축 해석 방식
 # ============================================================
-st.subheader("1) X/Y 선택")
+
+st.subheader("1) 데이터 열 자동 설정")
 
 cols = list(df.columns)
 if len(cols) < 2:
     st.error("열이 2개 이상이어야 합니다. CSV를 다시 확인하세요.")
     st.stop()
 
-# ✅ 통일 규칙: Step2 저장값 → Step1 summary → get_xy()
+# ✅ 통일 규칙: Step2 저장값 → Step1 summary → get_xy() → fallback
 x_prev, y_prev = get_xy()
-x_init = step2.get("x_col") or step1.get("x_col") or (x_prev if x_prev in cols else cols[0])
-y_init = step2.get("y_col") or step1.get("y_col") or (y_prev if y_prev in cols else (cols[1] if len(cols) > 1 else cols[0]))
+x_col = (step2.get("x_col") or step1.get("x_col") or (x_prev if x_prev in cols else "")).strip()
+y_col = (step2.get("y_col") or step1.get("y_col") or (y_prev if y_prev in cols else "")).strip()
 
-if x_init not in cols:
-    x_init = cols[0]
-if y_init not in cols:
-    y_init = cols[1] if len(cols) > 1 else cols[0]
-if y_init == x_init:
-    y_init = cols[1] if len(cols) > 1 and cols[1] != x_init else cols[0]
+if x_col not in cols:
+    x_col = cols[0]
+if y_col not in cols:
+    y_col = cols[1] if len(cols) > 1 else cols[0]
+if y_col == x_col:
+    y_col = cols[1] if len(cols) > 1 and cols[1] != x_col else cols[0]
 
-col_sel1, col_sel2 = st.columns(2)
-with col_sel1:
-    x_col = st.selectbox("X축 선택", cols, index=cols.index(x_init), key="step3_x_col")
-with col_sel2:
-    y_col = st.selectbox("Y축 선택", cols, index=cols.index(y_init), key="step3_y_col")
+# 사용자에게는 “자동으로 고정했다” 정도만 안내
+st.caption(f"X축(시간): **{x_col}**  |  Y축(수치): **{y_col}** (2차시 선택값을 기반으로 자동 설정)")
 
-set_xy(x_col, y_col)
-
-x_mode = st.radio("X축 해석 방식", ["자동(권장)", "날짜(년월)", "숫자"], horizontal=True, key="step3_x_mode")
-
-# 데이터 숫자화
+# x_mode도 Step3에서는 자동으로 고정(UX 단순화)
+# - 숫자로 변환 가능하면 numeric
+# - 아니면 year-month 파싱 시도 후 datetime으로
 y_series = pd.to_numeric(df[y_col], errors="coerce")
 
-if x_mode == "숫자":
+x_dt = parse_year_month(df[x_col])
+if x_dt.notna().mean() >= 0.6:
+    x_series = x_dt
+    x_type = "datetime"
+else:
     x_series = pd.to_numeric(df[x_col], errors="coerce")
     x_type = "numeric"
-else:
-    x_dt = parse_year_month(df[x_col])
-    if x_mode == "자동(권장)" and x_dt.notna().mean() < 0.6:
-        x_series = pd.to_numeric(df[x_col], errors="coerce")
-        x_type = "numeric"
-    else:
-        x_series = x_dt
-        x_type = "datetime"
 
 valid = x_series.notna() & y_series.notna()
 xv = x_series[valid]
@@ -409,18 +398,15 @@ if len(xv) < MIN_VALID_POINTS:
         st.stop()
 
 # 정렬
-if len(xv) >= 2:
-    order = np.argsort(xv.values) if x_type == "datetime" else np.argsort(xv.to_numpy())
-    xv = xv.iloc[order]
-    yv = yv.iloc[order]
+order = np.argsort(xv.values) if x_type == "datetime" else np.argsort(xv.to_numpy())
+xv = xv.iloc[order]
+yv = yv.iloc[order]
 
-# t 수치화(적분/모델 계산용)
+# t 수치화(적분/모델 계산용) - Step2와 동일(월 인덱스)
 if x_type == "datetime":
     base = xv.iloc[0]
-    # 월 인덱스
     t_all = ((xv.dt.year - base.year) * 12 + (xv.dt.month - base.month)).to_numpy(dtype=float)
 
-    # 연도만 들어온 듯하면 경고(YYYY만 많은 경우)
     raw = df.loc[valid, x_col].astype(str).str.strip().iloc[order]
     if (raw.str.fullmatch(r"\d{4}")).mean() >= 0.8:
         st.warning("시간 데이터가 '연도(YYYY)' 중심으로 보입니다. 월 단위(1월 가정)로 변환되어 해석이 거칠 수 있습니다.")
@@ -430,7 +416,6 @@ else:
 y_all = yv.to_numpy(dtype=float)
 
 st.metric("유효 데이터 점(숫자쌍) 개수", int(len(t_all)))
-
 st.divider()
 
 # ============================================================
