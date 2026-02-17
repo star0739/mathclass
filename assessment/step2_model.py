@@ -536,7 +536,7 @@ col1, col2, col3 = st.columns([1, 1, 1.2])
 
 save_clicked = col1.button("💾 저장(구글시트)", use_container_width=True)
 download_clicked = col2.button("⬇️ TXT 백업 만들기", use_container_width=True) # 세션 저장 역할
-go_next = col3.button("➡️ 3차시로 이동(추후)", use_container_width=True)
+go_next = col3.button("➡️ 3차시로 이동", use_container_width=True)
 
 # 3. 검증 함수 (ai_prompt 제외 로직 반영)
 def _validate_step2() -> bool:
