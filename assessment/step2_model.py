@@ -314,8 +314,8 @@ else:
     xv = x[valid]
     yv = y[valid]
 
-    if len(xv) < 3:
-        st.warning("유효 데이터가 부족하여 변화율 계산이 어렵습니다. (최소 3점 이상 권장)")
+    if len(xv) < 30:
+        st.warning("유효 데이터가 부족하여 변화율 계산이 어렵습니다. (최소 30점 이상 권장)")
     else:
         # 정렬
         order = np.argsort(xv.values) if x_type == "datetime" else np.argsort(xv.to_numpy())
