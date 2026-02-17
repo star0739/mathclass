@@ -104,6 +104,33 @@ def parse_step1_backup_txt(text: str) -> dict:
                 return ln.replace(prefix, "", 1).strip()
         return ""
 
+    def find_section_text(start_key: str, end_key: str | None = None) -> str:
+        # start_key 라인을 찾고, end_key(있으면) 전까지를 반환
+        # end_key가 없으면 다음 섹션 헤더(대괄호 또는 "- "로 시작) 전까지 반환
+        start_idx = None
+        for i, ln in enumerate(lines):
+            if ln == start_key:
+                start_idx = i
+                break
+        if start_idx is None:
+            return ""
+
+        # end 지정이 있으면 그 위치까지
+        if end_key is not None:
+            for j in range(start_idx + 1, len(lines)):
+                if lines[j] == end_key:
+                    return "\n".join(lines[start_idx + 1 : j]).strip()
+            return "\n".join(lines[start_idx + 1 :]).strip()
+
+        # end 지정이 없으면 다음 섹션 헤더를 추정
+        for j in range(start_idx + 1, len(lines)):
+            ln = lines[j]
+            if ln.startswith("[") and ln.endswith("]"):
+                return "\n".join(lines[start_idx + 1 : j]).strip()
+            if ln.startswith("- ") and lines[start_idx].startswith("- "):
+                return "\n".join(lines[start_idx + 1 : j]).strip()
+        return "\n".join(lines[start_idx + 1 :]).strip()
+
     out["student_id"] = find_value("학번:")
     out["data_source"] = find_value("- 데이터 출처:")
     out["x_col"] = ""
@@ -120,22 +147,15 @@ def parse_step1_backup_txt(text: str) -> dict:
     out["features"] = ""
 
     # [그래프 관찰 특징] 섹션 추출
-    try:
-        i = lines.index("[그래프 관찰 특징]")
-        j = lines.index("[모델링 가설]")
-        out["features"] = "\n".join(lines[i + 1 : j]).strip()
-    except ValueError:
-        pass
+    sec = find_section_text("[그래프 관찰 특징]", "[모델링 가설]")
+    if sec:
+        out["features"] = sec
 
     out["model_primary"] = find_value("- 주된 모델:")
-    # 주된 모델 근거 섹션
-    try:
-        i = lines.index("- 주된 모델 근거:")
-        # 다음 섹션까지
-        j = lines.index("[추가 메모]")
-        out["model_primary_reason"] = "\n".join(lines[i + 1 : j]).strip()
-    except ValueError:
-        out["model_primary_reason"] = ""
+
+    # 주된 모델 근거 섹션(원본은 "- 주된 모델 근거:" ~ "[추가 메모]" 사이)
+    sec2 = find_section_text("- 주된 모델 근거:", "[추가 메모]")
+    out["model_primary_reason"] = sec2.strip() if sec2 else ""
 
     return out
 
@@ -210,20 +230,23 @@ def build_step2_backup(payload: dict) -> bytes:
 # -----------------------------
 # AI 입력 수식으로 그래프 그리기(가능한 범위에서)
 # -----------------------------
-def _latex_to_callable(expr_text: str):
-    """
-    $$...$$ 내부 문자열 또는 일반 문자열을 sympy로 파싱해 numpy callable로 변환.
-    파싱 실패 시 None 반환.
-    """
+@st.cache_resource(show_spinner=False)
+def _get_sympy_runtime():
+    import sympy as sp
     try:
-        import sympy as sp
-        try:
-            from sympy.parsing.latex import parse_latex
-            parse_fn = parse_latex
-        except Exception:
-            parse_fn = None
+        from sympy.parsing.latex import parse_latex
     except Exception:
-        return None
+        parse_latex = None
+    return sp, parse_latex
+
+
+@st.cache_data(show_spinner=False)
+def _latex_to_sympy_srepr(expr_text: str) -> str | None:
+    """
+    입력(LaTeX 블록 또는 일반 문자열)을 sympy expression으로 파싱한 뒤 srepr 문자열을 반환.
+    캐시 안전성을 위해 "함수"가 아니라 "문자열"을 저장한다.
+    """
+    sp, parse_latex = _get_sympy_runtime()
 
     raw = (expr_text or "").strip()
     if not raw:
@@ -243,36 +266,80 @@ def _latex_to_callable(expr_text: str):
     t = sp.Symbol("t", real=True)
 
     try:
-        if parse_fn is not None:
-            sym = parse_fn(s)
+        if parse_latex is not None:
+            sym = parse_latex(s)
         else:
             # 매우 제한적인 fallback(LaTeX가 아닌 sympy 표기일 때만)
             sym = sp.sympify(s)
+        return sp.srepr(sym)
+    except Exception:
+        return None
+
+
+def _sympy_srepr_to_callable(srepr_text: str | None):
+    """
+    srepr 문자열을 sympy expression으로 복원한 뒤 numpy callable로 변환.
+    실패 시 None.
+    """
+    if not srepr_text:
+        return None
+    sp, _ = _get_sympy_runtime()
+    try:
+        sym = sp.sympify(srepr_text)
+        t = sp.Symbol("t", real=True)
         fn = sp.lambdify(t, sym, modules=["numpy"])
         return fn
     except Exception:
         return None
 
 
+def _latex_to_callable(expr_text: str):
+    """
+    $$...$$ 내부 문자열 또는 일반 문자열을 sympy로 파싱해 numpy callable로 변환.
+    파싱 실패 시 None 반환.
+    (캐시 사용)
+    """
+    srepr_text = _latex_to_sympy_srepr(expr_text or "")
+    return _sympy_srepr_to_callable(srepr_text)
+
+
+def _safe_eval(fn, t: np.ndarray) -> np.ndarray | None:
+    if fn is None:
+        return None
+    try:
+        y = fn(t)
+        y = np.asarray(y, dtype=float)
+        if y.shape != t.shape:
+            y = np.broadcast_to(y, t.shape)
+        y[~np.isfinite(y)] = np.nan
+        return y
+    except Exception:
+        return None
+
+
 def _plot_ai_functions(xv, t, f_fn, fp_fn, fpp_fn):
+    y0 = _safe_eval(f_fn, t)
+    y1 = _safe_eval(fp_fn, t)
+    y2 = _safe_eval(fpp_fn, t)
+
     if PLOTLY_AVAILABLE:
         fig = go.Figure()
-        if f_fn is not None:
-            fig.add_trace(go.Scatter(x=xv, y=f_fn(t), mode="lines", name="y=f(t)"))
-        if fp_fn is not None:
-            fig.add_trace(go.Scatter(x=xv, y=fp_fn(t), mode="lines", name="y=f'(t)"))
-        if fpp_fn is not None:
-            fig.add_trace(go.Scatter(x=xv, y=fpp_fn(t), mode="lines", name="y=f''(t)"))
+        if y0 is not None:
+            fig.add_trace(go.Scatter(x=xv, y=y0, mode="lines", name="y=f(t)"))
+        if y1 is not None:
+            fig.add_trace(go.Scatter(x=xv, y=y1, mode="lines", name="y=f'(t)"))
+        if y2 is not None:
+            fig.add_trace(go.Scatter(x=xv, y=y2, mode="lines", name="y=f''(t)"))
         fig.update_layout(height=420, margin=dict(l=40, r=20, t=20, b=40))
         st.plotly_chart(fig, use_container_width=True)
     else:
         fig, ax = plt.subplots()
-        if f_fn is not None:
-            ax.plot(xv, f_fn(t), label="y=f(t)")
-        if fp_fn is not None:
-            ax.plot(xv, fp_fn(t), label="y=f'(t)")
-        if fpp_fn is not None:
-            ax.plot(xv, fpp_fn(t), label="y=f''(t)")
+        if y0 is not None:
+            ax.plot(xv, y0, label="y=f(t)")
+        if y1 is not None:
+            ax.plot(xv, y1, label="y=f'(t)")
+        if y2 is not None:
+            ax.plot(xv, y2, label="y=f''(t)")
         ax.legend()
         st.pyplot(fig, use_container_width=True)
 
@@ -297,11 +364,11 @@ step2_prev = _get_step2_state()
 
 colA, colB = st.columns([1.2, 1])
 with colA:
-    st.markdown("**(권장) 1차시 TXT 업로드로 복구**")
+    st.markdown("**1차시 TXT 업로드로 복구**")
     txt_file = st.file_uploader("1차시 백업 TXT 업로드", type=["txt"], key="step2_txt_upload")
 
 with colB:
-    st.markdown("**(선택) CSV 다시 업로드(그래프/도함수 계산용)**")
+    st.markdown("**CSV 다시 업로드(그래프/도함수 계산용)**")
     csv_file = st.file_uploader("CSV 업로드", type=["csv"], key="step2_csv_upload")
 
 if txt_file is not None:
@@ -386,7 +453,7 @@ else:
     xv = x[valid]
     yv = y[valid]
 
-    if len(xv) < 30:
+    if len(xv) < MIN_VALID_POINTS:
         st.warning("유효 데이터가 부족하여 변화율 계산이 어렵습니다. (최소 30점 이상 권장)")
     else:
         # 정렬
@@ -403,49 +470,67 @@ else:
 
         y_arr = yv.to_numpy(dtype=float)
 
-        dy, d2y = compute_derivatives(t, y_arr)
-        valid_n = int(len(t))
-        st.metric("유효 데이터 점 개수", valid_n)
+        # t 중복 방지(0 간격으로 gradient 불안정해지는 케이스 방어)
+        tmp = pd.DataFrame({"t": t, "y": y_arr})
+        tmp = tmp.groupby("t", as_index=False).mean(numeric_only=True)
+        t = tmp["t"].to_numpy(dtype=float)
+        y_arr = tmp["y"].to_numpy(dtype=float)
 
-        # AI 그래프 그리기용 저장
-        st.session_state["step2_ai_xv"] = xv
-        st.session_state["step2_ai_t"] = t
-        st.session_state["step2_valid_n"] = valid_n
-
-        # 그래프(원자료/변화율/가속)
-        if PLOTLY_AVAILABLE:
-            fig1 = go.Figure()
-            fig1.add_trace(go.Scatter(x=xv, y=y_arr, mode="lines+markers", name="y"))
-            fig1.update_layout(height=320, margin=dict(l=40, r=20, t=20, b=40),
-                               xaxis_title=str(x_col), yaxis_title=str(y_col))
-            st.plotly_chart(fig1, use_container_width=True)
-
-            fig2 = go.Figure()
-            fig2.add_trace(go.Scatter(x=xv, y=dy, mode="lines+markers", name="dy/dt"))
-            fig2.update_layout(height=320, margin=dict(l=40, r=20, t=20, b=40),
-                               xaxis_title=str(x_col), yaxis_title="변화율(Δy/Δt)")
-            st.plotly_chart(fig2, use_container_width=True)
-
-            fig3 = go.Figure()
-            fig3.add_trace(go.Scatter(x=xv, y=d2y, mode="lines+markers", name="d2y/dt2"))
-            fig3.update_layout(height=320, margin=dict(l=40, r=20, t=20, b=40),
-                               xaxis_title=str(x_col), yaxis_title="이계변화율(Δ²y/Δt²)")
-            st.plotly_chart(fig3, use_container_width=True)
+        if len(t) < MIN_VALID_POINTS:
+            st.warning("유효 데이터가 부족하여 변화율 계산이 어렵습니다. (최소 30점 이상 권장)")
         else:
-            fig, ax = plt.subplots()
-            ax.plot(xv, y_arr, marker="o")
-            ax.set_title("원자료 y")
-            st.pyplot(fig, use_container_width=True)
+            dy, d2y = compute_derivatives(t, y_arr)
+            valid_n = int(len(t))
+            st.metric("유효 데이터 점 개수", valid_n)
 
-            fig, ax = plt.subplots()
-            ax.plot(xv, dy, marker="o")
-            ax.set_title("변화율 Δy/Δt")
-            st.pyplot(fig, use_container_width=True)
+            # AI 그래프 그리기용 저장
+            # (xv는 원래 datetime/numeric 축으로 유지하되, t 중복 제거로 길이가 달라질 수 있어
+            #  그래프 축도 같은 길이로 맞춤: 원 x축을 t 기준으로 재구성)
+            if x_type == "datetime":
+                # base에 t(월)만큼 더한 월을 x축으로 복원(대략적인 대응)
+                base_dt = pd.to_datetime(xv.iloc[0])
+                xv_plot = pd.to_datetime(base_dt) + pd.to_timedelta(t * 30, unit="D")
+            else:
+                xv_plot = t
 
-            fig, ax = plt.subplots()
-            ax.plot(xv, d2y, marker="o")
-            ax.set_title("이계변화율 Δ²y/Δt²")
-            st.pyplot(fig, use_container_width=True)
+            st.session_state["step2_ai_xv"] = xv_plot
+            st.session_state["step2_ai_t"] = t
+            st.session_state["step2_valid_n"] = valid_n
+
+            # 그래프(원자료/변화율/가속)
+            if PLOTLY_AVAILABLE:
+                fig1 = go.Figure()
+                fig1.add_trace(go.Scatter(x=xv_plot, y=y_arr, mode="lines+markers", name="y"))
+                fig1.update_layout(height=320, margin=dict(l=40, r=20, t=20, b=40),
+                                   xaxis_title=str(x_col), yaxis_title=str(y_col))
+                st.plotly_chart(fig1, use_container_width=True)
+
+                fig2 = go.Figure()
+                fig2.add_trace(go.Scatter(x=xv_plot, y=dy, mode="lines+markers", name="dy/dt"))
+                fig2.update_layout(height=320, margin=dict(l=40, r=20, t=20, b=40),
+                                   xaxis_title=str(x_col), yaxis_title="변화율(Δy/Δt)")
+                st.plotly_chart(fig2, use_container_width=True)
+
+                fig3 = go.Figure()
+                fig3.add_trace(go.Scatter(x=xv_plot, y=d2y, mode="lines+markers", name="d2y/dt2"))
+                fig3.update_layout(height=320, margin=dict(l=40, r=20, t=20, b=40),
+                                   xaxis_title=str(x_col), yaxis_title="이계변화율(Δ²y/Δt²)")
+                st.plotly_chart(fig3, use_container_width=True)
+            else:
+                fig, ax = plt.subplots()
+                ax.plot(xv_plot, y_arr, marker="o")
+                ax.set_title("원자료 y")
+                st.pyplot(fig, use_container_width=True)
+
+                fig, ax = plt.subplots()
+                ax.plot(xv_plot, dy, marker="o")
+                ax.set_title("변화율 Δy/Δt")
+                st.pyplot(fig, use_container_width=True)
+
+                fig, ax = plt.subplots()
+                ax.plot(xv_plot, d2y, marker="o")
+                ax.set_title("이계변화율 Δ²y/Δt²")
+                st.pyplot(fig, use_container_width=True)
 
 st.divider()
 
@@ -646,7 +731,7 @@ st.info(
 
 student_critical_review = st.text_area(
     "분석 내용(필수)",
-    value=step2_prev.get("student_critical_review", ""),
+    value=step2_prev.get("student_analysis", ""),
     height=220,
     placeholder=(
         "수식은 반드시 LaTeX 형식($$ ... $$)으로 입력하세요."
