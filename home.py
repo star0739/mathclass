@@ -176,7 +176,7 @@ with st.sidebar:
     if st.button("3차시: 누적량 해석", use_container_width=True, key="sb_assess_3"):
         st.switch_page("assessment/step3_integral.py")
 
-    if st.button("최종: 보고서 작성", use_container_width=True, key="sb_assess_3"):
+    if st.button("최종: 보고서 작성", use_container_width=True, key="sb_final_report"):
         st.switch_page("assessment/final_report.py")
 
 # -----------------------------
