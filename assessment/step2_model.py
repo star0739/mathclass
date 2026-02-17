@@ -200,7 +200,6 @@ def build_step2_backup(payload: dict) -> bytes:
     lines.append("")
 
     lines.append("[추가 메모]")
-    lines.append(payload.get("note","").strip() or "(없음)")
     lines.append("")
     lines.append("※ 수식은 $$...$$ 형태의 LaTeX로 유지하는 것이 안전합니다.")
 
@@ -486,7 +485,7 @@ st.info(
 
 
 student_critical_review = st.text_area(
-    "분석 내용(필수)",
+    "미분 분석 내용(필수)",
     value=step2_prev.get("student_critical_review", ""),
     height=220,
     placeholder=(
@@ -494,7 +493,6 @@ student_critical_review = st.text_area(
     ),
 )
 
-note = st.text_area("추가 메모(선택)", value=step2_prev.get("note", ""), height=100)
 
 st.divider()
 
@@ -528,7 +526,6 @@ payload = {
     "py_d1": py_d1,
     "py_d2": py_d2,
     "student_analysis": student_critical_review,
-    "note": note.strip(),
 }
 
 # 2. 버튼 레이아웃 (1차시와 동일한 비율)
@@ -590,7 +587,6 @@ if save_clicked or download_clicked or go_next:
                 py_d1=payload["py_d1"],
                 py_d2=payload["py_d2"],
                 student_analysis=payload["student_analysis"],
-                note=payload["note"],
             )
             st.success("✅ 구글 시트에 성공적으로 저장되었습니다.")
         except Exception as e:
