@@ -104,7 +104,7 @@ def parse_step1_backup_txt(text: str) -> dict:
                 return ln.replace(prefix, "", 1).strip()
         return ""
 
-    out["student_id"] = find_value("학번/식별코드:")
+    out["student_id"] = find_value("학번:")
     out["data_source"] = find_value("- 데이터 출처:")
     out["x_col"] = ""
     out["y_col"] = ""
@@ -169,7 +169,7 @@ def build_step2_backup(payload: dict) -> bytes:
     lines.append("공공데이터 분석 수행 (2차시) 백업")
     lines.append("=" * 40)
     lines.append(f"저장시각: {pd.Timestamp.now().strftime('%Y-%m-%d %H:%M:%S')}")
-    lines.append(f"학번/식별코드: {payload.get('student_id','')}")
+    lines.append(f"학번: {payload.get('student_id','')}")
     lines.append("")
     lines.append("[1차시 정보]")
     lines.append(f"- 데이터 출처: {payload.get('data_source','')}")
@@ -207,10 +207,10 @@ def build_step2_backup(payload: dict) -> bytes:
 # UI 시작
 # ============================================================
 init_assessment_session()
-student_id = require_student_id("학번 또는 식별 코드를 입력하세요.")
+student_id = require_student_id("학번을 입력하세요.")
 
-st.title("공공데이터 분석 수행 (2차시) — AI 모델식 도출 & 미분 기반 검증")
-st.caption("AI가 제안한 모델식을 LaTeX로 입력하고, 데이터 변화율(근사 도함수)과 비교해 비판적으로 검토합니다.")
+st.title("(2차시) AI 모델식 도출 & 미분 기반 검증")
+st.caption("AI가 제안한 모델식을 입력하고, 데이터 변화율(근사 도함수)과 비교해 비판적으로 검토합니다.")
 st.divider()
 
 # ============================================================
