@@ -272,17 +272,16 @@ if csv_file is not None:
 st.divider()
 
 # ============================================================
-# 1) AI 프롬프트 자동 생성 (통합 템플릿)
+# 1) AI 프롬프트 자동 생성
 # ============================================================
 st.subheader("1) AI로 모델식(y=f(t)) 제안 받기")
 
 st.info(
-    "1차시에서 세운 가설 모델과 그 근거를 바탕으로,\n"
-    "AI에게 모델식을 제안받습니다.\n\n"
-    "⚠ 수식은 반드시 LaTeX 형식으로 출력하도록 지시하세요."
+    "1차시에서 세운 가설 모델과 그 근거를 바탕으로 AI에게 모델식을 제안받습니다.\n"
+    "⚠ 반드시 **파이썬 계산용 식**도 함께 출력하도록 요청하세요."
 )
 
-# 1차시 정보 자동 불러오기
+# 1차시 정보 자동 불러오기 (common.py 연동)
 model_hypothesis = step1.get("model_primary", "")
 model_reason = step1.get("model_primary_reason", "")
 
@@ -290,163 +289,124 @@ st.markdown("### 🔹 1차시 가설 확인")
 st.write(f"**가설 모델:** {model_hypothesis or '(기록 없음)'}")
 st.write(f"**가설 근거:** {model_reason or '(기록 없음)'}")
 
-additional_context = st.text_area(
-    "추가 설명(선택) — 1차시 이후 새롭게 생각한 점이 있다면 작성",
-    height=80,
-)
+additional_context = st.text_area("추가 설명(선택)", height=80)
 
-# -----------------------------
-# 통합 프롬프트 자동 생성 함수
-# -----------------------------
-def build_unified_prompt(model_hypothesis, model_reason, additional_context):
-    return f"""
-너는 수학 모델링 조교다. 첨부한 데이터 파일을 토대로 아래 조건에 따라 함수 모델을 제안하라.
-
-[중요 조건]
-- 수식은 반드시 LaTeX 형식으로 출력하라.
-- 모든 수식은 $$ ... $$ 로 감싸라.
-- 유니코드 위첨자(², ³ 등)는 사용하지 말고 ^{{ }} 형태를 사용하라.
-- 보고서처럼 길게 쓰지 말고, 식과 핵심 해석 위주로 작성하라.
-
-[데이터 설명]
-- t는 시간 인덱스(월 단위 또는 순차 인덱스)이다.
-- (t, y) 데이터를 참고하여 모델을 제안하라.
-
-[내가 세운 가설 모델]
-- 모델 유형: {model_hypothesis}
-- 그렇게 생각한 이유: {model_reason}
-
-[추가 설명]
-{additional_context}
-
-[반드시 포함할 출력 항목]
-1) 최종 모델식: $$f(t) = ...$$
-2) 도함수: $$f'(t)=...$$
-3) 이계도함수: $$f''(t)=...$$
-4) 파이썬 계산용 식: numpy를 사용한 한 줄 코드로 작성 (예: 3.2 * np.exp(0.04 * t))
-   (변수는 반드시 t를 사용하고, 도함수는 d1, 이계도함수는 d2라는 키워드로 제공할 것)
-5) 모델의 한계를 하나의 문단으로 작성하고, 가설 모델의 수정 여부를 판단하라.
-   (최소 두 가지 한계를 포함하고, 번호나 목록 형태로 나열하지 말 것)
-""".strip()
-
-
-# 자동 생성 버튼
 if st.button("📌 프롬프트 자동 생성", use_container_width=True):
-    generated_prompt = build_unified_prompt(
-        model_hypothesis,
-        model_reason,
-        additional_context,
-    )
+    # AI에게 LaTeX와 Python 식을 모두 요구하는 템플릿
+    generated_prompt = build_unified_prompt(model_hypothesis, model_reason, additional_context)
     st.session_state["step2_ai_prompt"] = generated_prompt
 
-
-# 프롬프트 입력/수정 영역
-ai_prompt = st.text_area(
-    "AI에 입력할 프롬프트(자동 생성 후 필요하면 수정)",
-    value=st.session_state.get("step2_ai_prompt", ""),
-    height=260,
-)
-
+ai_prompt = st.text_area("AI에 입력할 프롬프트", value=st.session_state.get("step2_ai_prompt", ""), height=200)
 
 st.divider()
 
 # ============================================================
-# 2) AI 출력 결과 입력(LaTeX) + 미리보기
+# 2) AI 출력 결과 입력
 # ============================================================
 st.subheader("2) AI 출력 식 입력")
 
 col1, col2 = st.columns(2)
 with col1:
-    ai_model_latex = st.text_area("AI 모델식 f(t) (LaTeX)", value=step2_prev.get("ai_model_latex", ""), height=100)
+    st.markdown("**LaTeX 수식 (보고서용)**")
+    ai_model_latex = st.text_area("AI 모델식 f(t) (LaTeX)", value=step2_prev.get("ai_model_latex", ""), height=100, placeholder="$$ y = ... $$")
     ai_derivative_latex = st.text_area("AI 도함수 f'(t) (LaTeX)", value=step2_prev.get("ai_derivative_latex", ""), height=100)
     ai_second_derivative_latex = st.text_area("AI 이계도함수 f''(t) (LaTeX)", value=step2_prev.get("ai_second_derivative_latex", ""), height=100)
+
 with col2:
-    # eval()용 파이썬 수식 입력창
-    py_model = st.text_input("모델식 f(t) 파이썬 식", value=step2_prev.get("py_model", ""), placeholder="3.2 * np.exp(0.04 * t)")
-    py_d1 = st.text_input("도함수 f'(t) 파이썬 식", value=step2_prev.get("py_d1", ""), placeholder="0.128 * np.exp(0.04 * t)")
-    py_d2 = st.text_input("이계도함수 f''(t) 파이썬 식", value=step2_prev.get("py_d2", ""), placeholder="0.00512 * np.exp(0.04 * t)")
+    st.markdown("**파이썬 수식 (그래프 시뮬레이션용)**")
+    py_model = st.text_input("모델식 f(t) 식", value=step2_prev.get("py_model", ""), placeholder="3.2 * np.exp(0.04 * t)")
+    py_d1 = st.text_input("도함수 f'(t) 식", value=step2_prev.get("py_d1", ""), placeholder="0.128 * np.exp(0.04 * t)")
+    py_d2 = st.text_input("이계도함수 f''(t) 식", value=step2_prev.get("py_d2", ""), placeholder="0.00512 * np.exp(0.04 * t)")
 
 st.subheader("가설 재평가")
+hypothesis_decision = st.radio("가설 판단", ["가설 유지", "가설 수정"], horizontal=True, key="hypothesis_decision")
 
-st.info(
-    "AI가 제안한 모델과 한계점을 살펴보고, "
-    "여러분이 1차시에 세운 가설 모델이 적절한지 판단해 봅시다."
-)
-
-hypothesis_decision = st.radio(
-    "가설 판단",
-    ["가설 유지", "가설 수정"],
-    horizontal=True,
-    key="hypothesis_decision",
-)
-
-# ✅ 항상 존재하도록 기본값을 먼저 둠(가설 유지일 때 NameError 방지)
 revised_model = ""
 if hypothesis_decision == "가설 수정":
-    revised_model = st.text_input(
-        "수정한 모델 유형을 작성하세요",
-        placeholder="예: 다항함수",
-        key="revised_model",
-    )
-    st.warning(
-        "수정된 모델을 기준으로 AI에게 다시 분석을 요청하고, **항목 3)을 재작성 하세요.**"
-    )
+    revised_model = st.text_input("수정한 모델 유형", placeholder="예: 다항함수", key="revised_model")
+    st.warning("모델을 수정했다면 위 항목 2)의 수식들을 수정된 모델 기준으로 다시 입력하세요.")
 
-# ✅ 항상 정의되도록 '안전 문자열'을 여기서 만들기
-revised_model_safe = revised_model.strip() if hypothesis_decision == "가설 수정" else ""
+st.divider()
 
 # ============================================================
-# 3) 데이터 및 AI 모델 그래프 확인 (기존 1번 - 위치 이동)
+# 3) 데이터 기반 변화율 및 AI 모델 비교 (기존 1번 위치 이동)
 # ============================================================
 st.subheader("3) 데이터 기반 변화율 및 AI 모델 비교")
 
-df = get_df()
 if df is None:
     st.info("CSV를 업로드하면 그래프를 확인할 수 있습니다.")
 else:
-    # ... (x_col, y_col 선택 및 데이터 전처리 로직) ...
-    
+    # 컬럼 선택 및 전처리 로직 (기존 코드 유지)
+    cols = list(df.columns)
+    x_prev, y_prev = get_xy()
+    x_init = step1.get("x_col") if step1.get("x_col") in cols else (x_prev if x_prev in cols else cols[0])
+    y_init = step1.get("y_col") if step1.get("y_col") in cols else (y_prev if y_prev in cols else (cols[1] if len(cols) > 1 else cols[0]))
+
+    x_col = st.selectbox("X축", cols, index=cols.index(x_init), key="step2_x_col")
+    y_col = st.selectbox("Y축", cols, index=cols.index(y_init), key="step2_y_col")
+    set_xy(x_col, y_col)
+
+    # ... (x_mode 처리 및 xv, yv 필터링 로직 생략 - 기존과 동일) ...
+
     if len(xv) < 30:
         st.warning("유효 데이터가 부족합니다.")
     else:
-        # 데이터 기반 수치 미분 계산
-        dy, d2y = compute_derivatives(t, y_arr)
-        st.session_state["step2_valid_n"] = int(len(t)) # 세션 저장
+        # 데이터 정렬 및 t 수치화
+        order = np.argsort(xv.values) if x_type == "datetime" else np.argsort(xv.to_numpy())
+        xv, yv = xv.iloc[order], yv.iloc[order]
         
+        if x_type == "datetime":
+            base = xv.iloc[0]
+            t = ((xv.dt.year - base.year) * 12 + (xv.dt.month - base.month)).to_numpy(dtype=float)
+        else:
+            t = xv.to_numpy(dtype=float)
+
+        y_arr = yv.to_numpy(dtype=float)
+        dy, d2y = compute_derivatives(t, y_arr)
+        st.session_state["step2_valid_n"] = int(len(t))
+
         # --- eval()을 이용한 AI 수식 계산 ---
-        eval_env = {"np": np, "t": t, "exp": np.exp, "sin": np.sin, "cos": np.cos, "log": np.log}
+        # 학생들이 np를 생략해도 작동하도록 환경 설정
+        eval_env = {"np": np, "t": t, "exp": np.exp, "sin": np.sin, "cos": np.cos, "log": np.log, "tan": np.tan}
         ai_y, ai_dy, ai_d2y = None, None, None
         try:
             if py_model: ai_y = eval(py_model, eval_env)
             if py_d1: ai_dy = eval(py_d1, eval_env)
             if py_d2: ai_d2y = eval(py_d2, eval_env)
         except Exception as e:
-            st.error(f"수식 계산 오류: {e}")
+            st.error(f"수식 계산 오류: {e} (변수는 t를 사용하고 곱셈은 *를 입력했는지 확인하세요.)")
 
         # --- 그래프 출력 (Plotly) ---
-        # 1) 원함수 그래프 (데이터 점 + AI 선)
+        # 1) 원함수 비교
         fig1 = go.Figure()
         fig1.add_trace(go.Scatter(x=xv, y=y_arr, mode="markers", name="실제 데이터", marker=dict(color='gray', opacity=0.5)))
         if ai_y is not None:
-            fig1.add_trace(go.Scatter(x=xv, y=ai_y, mode="lines", name="AI 모델식", line=dict(color='red', width=2)))
+            fig1.add_trace(go.Scatter(x=xv, y=ai_y, mode="lines", name="AI 모델식", line=dict(color='red', width=2.5)))
+        fig1.update_layout(height=320, title="원데이터 vs AI 모델 비교", xaxis_title=str(x_col), yaxis_title=str(y_col))
         st.plotly_chart(fig1, use_container_width=True)
 
-        # 2) 도함수 그래프 (데이터 변화율 + AI 도함수 선)
+        # 2) 도함수 비교
         fig2 = go.Figure()
-        fig2.add_trace(go.Scatter(x=xv, y=dy, mode="markers", name="데이터 변화율", marker=dict(color='gray', opacity=0.5)))
+        fig2.add_trace(go.Scatter(x=xv, y=dy, mode="markers", name="데이터 변화율(Δy/Δt)", marker=dict(color='gray', opacity=0.5)))
         if ai_dy is not None:
-            fig2.add_trace(go.Scatter(x=xv, y=ai_dy, mode="lines", name="AI 도함수", line=dict(color='blue', width=2)))
+            fig2.add_trace(go.Scatter(x=xv, y=ai_dy, mode="lines", name="AI 도함수 f'(t)", line=dict(color='blue', width=2.5)))
+        fig2.update_layout(height=320, title="변화율 비교 분석", xaxis_title=str(x_col), yaxis_title="변화율")
         st.plotly_chart(fig2, use_container_width=True)
 
-        # 3) 이계도함수 그래프 (데이터 이계변화율 + AI 이계도함수 선)
+        # 3) 이계도함수 비교
         fig3 = go.Figure()
-        fig3.add_trace(go.Scatter(x=xv, y=d2y, mode="markers", name="데이터 이계변화율", marker=dict(color='gray', opacity=0.5)))
+        fig3.add_trace(go.Scatter(x=xv, y=d2y, mode="markers", name="데이터 이계변화율(Δ²y)", marker=dict(color='gray', opacity=0.5)))
         if ai_d2y is not None:
-            fig3.add_trace(go.Scatter(x=xv, y=ai_d2y, mode="lines", name="AI 이계도함수", line=dict(color='green', width=2)))
+            fig3.add_trace(go.Scatter(x=xv, y=ai_d2y, mode="lines", name="AI 이계도함수 f''(t)", line=dict(color='green', width=2.5)))
+        fig3.update_layout(height=320, title="곡률(오목·볼록) 비교 분석", xaxis_title=str(x_col), yaxis_title="이계도함수")
         st.plotly_chart(fig3, use_container_width=True)
 
 st.divider()
 
+# ============================================================
+# 4) 미분 관점의 모델 해석
+# ============================================================
+# ... (이하 동일)
 
 # ============================================================
 # 4) 학생 검증/비판(핵심 제출물)
