@@ -197,7 +197,6 @@ def append_step2_row(
         _as_text(model_hypothesis_step1),
         _as_text(hypothesis_decision),
         _as_text(revised_model),
-        _as_text(ai_prompt),
         _as_text(ai_model_latex),
         _as_text(ai_derivative_latex),
         _as_text(ai_second_derivative_latex),
