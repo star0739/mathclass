@@ -291,12 +291,49 @@ st.write(f"**가설 근거:** {model_reason or '(기록 없음)'}")
 
 additional_context = st.text_area("추가 설명(선택)", height=80)
 
-if st.button("📌 프롬프트 자동 생성", use_container_width=True):
-    # AI에게 LaTeX와 Python 식을 모두 요구하는 템플릿
-    generated_prompt = build_unified_prompt(model_hypothesis, model_reason, additional_context)
-    st.session_state["step2_ai_prompt"] = generated_prompt
+def build_unified_prompt(model_hypothesis, model_reason, additional_context):
+    return f"""
+너는 수학 모델링 조교다. 첨부한 데이터 파일을 토대로 아래 조건에 따라 함수 모델을 제안하라.
 
-ai_prompt = st.text_area("AI에 입력할 프롬프트", value=st.session_state.get("step2_ai_prompt", ""), height=200)
+[중요 조건]
+- 수식은 반드시 LaTeX 형식으로 출력하라.
+- 모든 수식은 $$ ... $$ 로 감싸라.
+- 유니코드 위첨자(², ³ 등)는 사용하지 말고 ^{{ }} 형태를 사용하라.
+- 보고서처럼 길게 쓰지 말고, 식과 핵심 해석 위주로 작성하라.
+
+[데이터 설명]
+- t는 시간 인덱스(월 단위 또는 순차 인덱스)이다.
+- (t, y) 데이터를 참고하여 모델을 제안하라.
+
+[내가 세운 가설 모델]
+- 모델 유형: {model_hypothesis}
+- 그렇게 생각한 이유: {model_reason}
+
+[추가 설명]
+{additional_context}
+
+[반드시 포함할 출력 항목]
+1) 최종 모델식: $$y = ...$$
+2) 도함수: $$f'(t)=...$$
+3) 이계도함수: $$f''(t)=...$$
+4) 모델의 한계를 하나의 문단으로 작성하고, 가설 모델의 수정 여부를 판단하라.
+   (최소 두 가지 한계를 포함하고, 번호나 목록 형태로 나열하지 말 것)
+""".strip()
+
+
+# 자동 생성 버튼
+if st.button("📌 프롬프트 자동 생성", use_container_width=True):
+    st.session_state["step2_ai_prompt"] = build_unified_prompt(
+        model_hypothesis,
+        model_reason,
+        additional_context,
+    )
+
+ai_prompt = st.text_area(
+    "AI에 입력할 프롬프트",
+    value=st.session_state.get("step2_ai_prompt", ""),
+    height=200
+)
 
 st.divider()
 
