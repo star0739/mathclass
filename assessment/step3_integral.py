@@ -288,7 +288,7 @@ def build_step3_backup(payload: dict) -> bytes:
     lines.append(f"- 사다리꼴 오차 |A-I|: {fnum(payload.get('err_trap'))}")
     lines.append("")
     lines.append("[종합 결론(학생 작성)]")
-    lines.append(payload.get("conclusion", "").strip() or "(미입력)")
+    lines.append(payload.get("student_critical_review2", "").strip() or "(미입력)")
     lines.append("")
     lines.append("[추가 메모]")
     lines.append(payload.get("note", "").strip() or "(없음)")
@@ -536,18 +536,26 @@ else:
 st.divider()
 
 # 4) 결론
-st.subheader("4) 종합 결론: 이 모델의 장점과 한계")
+st.subheader("4) 적분 관점의 모델 분석")
 
 st.info(
-    "포함할 내용 예시:\n"
-    "• 직사각형/사다리꼴 중 어떤 근사법이 모델 정적분 값에 더 가까운가?\n"
-    "• 그 이유를 '근사법의 특성'과 '데이터의 변화' 관점에서 설명\n"
-    "• 이 모델의 장점 1가지, 한계 1가지(근거 포함)\n"
-    "• 개선 제안 1가지\n"
+    "🔹 누적량 비교\n\n"
+    "데이터를 이용하여 계산한 수치적분 값(직사각형·사다리꼴)과 "
+    "모델 식으로부터 구한 정적분 값을 비교하시오. \n\n"
+    "어느 방법이 정적분 값에 더 가까웠는지 수치적 근거를 들어 설명하시오.\n\n"
+
+    "🔹 근사 방법의 특성 분석\n\n"
+    "직사각형 방법과 사다리꼴 방법의 오차 차이를 분석하시오. \n\n"
+    "구간 내 함수의 증가·감소, 오목·볼록 성질과 연결하여 "
+    "왜 그러한 차이가 발생하는지 설명하시오.\n\n"
+
+    "🔹 적분값의 의미 해석\n\n"
+    "계산된 정적분 값이 현실에서 무엇을 의미하는지 서술하시오. \n\n"
+    "이 값이 나타내는 전체 변화량 또는 누적 효과를 구체적으로 설명하시오.\n\n"
 )
 
-conclusion = st.text_area("종합 서술(필수)", value=step3_prev.get("conclusion", ""), height=220)
-note = st.text_area("추가 메모(선택)", value=step3_prev.get("note", ""), height=100)
+student_critical_review2 = st.text_area("적분 분석 내용(필수)", value=step3_prev.get("student_critical_review2", ""), height=220)
+
 
 st.divider()
 
@@ -571,7 +579,7 @@ payload = {
     "I_model": float(I_model),
     "err_rect": float(err_rect),
     "err_trap": float(err_trap),
-    "conclusion": conclusion.strip(),
+    "student_critical_review2": student_critical_review2.strip(),
     "note": note.strip(),
 }
 
@@ -589,8 +597,8 @@ st.download_button(
 )
 
 def _validate_step3() -> bool:
-    if not payload["conclusion"]:
-        st.warning("종합 서술을 입력하세요.")
+    if not payload["student_critical_review2"]:
+        st.warning("적분 분석 내용을 입력하세요.")
         return False
     if not payload["py_model"]:
         st.warning("모델식(py_model)을 입력/확인하세요.")
@@ -623,7 +631,7 @@ if save_clicked or download_clicked or go_next:
                 A_model=float(I_model),
                 relative_error=rel_trap,
                 py_model=payload["py_model"],
-                conclusion=payload["conclusion"],
+                student_critical_review2=payload["student_critical_review2"],
                 note=payload["note"],
             )
             st.success("✅ 구글 시트에 성공적으로 저장되었습니다.")
