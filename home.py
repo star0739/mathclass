@@ -73,14 +73,6 @@ finalseat_page = st.Page(
     icon="✅",
 )
 
-# -----------------------------
-# 테스트 페이지 (유지)
-# -----------------------------
-test_page = st.Page(
-    "test/test.py",
-    title="Test",
-    icon="🧪",
-)
 
 # -----------------------------
 # ✅ 수행평가 전용 페이지 등록
@@ -108,20 +100,25 @@ assessment_step3 = st.Page(
     icon="3️⃣",
 )
 
+assessment_final = st.Page(
+    "assessment/final_report.py",
+    title="최종: 보고서 작성",
+    icon="⭐",
+)
+
 pages = {
     "Home": [home_page],
     "📖 교과 학습": [calculus_page, ai_math_page],
     "🪑 좌석 관리": [seat_page, finalseat_page],
 
-    # 테스트용 메뉴
-    "테스트": [test_page],
 
     # ✅ 수행평가 전용 메뉴
-    # NOTE: 수행평가 종료 후 이 섹션 전체를 삭제하면 메뉴에서 사라짐
+
     "공공데이터 분석 수행": [
         assessment_step1,
         assessment_step2,
         assessment_step3,
+        assessment_final,
     ],
 }
 
@@ -162,18 +159,11 @@ with st.sidebar:
     if st.button("좌석 확인", use_container_width=True, key="sb_finalseat"):
         st.switch_page(finalseat_page)
 
-    # -----------------------------
-    # 테스트 메뉴
-    # -----------------------------
-    st.markdown("---")
-    st.subheader("🧪 테스트")
-    if st.button("Test", use_container_width=True, key="sb_test"):
-        st.switch_page("test/test.py")
 
     # -----------------------------
     # ✅ 수행평가 메뉴
     # -----------------------------
-    # NOTE: 수행평가 종료 시 아래 블록을 통째로 삭제(또는 주석 처리)하면 됨
+
     st.markdown("---")
     st.subheader("📝 공공데이터 분석 수행")
 
@@ -186,6 +176,8 @@ with st.sidebar:
     if st.button("3차시: 누적량 해석", use_container_width=True, key="sb_assess_3"):
         st.switch_page("assessment/step3_integral.py")
 
+    if st.button("최종: 보고서 작성", use_container_width=True, key="sb_assess_3"):
+        st.switch_page("assessment/final_report.py")
 
 # -----------------------------
 # 현재 선택된 페이지 실행
