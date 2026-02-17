@@ -169,39 +169,42 @@ def build_step2_backup(payload: dict) -> bytes:
     lines.append("공공데이터 분석 수행 (2차시) 백업")
     lines.append("=" * 40)
     lines.append(f"저장시각: {pd.Timestamp.now().strftime('%Y-%m-%d %H:%M:%S')}")
-    lines.append(f"학번: {payload.get('student_id','')}")
+    lines.append(f"학번/식별코드: {payload.get('student_id','')}")
     lines.append("")
-    lines.append("[1차시 정보]")
+
+    lines.append("[가설 재평가]")
+    lines.append(f"- 1차시 가설 모델: {payload.get('model_hypothesis_step1','')}")
+    lines.append(f"- 가설 판단: {payload.get('hypothesis_decision','')}")
+    if payload.get("hypothesis_decision") == "가설 수정":
+        lines.append(f"- 수정한 모델: {payload.get('revised_model','')}")
+    lines.append("")
+
+    lines.append("[데이터 정보]")
     lines.append(f"- 데이터 출처: {payload.get('data_source','')}")
     lines.append(f"- X축: {payload.get('x_col','')} | Y축: {payload.get('y_col','')}")
     lines.append(f"- 유효 데이터 점: {payload.get('valid_n','')}")
-    lines.append(f"- 1차시 가설 모델: {payload.get('model_hypothesis_step1','')}")
     lines.append("")
+
     lines.append("[AI 프롬프트]")
     lines.append(payload.get("ai_prompt","").strip() or "(미입력)")
     lines.append("")
-    lines.append("[AI 모델식(LaTeX)]")
+
+    lines.append("[AI 모델식/미분식(LaTeX)]")
     lines.append(payload.get("ai_model_latex","").strip() or "(미입력)")
+    lines.append(payload.get("ai_derivative_latex","").strip() or "")
+    lines.append(payload.get("ai_second_derivative_latex","").strip() or "")
     lines.append("")
-    lines.append("[AI 도함수(LaTeX)]")
-    lines.append(payload.get("ai_derivative_latex","").strip() or "(미입력)")
+
+    lines.append("[미분 관점의 모델 해석(학생 작성)]")
+    lines.append(payload.get("student_analysis","").strip() or "(미입력)")
     lines.append("")
-    lines.append("[AI 이계도함수(LaTeX)]")
-    lines.append(payload.get("ai_second_derivative_latex","").strip() or "(미입력)")
-    lines.append("")
-    lines.append("[학생 검증/비판(핵심)]")
-    lines.append(payload.get("student_critical_review","").strip() or "(미입력)")
-    lines.append("")
-    lines.append("[최종 판단]")
-    lines.append(payload.get("final_decision","").strip() or "(미입력)")
-    lines.append("")
+
     lines.append("[추가 메모]")
     lines.append(payload.get("note","").strip() or "(없음)")
     lines.append("")
     lines.append("※ 수식은 $$...$$ 형태의 LaTeX로 유지하는 것이 안전합니다.")
-    text = "\n".join(lines)
-    return text.encode("utf-8-sig")  # 윈도우 메모장 한글 안정
 
+    return "\n".join(lines).encode("utf-8-sig")
 
 # ============================================================
 # UI 시작
@@ -473,6 +476,13 @@ ai_second_derivative_latex = st.text_area(
     placeholder="예: $$ f''(t) = 0.00512 e^{0.04 t} $$",
 )
 
+ai_limitations = st.text_area(
+    "AI가 제시한 모델의 한계(문장 그대로 붙여넣기)",
+    value=step2_prev.get("ai_limitations", ""),
+    height=120,
+    placeholder="AI 출력에서 '모델의 한계' 문단을 그대로 붙여넣으세요.",
+)
+
 # LaTeX 미리보기
 with st.expander("LaTeX 미리보기(깨짐 확인)", expanded=True):
     blocks = extract_latex_blocks(ai_model_latex) + extract_latex_blocks(ai_derivative_latex) + extract_latex_blocks(ai_second_derivative_latex)
@@ -487,34 +497,48 @@ with st.expander("LaTeX 미리보기(깨짐 확인)", expanded=True):
 
 st.divider()
 
+st.subheader("가설 재평가")
+
+st.info(
+    "AI가 제안한 모델과 한계점을 살펴보고, "
+    "여러분이 1차시에 세운 가설 모델이 적절한지 판단해 봅시다. "
+)
+
+hypothesis_decision = st.radio(
+    "가설 판단",
+    ["가설 유지", "가설 수정"],
+    horizontal=True
+)
+
+if hypothesis_decision == "가설 수정" and not revised_model_safe:
+    st.warning("가설을 수정했다면, 수정한 모델 유형을 입력하세요.")
+    st.stop()
+
+    st.warning(
+        "가설 수정이 필요하다면 수정된 모델을 기준으로"
+        "AI에게 다시 분석을 요청하세요."
+    )
+    
 # ============================================================
 # 4) 학생 검증/비판(핵심 제출물)
 # ============================================================
-st.subheader("4) 미분 관점 검증/비판 작성(핵심)")
+st.subheader("4) 미분 관점의 모델 해석")
 
 st.info(
-    "여기 내용이 2차시 점수의 핵심입니다.\n"
-    "AI 결과를 그대로 옮겨 적는 것이 아니라, **데이터 기반 변화율 그래프(Δy/Δt, Δ²y/Δt²)** 와 비교해\n"
-    "모델이 설명하는 점/설명하지 못하는 점을 근거로 작성하세요."
+    "최종 결정된 모델을 미분 개념으로 깊이 있게 분석해 봅시다.\n"
 )
 
 student_critical_review = st.text_area(
-    "검증/비판 내용(필수)",
+    "분석 내용(필수)",
     value=step2_prev.get("student_critical_review", ""),
     height=220,
     placeholder=(
-        "예시 구조:\n"
-        "1) Δy/Δt 그래프에서 보이는 특징 2가지\n"
-        "2) AI가 준 f'(t)가 그 특징과 일치하는지 판단(근거 포함)\n"
-        "3) Δ²y/Δt² 그래프(오목/볼록) 관점에서 f''(t)와 비교\n"
-        "4) 잘 안 맞는 구간 1곳과 이유\n"
+        "우선 Δy/Δt 그래프의 변화율 특징을 두 가지 이상 찾아보고, "
+        "AI의 도함수 f'(t)가 이를 얼마나 잘 설명하는지 논리적으로 서술하세요. "
+        "다음으로 Δ²y/Δt² 그래프에 나타난 오목·볼록의 변화를 "
+        "AI의 이계도함수 f''(t)와 비교해 보세요. "
+        "마지막으로 모델이 실제 현상을 충분히 설명하지 못하는 구간을 한 곳 제시하고, 그 원인이 무엇인지 분석하세요."
     ),
-)
-
-final_decision = st.selectbox(
-    "최종 판단(필수)",
-    ["가설 유지(1차시 모델 유지)", "가설 수정(다른 모델로 변경)", "결정 보류(추가 데이터/조사 필요)"],
-    index=0,
 )
 
 note = st.text_area("추가 메모(선택)", value=step2_prev.get("note", ""), height=100)
@@ -541,6 +565,8 @@ try:
 except Exception:
     pass
 
+revised_model_safe = revised_model.strip() if hypothesis_decision == "가설 수정" else ""
+
 payload = {
     "student_id": student_id,
     "data_source": data_source,
@@ -548,12 +574,13 @@ payload = {
     "y_col": y_col_now,
     "valid_n": valid_n_now,
     "model_hypothesis_step1": model_hypothesis_step1,
+    "hypothesis_decision": hypothesis_decision,
+    "revised_model": revised_model_safe,
     "ai_prompt": ai_prompt,
     "ai_model_latex": ai_model_latex,
     "ai_derivative_latex": ai_derivative_latex,
     "ai_second_derivative_latex": ai_second_derivative_latex,
-    "student_critical_review": student_critical_review,
-    "final_decision": final_decision,
+    "student_analysis": student_critical_review,  # UI 변수명 그대로 쓰되, 키는 analysis로
     "note": note,
 }
 
@@ -591,19 +618,20 @@ if save_clicked or go_next:
     # 구글 시트 저장
     try:
         append_step2_row(
-            student_id=student_id,
-            data_source=data_source,
-            x_col=x_col_now,
-            y_col=y_col_now,
-            valid_n=valid_n_now,
-            model_hypothesis_step1=model_hypothesis_step1,
-            ai_prompt=ai_prompt,
-            ai_model_latex=ai_model_latex,
-            ai_derivative_latex=ai_derivative_latex,
-            ai_second_derivative_latex=ai_second_derivative_latex,
-            student_critical_review=student_critical_review,
-            final_decision=final_decision,
-            note=note,
+            student_id=payload["student_id"],
+            data_source=payload["data_source"],
+            x_col=payload["x_col"],
+            y_col=payload["y_col"],
+            valid_n=payload["valid_n"],
+            model_hypothesis_step1=payload["model_hypothesis_step1"],
+            hypothesis_decision=payload["hypothesis_decision"],
+            revised_model=payload["revised_model"],
+            ai_prompt=payload["ai_prompt"],
+            ai_model_latex=payload["ai_model_latex"],
+            ai_derivative_latex=payload["ai_derivative_latex"],
+            ai_second_derivative_latex=payload["ai_second_derivative_latex"],
+            student_analysis=payload["student_analysis"],
+            note=payload["note"],
         )
         st.success("✅ 저장 완료! (Google Sheet에 기록되었습니다)")
     except Exception as e:
