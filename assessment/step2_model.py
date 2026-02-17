@@ -143,7 +143,7 @@ def parse_step1_backup_txt(text: str) -> dict:
 # -----------------------------
 # LaTeX 블록 추출/미리보기용
 # -----------------------------
-LATEX_BLOCK = re.compile(r"\$\$(.+?)\$\$", re.DOTALL)
+LATEX_BLOCK = re.compile(r"\${1,2}(.+?)\${1,2}", re.DOTALL)
 
 def extract_latex_blocks(s: str) -> list[str]:
     if not s:
@@ -333,6 +333,7 @@ else:
 
         dy, d2y = compute_derivatives(t, y_arr)
         valid_n = int(len(t))
+        st.session_state["step2_valid_n"] = valid_n
         st.metric("유효 데이터 점 개수", valid_n)
 
         # 그래프(원자료/변화율/가속)
@@ -422,7 +423,7 @@ def build_unified_prompt(model_hypothesis, model_reason, additional_context):
 {additional_context}
 
 [반드시 포함할 출력 항목]
-1) 최종 모델식: $$y = ...$$
+1) 최종 모델식: $$f(t) = ...$$
 2) 도함수: $$f'(t)=...$$
 3) 이계도함수: $$f''(t)=...$$
 4) 모델의 한계를 하나의 문단으로 작성하고, 가설 모델의 수정 여부를 판단하라.
@@ -570,12 +571,7 @@ model_hypothesis_step1 = (step1.get("model_primary") or "").strip()
 x_col_now = st.session_state.get("step2_x_col", step1.get("x_col",""))
 y_col_now = st.session_state.get("step2_y_col", step1.get("y_col",""))
 
-# valid_n (있다면)
-valid_n_now = None
-try:
-    valid_n_now = int(st.session_state.get("step2_valid_n", ""))  # 사용 안 해도 OK
-except Exception:
-    pass
+valid_n_now = st.session_state.get("step2_valid_n")
 
 revised_model_safe = revised_model.strip() if hypothesis_decision == "가설 수정" else ""
 
