@@ -169,7 +169,7 @@ def build_step2_backup(payload: dict) -> bytes:
     lines.append("공공데이터 분석 수행 (2차시) 백업")
     lines.append("=" * 40)
     lines.append(f"저장시각: {pd.Timestamp.now().strftime('%Y-%m-%d %H:%M:%S')}")
-    lines.append(f"학번/식별코드: {payload.get('student_id','')}")
+    lines.append(f"학번: {payload.get('student_id','')}")
     lines.append("")
 
     lines.append("[가설 재평가]")
