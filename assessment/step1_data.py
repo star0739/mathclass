@@ -107,7 +107,7 @@ st.caption("그래프를 보고 특징을 정리한 뒤, 어떤 함수 모델이
 st.divider()
 
 # Step1
-st.subheader("Step1) 🔎 공공데이터 선택")
+st.subheader("1) 공공데이터 선택")
 st.link_button("📊 KOSIS에서 데이터 다운로드", "https://kosis.kr")
 st.markdown(
     """
@@ -119,7 +119,7 @@ st.markdown(
 )
 
 # Step2
-st.subheader("Step2) 🛠️ 업로드 전 전처리")
+st.subheader("2) 업로드 전 전처리")
 with st.expander("파일 규칙(권장)", expanded=True):
     st.markdown(
         """
@@ -134,7 +134,7 @@ with st.expander("파일 규칙(권장)", expanded=True):
 st.divider()
 
 # Step3
-st.subheader("Step3) 📁 CSV 업로드")
+st.subheader("3) CSV 업로드")
 uploaded = st.file_uploader("CSV 파일 업로드", type=["csv"])
 
 if uploaded is not None:
@@ -158,7 +158,7 @@ st.dataframe(get_df_preview(df), use_container_width=True)
 
 # Step4
 st.divider()
-st.subheader("Step4) 📈 시각화 (X/Y 선택)")
+st.subheader("4) 시각화 (X/Y 선택)")
 
 cols = list(df.columns)
 if len(cols) < 2:
@@ -236,7 +236,7 @@ st.caption("※ 2차시 이동은 유효 데이터 점 30개 이상일 때만 �
 
 # Step5
 st.divider()
-st.subheader("Step5) 그래프 특징 & 함수 모델링 가설")
+st.subheader("5) 그래프 특징 & 함수 모델링 가설")
 
 prev = get_step1_summary()
 
