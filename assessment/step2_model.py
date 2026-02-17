@@ -1,1 +1,602 @@
+# assessment/step2_model.py
+# ------------------------------------------------------------
+# 공공데이터 분석 수행 - 2차시: AI 모델식 도출 + 미분 기반 검증(비판적 검토)
+#
+# 핵심:
+# - 1차시 기록이 날아가도 복구 가능: (1) 1차시 TXT 업로드 (2) CSV 업로드
+# - AI가 제안한 모델식을 "LaTeX($$...$$)" 형태로 받도록 안내 + 입력
+# - 데이터 기반 근사 변화율(Δy/Δt)과 비교하여 학생이 비판적으로 검토
+# - 저장 시: Google Sheet(미적분_수행평가_2차시) + TXT 백업 다운로드
+# ------------------------------------------------------------
+
+import re
+import streamlit as st
+import pandas as pd
+import numpy as np
+
+PLOTLY_AVAILABLE = True
+try:
+    import plotly.graph_objects as go
+except Exception:
+    PLOTLY_AVAILABLE = False
+    import matplotlib.pyplot as plt
+
+from assessment.common import (
+    init_assessment_session,
+    require_student_id,
+    set_df,
+    get_df,
+    get_df_preview,
+    set_xy,
+    get_xy,
+    get_step1_summary,
+)
+
+from assessment.google_sheets import append_step2_row
+
+# -----------------------------
+# 운영 기준
+# -----------------------------
+MIN_VALID_POINTS = 30
+
+
+# -----------------------------
+# 세션용 step2 저장(간단)
+# -----------------------------
+def _get_step2_state() -> dict:
+    return st.session_state.get("assessment_step2", {})
+
+
+def _set_step2_state(d: dict) -> None:
+    st.session_state["assessment_step2"] = d
+
+
+# -----------------------------
+# CSV 로더 (1차시와 동일하게 관대)
+# -----------------------------
+def read_csv_kosis(file) -> pd.DataFrame:
+    encodings = ["utf-8-sig", "utf-8", "cp949", "euc-kr"]
+    last_err = None
+    for enc in encodings:
+        try:
+            file.seek(0)
+            df = pd.read_csv(
+                file,
+                encoding=enc,
+                sep=None,
+                engine="python",
+                on_bad_lines="skip",
+            )
+            if df.shape[1] >= 2:
+                return df
+        except Exception as e:
+            last_err = e
+    raise last_err if last_err else ValueError("CSV를 읽을 수 없습니다.")
+
+
+def parse_year_month(s: pd.Series) -> pd.Series:
+    s = s.astype(str).str.strip()
+    s = s.str.replace(r"\.+$", "", regex=True)
+    s = s.str.replace("/", "-", regex=False).str.replace(".", "-", regex=False)
+    dt = pd.to_datetime(s, errors="coerce", format="%Y-%m")
+    mask = dt.isna()
+    if mask.any():
+        digits = s[mask].str.replace(r"\D", "", regex=True)
+        m6 = digits.str.fullmatch(r"\d{6}")
+        if m6.any():
+            dt2 = pd.to_datetime(digits[m6], errors="coerce", format="%Y%m")
+            dt.loc[digits[m6].index] = dt2
+    return dt
+
+
+# -----------------------------
+# 1차시 TXT 백업 파서(최소)
+#  - step1 txt의 섹션 제목을 이용해 값 추출
+# -----------------------------
+def parse_step1_backup_txt(text: str) -> dict:
+    # 매우 관대한 파서: 키워드 라인을 찾아 값 추출
+    out = {}
+    lines = [ln.strip() for ln in text.splitlines()]
+
+    def find_value(prefix: str) -> str:
+        for ln in lines:
+            if ln.startswith(prefix):
+                return ln.replace(prefix, "", 1).strip()
+        return ""
+
+    out["student_id"] = find_value("학번/식별코드:")
+    out["data_source"] = find_value("- 데이터 출처:")
+    out["x_col"] = ""
+    out["y_col"] = ""
+    for ln in lines:
+        if ln.startswith("- X축:"):
+            # "- X축: A  |  Y축: B"
+            m = re.search(r"- X축:\s*(.*?)\s*\|\s*Y축:\s*(.*)$", ln)
+            if m:
+                out["x_col"] = m.group(1).strip()
+                out["y_col"] = m.group(2).strip()
+    out["x_mode"] = find_value("- X축 해석 방식:")
+    out["valid_n"] = find_value("- 유효 데이터 점 개수:")
+    out["features"] = ""
+
+    # [그래프 관찰 특징] 섹션 추출
+    try:
+        i = lines.index("[그래프 관찰 특징]")
+        j = lines.index("[모델링 가설]")
+        out["features"] = "\n".join(lines[i + 1 : j]).strip()
+    except ValueError:
+        pass
+
+    out["model_primary"] = find_value("- 주된 모델:")
+    # 주된 모델 근거 섹션
+    try:
+        i = lines.index("- 주된 모델 근거:")
+        # 다음 섹션까지
+        j = lines.index("[추가 메모]")
+        out["model_primary_reason"] = "\n".join(lines[i + 1 : j]).strip()
+    except ValueError:
+        out["model_primary_reason"] = ""
+
+    return out
+
+
+# -----------------------------
+# LaTeX 블록 추출/미리보기용
+# -----------------------------
+LATEX_BLOCK = re.compile(r"\$\$(.+?)\$\$", re.DOTALL)
+
+def extract_latex_blocks(s: str) -> list[str]:
+    if not s:
+        return []
+    return [m.group(1).strip() for m in LATEX_BLOCK.finditer(s)]
+
+
+# -----------------------------
+# 데이터 기반 근사 도함수(차분/gradient)
+# -----------------------------
+def compute_derivatives(t: np.ndarray, y: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
+    # t가 등간격이 아닐 수도 있어 gradient에 t를 넣어 안정화
+    dy = np.gradient(y, t)
+    d2y = np.gradient(dy, t)
+    return dy, d2y
+
+
+# -----------------------------
+# TXT 백업 생성(2차시)
+# -----------------------------
+def build_step2_backup(payload: dict) -> bytes:
+    lines = []
+    lines.append("공공데이터 분석 수행 (2차시) 백업")
+    lines.append("=" * 40)
+    lines.append(f"저장시각: {pd.Timestamp.now().strftime('%Y-%m-%d %H:%M:%S')}")
+    lines.append(f"학번/식별코드: {payload.get('student_id','')}")
+    lines.append("")
+    lines.append("[1차시 정보]")
+    lines.append(f"- 데이터 출처: {payload.get('data_source','')}")
+    lines.append(f"- X축: {payload.get('x_col','')} | Y축: {payload.get('y_col','')}")
+    lines.append(f"- 유효 데이터 점: {payload.get('valid_n','')}")
+    lines.append(f"- 1차시 가설 모델: {payload.get('model_hypothesis_step1','')}")
+    lines.append("")
+    lines.append("[AI 프롬프트]")
+    lines.append(payload.get("ai_prompt","").strip() or "(미입력)")
+    lines.append("")
+    lines.append("[AI 모델식(LaTeX)]")
+    lines.append(payload.get("ai_model_latex","").strip() or "(미입력)")
+    lines.append("")
+    lines.append("[AI 도함수(LaTeX)]")
+    lines.append(payload.get("ai_derivative_latex","").strip() or "(미입력)")
+    lines.append("")
+    lines.append("[AI 이계도함수(LaTeX)]")
+    lines.append(payload.get("ai_second_derivative_latex","").strip() or "(미입력)")
+    lines.append("")
+    lines.append("[학생 검증/비판(핵심)]")
+    lines.append(payload.get("student_critical_review","").strip() or "(미입력)")
+    lines.append("")
+    lines.append("[최종 판단]")
+    lines.append(payload.get("final_decision","").strip() or "(미입력)")
+    lines.append("")
+    lines.append("[추가 메모]")
+    lines.append(payload.get("note","").strip() or "(없음)")
+    lines.append("")
+    lines.append("※ 수식은 $$...$$ 형태의 LaTeX로 유지하는 것이 안전합니다.")
+    text = "\n".join(lines)
+    return text.encode("utf-8-sig")  # 윈도우 메모장 한글 안정
+
+
+# ============================================================
+# UI 시작
+# ============================================================
+init_assessment_session()
+student_id = require_student_id("학번 또는 식별 코드를 입력하세요.")
+
+st.title("공공데이터 분석 수행 (2차시) — AI 모델식 도출 & 미분 기반 검증")
+st.caption("AI가 제안한 모델식을 LaTeX로 입력하고, 데이터 변화율(근사 도함수)과 비교해 비판적으로 검토합니다.")
+st.divider()
+
+# ============================================================
+# 0) 1차시 기록 불러오기/복구
+# ============================================================
+st.subheader("0) 1차시 기록 불러오기 / 복구")
+
+step1 = get_step1_summary() or {}
+step2_prev = _get_step2_state()
+
+colA, colB = st.columns([1.2, 1])
+with colA:
+    st.markdown("**(권장) 1차시 TXT 업로드로 복구**")
+    txt_file = st.file_uploader("1차시 백업 TXT 업로드", type=["txt"], key="step2_txt_upload")
+
+with colB:
+    st.markdown("**(선택) CSV 다시 업로드(그래프/도함수 계산용)**")
+    csv_file = st.file_uploader("CSV 업로드", type=["csv"], key="step2_csv_upload")
+
+if txt_file is not None:
+    try:
+        raw = txt_file.getvalue().decode("utf-8", errors="replace")
+        parsed = parse_step1_backup_txt(raw)
+        # step1 dict 보강
+        step1.update({
+            "student_id": parsed.get("student_id") or step1.get("student_id") or student_id,
+            "data_source": parsed.get("data_source") or step1.get("data_source",""),
+            "x_col": parsed.get("x_col") or step1.get("x_col",""),
+            "y_col": parsed.get("y_col") or step1.get("y_col",""),
+            "x_mode": parsed.get("x_mode") or step1.get("x_mode",""),
+            "valid_n": parsed.get("valid_n") or step1.get("valid_n",""),
+            "features": parsed.get("features") or step1.get("features",""),
+            "model_primary": parsed.get("model_primary") or step1.get("model_primary",""),
+            "model_primary_reason": parsed.get("model_primary_reason") or step1.get("model_primary_reason",""),
+        })
+        st.success("TXT에서 1차시 정보를 불러왔습니다.")
+    except Exception as e:
+        st.error("TXT를 읽는 중 오류가 발생했습니다.")
+        st.exception(e)
+
+# CSV 업로드 시 DF 저장
+if csv_file is not None:
+    try:
+        df = read_csv_kosis(csv_file)
+        set_df(df)
+        st.success(f"CSV 업로드 완료 ({df.shape[0]:,}행 × {df.shape[1]:,}열)")
+    except Exception as e:
+        st.error("CSV를 읽지 못했습니다.")
+        st.exception(e)
+
+df = get_df()
+if df is not None:
+    st.markdown("#### 참고: 현재 데이터 미리보기")
+    st.dataframe(get_df_preview(df), use_container_width=True)
+
+st.divider()
+
+# ============================================================
+# 1) 데이터 시각화 + 데이터 기반 변화율(근사 도함수) 자동 계산
+# ============================================================
+st.subheader("1) 데이터 기반 변화율(근사 도함수) 확인")
+
+if df is None:
+    st.info("CSV를 업로드하면 2차시에서 변화율(근사 도함수) 그래프를 자동으로 확인할 수 있습니다.")
+else:
+    cols = list(df.columns)
+    x_prev, y_prev = get_xy()
+    # step1 기록이 있으면 우선 적용
+    x_init = step1.get("x_col") if step1.get("x_col") in cols else (x_prev if x_prev in cols else cols[0])
+    y_init = step1.get("y_col") if step1.get("y_col") in cols else (y_prev if y_prev in cols else (cols[1] if len(cols) > 1 else cols[0]))
+
+    x_col = st.selectbox("X축", cols, index=cols.index(x_init), key="step2_x_col")
+    y_col = st.selectbox("Y축", cols, index=cols.index(y_init), key="step2_y_col")
+    set_xy(x_col, y_col)
+
+    x_mode = st.radio(
+        "X축 해석 방식",
+        ["자동(권장)", "날짜(년월)", "숫자"],
+        horizontal=True,
+        key="step2_x_mode",
+    )
+
+    y = pd.to_numeric(df[y_col], errors="coerce")
+
+    if x_mode == "숫자":
+        x = pd.to_numeric(df[x_col], errors="coerce")
+        x_type = "numeric"
+    else:
+        x_dt = parse_year_month(df[x_col])
+        if x_mode == "자동(권장)" and x_dt.notna().mean() < 0.6:
+            x = pd.to_numeric(df[x_col], errors="coerce")
+            x_type = "numeric"
+        else:
+            x = x_dt
+            x_type = "datetime"
+
+    valid = x.notna() & y.notna()
+    xv = x[valid]
+    yv = y[valid]
+
+    if len(xv) < 3:
+        st.warning("유효 데이터가 부족하여 변화율 계산이 어렵습니다. (최소 3점 이상 권장)")
+    else:
+        # 정렬
+        order = np.argsort(xv.values) if x_type == "datetime" else np.argsort(xv.to_numpy())
+        xv = xv.iloc[order]
+        yv = yv.iloc[order]
+
+        # t 수치화: datetime이면 월 인덱스, numeric이면 그대로
+        if x_type == "datetime":
+            base = xv.iloc[0]
+            t = ((xv.dt.year - base.year) * 12 + (xv.dt.month - base.month)).to_numpy(dtype=float)
+        else:
+            t = xv.to_numpy(dtype=float)
+
+        y_arr = yv.to_numpy(dtype=float)
+
+        dy, d2y = compute_derivatives(t, y_arr)
+        valid_n = int(len(t))
+        st.metric("유효 데이터 점 개수", valid_n)
+
+        # 그래프(원자료/변화율/가속)
+        if PLOTLY_AVAILABLE:
+            fig1 = go.Figure()
+            fig1.add_trace(go.Scatter(x=xv, y=y_arr, mode="lines+markers", name="y"))
+            fig1.update_layout(height=320, margin=dict(l=40, r=20, t=20, b=40),
+                               xaxis_title=str(x_col), yaxis_title=str(y_col))
+            st.plotly_chart(fig1, use_container_width=True)
+
+            fig2 = go.Figure()
+            fig2.add_trace(go.Scatter(x=xv, y=dy, mode="lines+markers", name="dy/dt"))
+            fig2.update_layout(height=320, margin=dict(l=40, r=20, t=20, b=40),
+                               xaxis_title=str(x_col), yaxis_title="근사 도함수 (Δy/Δt)")
+            st.plotly_chart(fig2, use_container_width=True)
+
+            fig3 = go.Figure()
+            fig3.add_trace(go.Scatter(x=xv, y=d2y, mode="lines+markers", name="d2y/dt2"))
+            fig3.update_layout(height=320, margin=dict(l=40, r=20, t=20, b=40),
+                               xaxis_title=str(x_col), yaxis_title="근사 이계도함수 (Δ²y/Δt²)")
+            st.plotly_chart(fig3, use_container_width=True)
+        else:
+            fig, ax = plt.subplots()
+            ax.plot(xv, y_arr, marker="o")
+            ax.set_title("원자료 y")
+            st.pyplot(fig, use_container_width=True)
+
+            fig, ax = plt.subplots()
+            ax.plot(xv, dy, marker="o")
+            ax.set_title("근사 도함수 Δy/Δt")
+            st.pyplot(fig, use_container_width=True)
+
+            fig, ax = plt.subplots()
+            ax.plot(xv, d2y, marker="o")
+            ax.set_title("근사 이계도함수 Δ²y/Δt²")
+            st.pyplot(fig, use_container_width=True)
+
+st.divider()
+
+# ============================================================
+# 2) AI 사용 가이드(LaTeX 출력 강제) + 프롬프트 템플릿
+# ============================================================
+st.subheader("2) AI로 모델식(y=f(t)) 제안 받기 — LaTeX 형식 필수")
+
+st.info(
+    "AI를 사용할 때는 **수식을 반드시 LaTeX로 출력**하도록 지시하세요.\n\n"
+    "✅ 모든 수식은 **$$ ... $$** 형태로 감싸기\n"
+    "✅ 유니코드 위첨자(², ³ 등) 금지 → 반드시 ^{ } 사용\n"
+    "✅ 보고서 문장 대신, **모델식/도함수/이계도함수**를 명확히 출력"
+)
+
+# 템플릿 버튼(학생용)
+template_general = (
+    "너는 수학 모델링 조교야. 아래 데이터에 대해 함수 모델을 제안해줘.\n\n"
+    "[내 조건]\n"
+    "- 수식은 반드시 LaTeX로 출력하고, 모든 수식은 $$...$$ 로 감싸라.\n"
+    "- 유니코드 위첨자(², ³ 등)는 쓰지 말고 ^{ } 형태를 사용하라.\n"
+    "- 출력은 '식' 위주로, 길게 보고서처럼 쓰지 마라.\n\n"
+    "[데이터]\n"
+    "- t는 시간 인덱스(월 단위)이고 t=0,1,2,... 로 둔다.\n"
+    "- (t, y) 데이터를 참고하여 모델식 y=f(t)를 제안하라.\n\n"
+    "[내 가설 모델 유형]\n"
+    f"- 1차시 가설 모델: {step1.get('model_primary','(미기록)')}\n\n"
+    "[반드시 포함할 출력 항목]\n"
+    "1) 최종 모델식: $$y = ...$$\n"
+    "2) 도함수: $$f'(t)=...$$\n"
+    "3) 이계도함수: $$f''(t)=...$$\n"
+    "4) 모델의 한계 2가지(짧게)\n"
+)
+
+template_trig = (
+    "너는 수학 모델링 조교야. 아래 월별 데이터에 대해 12개월 주기를 고려한 모델을 제안해줘.\n\n"
+    "[내 조건]\n"
+    "- 수식은 반드시 LaTeX로 출력하고, 모든 수식은 $$...$$ 로 감싸라.\n"
+    "- 유니코드 위첨자(², ³ 등)는 쓰지 말고 ^{ } 형태를 사용하라.\n"
+    "- 출력은 '식' 위주로, 길게 보고서처럼 쓰지 마라.\n\n"
+    "[데이터]\n"
+    "- t는 월 인덱스(t=0이 시작 월)이다.\n\n"
+    "[반드시 포함할 출력 항목]\n"
+    "1) 삼각모델: $$y = a + bt + c\\sin(\\frac{2\\pi}{12}t + \\phi)$$ (또는 동등한 형태)\n"
+    "2) 도함수: $$f'(t)=...$$\n"
+    "3) 이계도함수: $$f''(t)=...$$\n"
+    "4) 한계 2가지(짧게)\n"
+)
+
+c1, c2 = st.columns(2)
+with c1:
+    if st.button("📌 프롬프트 템플릿(일반) 넣기", use_container_width=True):
+        st.session_state["step2_ai_prompt"] = template_general
+with c2:
+    if st.button("📌 프롬프트 템플릿(삼각/계절성) 넣기", use_container_width=True):
+        st.session_state["step2_ai_prompt"] = template_trig
+
+ai_prompt = st.text_area(
+    "AI에 입력한 프롬프트(원문) — 그대로 붙여넣기",
+    value=step2_prev.get("ai_prompt", st.session_state.get("step2_ai_prompt", "")),
+    height=180,
+    key="step2_ai_prompt",
+)
+
+st.divider()
+
+# ============================================================
+# 3) AI 출력 결과 입력(LaTeX) + 미리보기
+# ============================================================
+st.subheader("3) AI 출력(식) 입력 — LaTeX 그대로 붙여넣기")
+
+ai_model_latex = st.text_area(
+    "AI가 제안한 모델식(LaTeX, $$...$$ 포함)",
+    value=step2_prev.get("ai_model_latex", ""),
+    height=120,
+    placeholder="예: $$ y = 3.2 e^{0.04 t} $$",
+)
+
+ai_derivative_latex = st.text_area(
+    "AI가 제안한 도함수 f'(t) (LaTeX, $$...$$ 포함)",
+    value=step2_prev.get("ai_derivative_latex", ""),
+    height=120,
+    placeholder="예: $$ f'(t) = 0.128 e^{0.04 t} $$",
+)
+
+ai_second_derivative_latex = st.text_area(
+    "AI가 제안한 이계도함수 f''(t) (LaTeX, $$...$$ 포함)",
+    value=step2_prev.get("ai_second_derivative_latex", ""),
+    height=120,
+    placeholder="예: $$ f''(t) = 0.00512 e^{0.04 t} $$",
+)
+
+# LaTeX 미리보기
+with st.expander("LaTeX 미리보기(깨짐 확인)", expanded=True):
+    blocks = extract_latex_blocks(ai_model_latex) + extract_latex_blocks(ai_derivative_latex) + extract_latex_blocks(ai_second_derivative_latex)
+    if not blocks:
+        st.caption("$$...$$ 형태로 입력하면 여기에서 수식이 렌더됩니다.")
+    else:
+        for b in blocks[:10]:
+            try:
+                st.latex(b)
+            except Exception:
+                st.code(b)
+
+st.divider()
+
+# ============================================================
+# 4) 학생 검증/비판(핵심 제출물)
+# ============================================================
+st.subheader("4) 미분 관점 검증/비판 작성(핵심)")
+
+st.info(
+    "여기 내용이 2차시 점수의 핵심입니다.\n"
+    "AI 결과를 그대로 옮겨 적는 것이 아니라, **데이터 기반 변화율 그래프(Δy/Δt, Δ²y/Δt²)** 와 비교해\n"
+    "모델이 설명하는 점/설명하지 못하는 점을 근거로 작성하세요."
+)
+
+student_critical_review = st.text_area(
+    "검증/비판 내용(필수)",
+    value=step2_prev.get("student_critical_review", ""),
+    height=220,
+    placeholder=(
+        "예시 구조:\n"
+        "1) Δy/Δt 그래프에서 보이는 특징 2가지\n"
+        "2) AI가 준 f'(t)가 그 특징과 일치하는지 판단(근거 포함)\n"
+        "3) Δ²y/Δt² 그래프(오목/볼록) 관점에서 f''(t)와 비교\n"
+        "4) 잘 안 맞는 구간 1곳과 이유\n"
+    ),
+)
+
+final_decision = st.selectbox(
+    "최종 판단(필수)",
+    ["가설 유지(1차시 모델 유지)", "가설 수정(다른 모델로 변경)", "결정 보류(추가 데이터/조사 필요)"],
+    index=0,
+)
+
+note = st.text_area("추가 메모(선택)", value=step2_prev.get("note", ""), height=100)
+
+st.divider()
+
+# ============================================================
+# 5) 저장(구글시트) + TXT 백업 다운로드
+# ============================================================
+st.subheader("5) 저장 및 백업")
+
+# step1에서 가져올 수 있는 기본 정보
+data_source = (step1.get("data_source") or "").strip()
+model_hypothesis_step1 = (step1.get("model_primary") or "").strip()
+
+# X/Y 컬럼(있다면)
+x_col_now = st.session_state.get("step2_x_col", step1.get("x_col",""))
+y_col_now = st.session_state.get("step2_y_col", step1.get("y_col",""))
+
+# valid_n (있다면)
+valid_n_now = None
+try:
+    valid_n_now = int(st.session_state.get("step2_valid_n", ""))  # 사용 안 해도 OK
+except Exception:
+    pass
+
+payload = {
+    "student_id": student_id,
+    "data_source": data_source,
+    "x_col": x_col_now,
+    "y_col": y_col_now,
+    "valid_n": valid_n_now,
+    "model_hypothesis_step1": model_hypothesis_step1,
+    "ai_prompt": ai_prompt,
+    "ai_model_latex": ai_model_latex,
+    "ai_derivative_latex": ai_derivative_latex,
+    "ai_second_derivative_latex": ai_second_derivative_latex,
+    "student_critical_review": student_critical_review,
+    "final_decision": final_decision,
+    "note": note,
+}
+
+backup_bytes = build_step2_backup(payload)
+st.download_button(
+    label="📄 (다운로드) 2차시 백업 TXT",
+    data=backup_bytes,
+    file_name=f"미적분_수행평가_2차시_{student_id}.txt",
+    mime="text/plain; charset=utf-8",
+)
+
+colS, colN = st.columns([1, 1])
+save_clicked = colS.button("💾 저장(구글시트)", use_container_width=True)
+go_next = colN.button("➡️ 3차시로 이동(추후)", use_container_width=True)
+
+def _validate_step2() -> bool:
+    if not ai_prompt.strip():
+        st.warning("AI 프롬프트(원문)를 입력하세요.")
+        return False
+    if not ai_model_latex.strip():
+        st.warning("AI 모델식(LaTeX)을 입력하세요.")
+        return False
+    if not student_critical_review.strip():
+        st.warning("검증/비판 내용을 입력하세요.")
+        return False
+    return True
+
+if save_clicked or go_next:
+    if not _validate_step2():
+        st.stop()
+
+    # 세션 저장(새로고침 대비용 - 완전 보장은 아니지만 UX 개선)
+    _set_step2_state(payload)
+
+    # 구글 시트 저장
+    try:
+        append_step2_row(
+            student_id=student_id,
+            data_source=data_source,
+            x_col=x_col_now,
+            y_col=y_col_now,
+            valid_n=valid_n_now,
+            model_hypothesis_step1=model_hypothesis_step1,
+            ai_prompt=ai_prompt,
+            ai_model_latex=ai_model_latex,
+            ai_derivative_latex=ai_derivative_latex,
+            ai_second_derivative_latex=ai_second_derivative_latex,
+            student_critical_review=student_critical_review,
+            final_decision=final_decision,
+            note=note,
+        )
+        st.success("✅ 저장 완료! (Google Sheet에 기록되었습니다)")
+    except Exception as e:
+        st.error("⚠️ Google Sheet 저장 중 오류가 발생했습니다.")
+        st.exception(e)
+        st.stop()
+
+    if go_next:
+        st.info("3차시는 아직 페이지를 만들기 전이라 이동은 나중에 연결하면 됩니다.")
+        # st.switch_page("assessment/step3_integral.py")
 
