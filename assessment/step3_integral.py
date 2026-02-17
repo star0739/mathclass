@@ -351,8 +351,8 @@ def build_step3_backup(payload: dict) -> bytes:
 init_assessment_session()
 student_id = require_student_id("학번을 입력하세요.")
 
-st.title("(3차시) 데이터 수치적분 vs 모델 정적분 비교")
-st.caption("원본 데이터로 만든 직사각형/사다리꼴 면적과, 모델 f(t)의 정적분 값을 같은 구간에서 비교합니다.")
+st.title("3차시: 수치적분과 정적분 기반 분석")
+st.caption("데이터로 만든 직사각형/사다리꼴 면적과, 모델 f(t)의 정적분 값을 비교합니다.")
 st.divider()
 
 # 0) Step2 TXT + CSV
