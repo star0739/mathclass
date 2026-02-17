@@ -297,6 +297,16 @@ def _latex_to_numpy_expr(expr_text: str) -> str | None:
     # 6-3) t 바로 뒤에 '('가 오면: t( ... )  -> t*( ... )
     s = re.sub(r"(t)\(", r"\1*(", s)
 
+    # 6-4) 닫는 괄호 뒤에 t가 오면: )t -> )*t
+    s = re.sub(r"(\))t", r"\1*t", s)
+
+    # 6-5) np.<something> 뒤에 t가 오면: np.pi t(공백 제거 후 np.pit) -> np.pi*t
+    s = re.sub(r"(np\.[A-Za-z_][A-Za-z_0-9]*)(t)", r"\1*\2", s)
+
+    # 6-6) 닫는 괄호 뒤에 np. 가 오면(이미 일부 처리했지만 더 일반화): )np. -> )*np.
+    s = re.sub(r"(\))(np\.)", r"\1*\2", s)
+
+
     # (7) e^{...}를 np.exp로 처리하려면, "e**(...)" 패턴을 잡아 변환(선택)
     s = re.sub(r"\be\*\*\(([^)]+)\)", r"np.exp(\1)", s)
 
