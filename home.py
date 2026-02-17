@@ -74,10 +74,6 @@ finalseat_page = st.Page(
 )
 
 
-# -----------------------------
-# ✅ 수행평가 전용 페이지 등록
-# -----------------------------
-
 assessment_step1 = st.Page(
     "assessment/step1_data.py",
     title="1차시: 데이터 탐색",
@@ -106,16 +102,8 @@ pages = {
     "Home": [home_page],
     "📖 교과 학습": [calculus_page, ai_math_page],
     "🪑 좌석 관리": [seat_page, finalseat_page],
-
-
-    # ✅ 수행평가 전용 메뉴
-
-    "공공데이터 분석 수행": [
-        assessment_step1,
-        assessment_step2,
-        assessment_step3,
-        assessment_final,
-    ],
+    "✏️ 공공데이터 분석 수행": [assessment_step1, assessment_step2, assessment_step3, assessment_final],
+    
 }
 
 # 기본 네비게이션은 숨기고, 우리가 만든 사이드바로만 이동
@@ -146,19 +134,6 @@ with st.sidebar:
     if st.button("인공지능 수학", use_container_width=True, key="sb_ai"):
         st.switch_page(ai_math_page)
 
-    st.markdown("---")
-    st.subheader("🪑 좌석 관리")
-
-    if st.button("선착순 배정", use_container_width=True, key="sb_seat"):
-        st.switch_page(seat_page)
-
-    if st.button("좌석 확인", use_container_width=True, key="sb_finalseat"):
-        st.switch_page(finalseat_page)
-
-
-    # -----------------------------
-    # ✅ 수행평가 메뉴
-    # -----------------------------
 
     st.markdown("---")
     st.subheader("📝 미적분: 공공데이터 분석 수행")
@@ -174,6 +149,17 @@ with st.sidebar:
 
     if st.button("최종: 보고서 작성", use_container_width=True, key="sb_final_report"):
         st.switch_page("assessment/final_report.py")
+
+
+    st.markdown("---")
+    st.subheader("🪑 좌석 관리")
+
+    if st.button("선착순 배정", use_container_width=True, key="sb_seat"):
+        st.switch_page(seat_page)
+
+    if st.button("좌석 확인", use_container_width=True, key="sb_finalseat"):
+        st.switch_page(finalseat_page)
+
 
 # -----------------------------
 # 현재 선택된 페이지 실행
