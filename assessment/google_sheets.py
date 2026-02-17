@@ -131,10 +131,12 @@ DEFAULT_STEP2_HEADER = [
     "model_hypothesis_step1",
     "hypothesis_decision",
     "revised_model",
-    "ai_prompt",
     "ai_model_latex",
     "ai_derivative_latex",
     "ai_second_derivative_latex",
+    "py_model",
+    "py_d1",
+    "py_d2",
     "student_analysis",
     "note",
 ]
@@ -161,15 +163,16 @@ def append_step2_row(
     model_hypothesis_step1: str = "",
     hypothesis_decision: str = "",
     revised_model: str = "",
-    ai_prompt: str = "",
     ai_model_latex: str = "",
     ai_derivative_latex: str = "",
     ai_second_derivative_latex: str = "",
+    py_model: str = "",
+    py_d1: str = "",
+    py_d2: str = "",
     student_analysis: str = "",
     note: str = "",
     sheet_name: str = SHEET_NAME_STEP2,
 ) -> None:
-    from datetime import datetime
 
     if not str(student_id).strip():
         raise ValueError("student_id는 비어 있을 수 없습니다.")
@@ -198,6 +201,9 @@ def append_step2_row(
         _as_text(ai_model_latex),
         _as_text(ai_derivative_latex),
         _as_text(ai_second_derivative_latex),
+        _as_text(py_model),
+        _as_text(py_d1),
+        _as_text(py_d2),
         _as_text(student_analysis),
         _as_text(note),
     ]
