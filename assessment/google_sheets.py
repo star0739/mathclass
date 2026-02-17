@@ -1,19 +1,3 @@
-# assessment/google_sheets.py
-# ------------------------------------------------------------
-# Google Sheets 저장 유틸 (1차시: 모델링 가설 중심 / 단순화 버전)
-#
-# 저장 Sheet: "미적분_수행평가_1차시"
-# 저장 항목:
-# - timestamp, student_id
-# - data_source
-# - x_col, y_col, x_mode, valid_n
-# - features(관찰 특징 통합)
-# - model_primary(주된 모델), model_primary_reason(근거)
-# - note(선택)
-#
-# (교사용) 시트 1행(헤더) 권장:
-# timestamp | student_id | data_source | x_col | y_col | x_mode | valid_n | features | model_primary | model_primary_reason | note
-# ------------------------------------------------------------
 
 from __future__ import annotations
 
@@ -138,7 +122,6 @@ DEFAULT_STEP2_HEADER = [
     "py_d1",
     "py_d2",
     "student_analysis",
-    "note",
 ]
 
 
@@ -170,7 +153,6 @@ def append_step2_row(
     py_d1: str = "",
     py_d2: str = "",
     student_analysis: str = "",
-    note: str = "",
     sheet_name: str = SHEET_NAME_STEP2,
 ) -> None:
 
@@ -204,7 +186,6 @@ def append_step2_row(
         _as_text(py_d1),
         _as_text(py_d2),
         _as_text(student_analysis),
-        _as_text(note),
     ]
 
     ws.append_row(row, value_input_option="USER_ENTERED")
@@ -212,7 +193,7 @@ def append_step2_row(
 # --- (추가) 3차시 저장용 ---
 SHEET_NAME_STEP3 = "미적분_수행평가_3차시"
 
-DEFAULT_STEP3_HEADER = [
+DEFAULT_STEP3_HEADER: List[str] = [
     "timestamp",
     "student_id",
     "data_source",
@@ -221,12 +202,14 @@ DEFAULT_STEP3_HEADER = [
     "valid_n",
     "i0",
     "i1",
-    "A_data",
-    "A_model",
-    "relative_error",
     "py_model",
+    "A_rect",
+    "A_trap",
+    "I_model",
+    "err_rect",
+    "err_trap",
+    "rel_trap",
     "student_critical_review2",
-    "note",
 ]
 
 
@@ -235,6 +218,7 @@ def ensure_step3_header(ws) -> None:
     if not values:
         ws.append_row(DEFAULT_STEP3_HEADER, value_input_option="USER_ENTERED")
         return
+
     first_row = values[0]
     if len(first_row) == 0 or all((c.strip() == "" for c in first_row)):
         ws.update("A1", [DEFAULT_STEP3_HEADER])
@@ -250,38 +234,38 @@ def append_step3_row(
     valid_n: int | None = None,
     i0: int | None = None,
     i1: int | None = None,
-    A_data: float | None = None,
-    A_model: float | str | None = None,
-    relative_error: float | str | None = None,
     py_model: str = "",
+    A_rect: float | None = None,
+    A_trap: float | None = None,
+    I_model: float | None = None,
+    err_rect: float | None = None,
+    err_trap: float | None = None,
+    rel_trap: float | None = None,
     student_critical_review2: str = "",
-    note: str = "",
     sheet_name: str = SHEET_NAME_STEP3,
 ) -> None:
+    """
+    3차시 전용 저장:
+    - 데이터 기반 수치적분(직사각형/사다리꼴)과 모델 정적분 비교 결과를 저장
+    """
     if not str(student_id).strip():
         raise ValueError("student_id는 비어 있을 수 없습니다.")
 
     ws = get_worksheet(sheet_name=sheet_name, worksheet_index=0)
     ensure_step3_header(ws)
 
-    # '='로 시작하면 구글시트가 수식으로 오해할 수 있어 텍스트로 고정
     def _as_text(v: str) -> str:
         v = (v or "").strip()
+        # 구글시트 수식 오해 방지
         if v.startswith("="):
             return "'" + v
         return v
 
-    def _as_number_or_blank(v):
-        if v is None:
+    def _as_num(v) -> str | float | int:
+        if v is None or v == "":
             return ""
-        # Step3 payload에서 ""로 들어오는 케이스도 처리
-        if isinstance(v, str) and v.strip() == "":
-            return ""
-        try:
-            return float(v)
-        except Exception:
-            # 숫자 변환 실패 시 텍스트로 저장(수식 오해 방지 포함)
-            return _as_text(str(v))
+        # gspread USER_ENTERED로 넘겨도 숫자형으로 들어가게 float로 정리
+        return float(v)
 
     row = [
         datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
@@ -292,12 +276,14 @@ def append_step3_row(
         "" if valid_n is None else int(valid_n),
         "" if i0 is None else int(i0),
         "" if i1 is None else int(i1),
-        _as_number_or_blank(A_data),
-        _as_number_or_blank(A_model),
-        _as_number_or_blank(relative_error),
         _as_text(py_model),
-        _as_text(conclusion),
-        _as_text(note),
+        _as_num(A_rect),
+        _as_num(A_trap),
+        _as_num(I_model),
+        _as_num(err_rect),
+        _as_num(err_trap),
+        _as_num(rel_trap),
+        _as_text(student_critical_review2),
     ]
 
     ws.append_row(row, value_input_option="USER_ENTERED")
