@@ -195,7 +195,7 @@ def build_step2_backup(payload: dict) -> bytes:
     lines.append(payload.get("ai_second_derivative_latex","").strip() or "")
     lines.append("")
 
-    lines.append("[미분 관점의 모델 해석(학생 작성)]")
+    lines.append("[미분 관점의 모델 분석(학생 작성)]")
     lines.append(payload.get("student_analysis","").strip() or "(미입력)")
     lines.append("")
 
@@ -470,7 +470,7 @@ st.divider()
 # ============================================================
 # 4) 학생 검증/비판(핵심 제출물)
 # ============================================================
-st.subheader("4) 미분 관점의 모델 해석")
+st.subheader("4) 미분 관점의 모델 분석")
 
 st.info(
     "🔹 변화율 비교\n\n"
@@ -599,5 +599,7 @@ if save_clicked or download_clicked or go_next:
 
     # (3) 다음 차시 이동
     if go_next:
-        st.info("3차시 페이지는 준비 중입니다.")
-        # st.switch_page("assessment/step3_integral.py")
+        if not quality_ok:
+            st.error(f"미분 관점의 모델 분석 내용을 작성해야 3차시로 이동할 수 있습니다.")
+            st.stop()
+        st.switch_page("assessment/step3_integral.py")
