@@ -330,46 +330,75 @@ else:
             t = xv.to_numpy(dtype=float)
 
         y_arr = yv.to_numpy(dtype=float)
-
         dy, d2y = compute_derivatives(t, y_arr)
+        
         valid_n = int(len(t))
         st.session_state["step2_valid_n"] = valid_n
         st.metric("유효 데이터 점 개수", valid_n)
 
-        # 그래프(원자료/변화율/가속)
+        # ---------------------------------------------------------
+        # [신규] AI 모델 수식 계산 (eval 사용)
+        # ---------------------------------------------------------
+        # UI에서 입력받은 py_model, py_d1, py_d2 세션 값을 가져옵니다.
+        expr_model = st.session_state.get("py_model", "").strip()
+        expr_d1 = st.session_state.get("py_d1", "").strip()
+        expr_d2 = st.session_state.get("py_d2", "").strip()
+
+        ai_y, ai_dy, ai_d2y = None, None, None
+        
+        # 안전한 계산을 위한 환경 설정 (numpy와 변수 t 제공)
+        eval_env = {"np": np, "t": t, "exp": np.exp, "sin": np.sin, "cos": np.cos, "log": np.log}
+
+        try:
+            if expr_model: ai_y = eval(expr_model, eval_env)
+            if expr_d1: ai_dy = eval(expr_d1, eval_env)
+            if expr_d2: ai_d2y = eval(expr_d2, eval_env)
+        except Exception as e:
+            st.error(f"AI 수식 계산 중 오류 발생: {e}")
+
+        # ---------------------------------------------------------
+        # 그래프(원자료/변화율/가속) 시각화
+        # ---------------------------------------------------------
         if PLOTLY_AVAILABLE:
+            # 1) 원자료 그래프
             fig1 = go.Figure()
-            fig1.add_trace(go.Scatter(x=xv, y=y_arr, mode="lines+markers", name="y"))
-            fig1.update_layout(height=320, margin=dict(l=40, r=20, t=20, b=40),
-                               xaxis_title=str(x_col), yaxis_title=str(y_col))
+            fig1.add_trace(go.Scatter(x=xv, y=y_arr, mode="markers", name="실제 데이터(y)", marker=dict(color='gray', opacity=0.5)))
+            if ai_y is not None:
+                fig1.add_trace(go.Scatter(x=xv, y=ai_y, mode="lines", name="AI 모델 곡선", line=dict(color='red', width=3)))
+            fig1.update_layout(height=320, margin=dict(l=40, r=20, t=20, b=40), xaxis_title=str(x_col), yaxis_title=str(y_col))
             st.plotly_chart(fig1, use_container_width=True)
 
+            # 2) 변화율 그래프
             fig2 = go.Figure()
-            fig2.add_trace(go.Scatter(x=xv, y=dy, mode="lines+markers", name="dy/dt"))
-            fig2.update_layout(height=320, margin=dict(l=40, r=20, t=20, b=40),
-                               xaxis_title=str(x_col), yaxis_title="근사 도함수 (Δy/Δt)")
+            fig2.add_trace(go.Scatter(x=xv, y=dy, mode="markers", name="데이터 변화율(Δy/Δt)", marker=dict(color='gray', opacity=0.5)))
+            if ai_dy is not None:
+                fig2.add_trace(go.Scatter(x=xv, y=ai_dy, mode="lines", name="AI 도함수 f'(t)", line=dict(color='blue', width=3)))
+            fig2.update_layout(height=320, margin=dict(l=40, r=20, t=20, b=40), xaxis_title=str(x_col), yaxis_title="도함수 비교")
             st.plotly_chart(fig2, use_container_width=True)
 
+            # 3) 이계도함수 그래프
             fig3 = go.Figure()
-            fig3.add_trace(go.Scatter(x=xv, y=d2y, mode="lines+markers", name="d2y/dt2"))
-            fig3.update_layout(height=320, margin=dict(l=40, r=20, t=20, b=40),
-                               xaxis_title=str(x_col), yaxis_title="근사 이계도함수 (Δ²y/Δt²)")
+            fig3.add_trace(go.Scatter(x=xv, y=d2y, mode="markers", name="데이터 이계변화율(Δ²y)", marker=dict(color='gray', opacity=0.5)))
+            if ai_d2y is not None:
+                fig3.add_trace(go.Scatter(x=xv, y=ai_d2y, mode="lines", name="AI 이계도함수 f''(t)", line=dict(color='green', width=3)))
+            fig3.update_layout(height=320, margin=dict(l=40, r=20, t=20, b=40), xaxis_title=str(x_col), yaxis_title="이계도함수 비교")
             st.plotly_chart(fig3, use_container_width=True)
+
         else:
-            fig, ax = plt.subplots()
-            ax.plot(xv, y_arr, marker="o")
-            ax.set_title("원자료 y")
-            st.pyplot(fig, use_container_width=True)
+            # Matplotlib 대응 (Plotly 미설치 시)
+            def plot_with_ai(x, data, ai_data, title, ylabel, color):
+                fig, ax = plt.subplots()
+                ax.scatter(x, data, color='gray', alpha=0.5, label='Actual')
+                if ai_data is not None:
+                    ax.plot(x, ai_data, color=color, linewidth=2, label='AI Model')
+                ax.set_title(title)
+                ax.set_ylabel(ylabel)
+                ax.legend()
+                st.pyplot(fig, use_container_width=True)
 
-            fig, ax = plt.subplots()
-            ax.plot(xv, dy, marker="o")
-            ax.set_title("변화율 Δy/Δt")
-            st.pyplot(fig, use_container_width=True)
-
-            fig, ax = plt.subplots()
-            ax.plot(xv, d2y, marker="o")
-            ax.set_title("이계변화율 Δ²y/Δt²")
-            st.pyplot(fig, use_container_width=True)
+            plot_with_ai(xv, y_arr, ai_y, "원자료 vs AI모델", str(y_col), 'red')
+            plot_with_ai(xv, dy, ai_dy, "변화율 vs AI도함수", "Δy/Δt", 'blue')
+            plot_with_ai(xv, d2y, ai_d2y, "이계변화율 vs AI이계도함수", "Δ²y/Δt²", 'green')
 
 st.divider()
 
@@ -426,7 +455,9 @@ def build_unified_prompt(model_hypothesis, model_reason, additional_context):
 1) 최종 모델식: $$f(t) = ...$$
 2) 도함수: $$f'(t)=...$$
 3) 이계도함수: $$f''(t)=...$$
-4) 모델의 한계를 하나의 문단으로 작성하고, 가설 모델의 수정 여부를 판단하라.
+4) 파이썬 계산용 식: numpy를 사용한 한 줄 코드로 작성 (예: 3.2 * np.exp(0.04 * t))
+   (변수는 반드시 t를 사용하고, 도함수는 d1, 이계도함수는 d2라는 키워드로 제공할 것)
+5) 모델의 한계를 하나의 문단으로 작성하고, 가설 모델의 수정 여부를 판단하라.
    (최소 두 가지 한계를 포함하고, 번호나 목록 형태로 나열하지 말 것)
 """.strip()
 
@@ -495,6 +526,13 @@ with st.expander("LaTeX 미리보기(깨짐 확인)", expanded=True):
                 st.latex(b)
             except Exception:
                 st.code(b)
+
+# numpy용 입력 받기
+with st.expander("파이썬 식 입력", expanded=True):
+    st.caption("AI가 제공한 '파이썬 계산용 식'을 입력하세요. (변수는 t 사용)")
+    py_model = st.text_input("모델식 f(t) 파이썬 식", value="3.2 * np.exp(0.04 * t)", key="py_model")
+    py_d1 = st.text_input("도함수 f'(t) 파이썬 식", value="0.128 * np.exp(0.04 * t)", key="py_d1")
+    py_d2 = st.text_input("이계도함수 f''(t) 파이썬 식", value="0.00512 * np.exp(0.04 * t)", key="py_d2")
 
 st.divider()
 
