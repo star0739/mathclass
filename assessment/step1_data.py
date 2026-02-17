@@ -251,7 +251,7 @@ features = st.text_area(
 
 model_primary = st.selectbox(
     "가설 모델(주된 모델) 선택 (필수)",
-    ["선형(직선)", "지수함수", "로그함수", "삼각함수(주기)", "합성함수(조합)", "기타(직접 입력)"],
+    ["선형(직선)", "다항함수(직선 외)", "지수함수", "로그함수", "삼각함수", "기타(직접 입력)"],
     index=0,
 )
 
@@ -260,7 +260,7 @@ if model_primary == "기타(직접 입력)":
     model_primary_custom = st.text_input(
         "주된 모델 이름/형식(직접 입력)",
         value=str(prev.get("model_primary_custom", "")),
-        placeholder="예: 2차함수 / 포화형(로지스틱) / y = a + b*log(t) 등",
+        placeholder="예: 포화형(로지스틱) / y = a + b*log(t) 등",
     )
 
 model_primary_reason = st.text_area(
