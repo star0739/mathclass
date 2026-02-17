@@ -14,6 +14,8 @@ import streamlit as st
 import pandas as pd
 import numpy as np
 
+from typing import Optional
+
 PLOTLY_AVAILABLE = True
 try:
     import plotly.graph_objects as go
@@ -128,22 +130,28 @@ def parse_step1_backup_txt(text: str) -> dict:
         pass
 
     out["model_primary"] = find_value("- 주된 모델:")
-    # 주된 모델 근거 섹션
 
-    reason_text = ""
-    for i, ln in enumerate(lines):
-        if ln.strip(),startswith("- 주된 모델 근거:"):
-           for j in range(i + 1, len(lines)):
-               next_line = lines[j].strip()
+    # 주된 모델 근거 섹션: "- 주된 모델 근거:" 다음 줄부터,
+    # 다음 "[...]" 섹션이 나오기 전까지를 모두 합침.
+    reason_lines: list[str] = []
+    start_idx: Optional[int] = None
 
-               if next_line.startswith("[") and next_line.endswith("]"):
-                  break
+    for idx, ln in enumerate(lines):
+        if ln.strip().startswith("- 주된 모델 근거:"):
+            start_idx = idx + 1
+            break
 
-               reason_text += lines[j] + "\n"
-           break
-    out["model_primary_reason"] = reason_text.strip()
+    if start_idx is not None:
+        for ln in lines[start_idx:]:
+            s = ln.strip()
+            if s.startswith("[") and s.endswith("]"):
+                break
+            reason_lines.append(ln.rstrip("\n"))
+
+    out["model_primary_reason"] = "\n".join(reason_lines).strip()
 
     return out
+
 
 
 # -----------------------------
