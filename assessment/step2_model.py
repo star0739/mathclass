@@ -329,31 +329,58 @@ if hypothesis_decision == "가설 수정":
 st.divider()
 
 # ============================================================
-# 3) 데이터 기반 변화율 및 AI 모델 비교 (기존 1번 위치 이동)
+# 3) 데이터 및 AI 모델 그래프 확인
 # ============================================================
 st.subheader("3) 데이터 기반 변화율 및 AI 모델 비교")
 
+df = get_df()
 if df is None:
     st.info("CSV를 업로드하면 그래프를 확인할 수 있습니다.")
 else:
-    # 컬럼 선택 및 전처리 로직 (기존 코드 유지)
+    # --- [데이터 전처리 로직 시작] ---
     cols = list(df.columns)
     x_prev, y_prev = get_xy()
+    
+    # 세션 또는 1차시 기록에서 초기값 설정
     x_init = step1.get("x_col") if step1.get("x_col") in cols else (x_prev if x_prev in cols else cols[0])
     y_init = step1.get("y_col") if step1.get("y_col") in cols else (y_prev if y_prev in cols else (cols[1] if len(cols) > 1 else cols[0]))
 
-    x_col = st.selectbox("X축", cols, index=cols.index(x_init), key="step2_x_col")
-    y_col = st.selectbox("Y축", cols, index=cols.index(y_init), key="step2_y_col")
+    col_sel1, col_sel2 = st.columns(2)
+    with col_sel1:
+        x_col = st.selectbox("X축 선택", cols, index=cols.index(x_init), key="step2_x_col")
+    with col_sel2:
+        y_col = st.selectbox("Y축 선택", cols, index=cols.index(y_init), key="step2_y_col")
+    
     set_xy(x_col, y_col)
 
-    # ... (x_mode 처리 및 xv, yv 필터링 로직 생략 - 기존과 동일) ...
+    x_mode = st.radio("X축 해석 방식", ["자동(권장)", "날짜(년월)", "숫자"], horizontal=True, key="step2_x_mode")
+
+    # 데이터 필터링 및 변수(xv, yv) 정의
+    y = pd.to_numeric(df[y_col], errors="coerce")
+    if x_mode == "숫자":
+        x = pd.to_numeric(df[x_col], errors="coerce")
+        x_type = "numeric"
+    else:
+        x_dt = parse_year_month(df[x_col])
+        if x_mode == "자동(권장)" and x_dt.notna().mean() < 0.6:
+            x = pd.to_numeric(df[x_col], errors="coerce")
+            x_type = "numeric"
+        else:
+            x = x_dt
+            x_type = "datetime"
+
+    valid = x.notna() & y.notna()
+    xv = x[valid]
+    yv = y[valid]
+    # --- [데이터 전처리 로직 끝] ---
 
     if len(xv) < 30:
-        st.warning("유효 데이터가 부족합니다.")
+        st.warning(f"유효 데이터 점이 {len(xv)}개입니다. 변화율 계산을 위해 최소 30점 이상이 필요합니다.")
     else:
         # 데이터 정렬 및 t 수치화
         order = np.argsort(xv.values) if x_type == "datetime" else np.argsort(xv.to_numpy())
-        xv, yv = xv.iloc[order], yv.iloc[order]
+        xv = xv.iloc[order]
+        yv = yv.iloc[order]
         
         if x_type == "datetime":
             base = xv.iloc[0]
@@ -366,47 +393,40 @@ else:
         st.session_state["step2_valid_n"] = int(len(t))
 
         # --- eval()을 이용한 AI 수식 계산 ---
-        # 학생들이 np를 생략해도 작동하도록 환경 설정
-        eval_env = {"np": np, "t": t, "exp": np.exp, "sin": np.sin, "cos": np.cos, "log": np.log, "tan": np.tan}
+        eval_env = {"np": np, "t": t, "exp": np.exp, "sin": np.sin, "cos": np.cos, "log": np.log}
         ai_y, ai_dy, ai_d2y = None, None, None
+        
+        # UI에서 입력받은 py_model 등 변수 가져오기
         try:
             if py_model: ai_y = eval(py_model, eval_env)
             if py_d1: ai_dy = eval(py_d1, eval_env)
             if py_d2: ai_d2y = eval(py_d2, eval_env)
         except Exception as e:
-            st.error(f"수식 계산 오류: {e} (변수는 t를 사용하고 곱셈은 *를 입력했는지 확인하세요.)")
+            st.error(f"수식 계산 오류: {e}")
 
         # --- 그래프 출력 (Plotly) ---
-        # 1) 원함수 비교
         fig1 = go.Figure()
         fig1.add_trace(go.Scatter(x=xv, y=y_arr, mode="markers", name="실제 데이터", marker=dict(color='gray', opacity=0.5)))
         if ai_y is not None:
-            fig1.add_trace(go.Scatter(x=xv, y=ai_y, mode="lines", name="AI 모델식", line=dict(color='red', width=2.5)))
-        fig1.update_layout(height=320, title="원데이터 vs AI 모델 비교", xaxis_title=str(x_col), yaxis_title=str(y_col))
+            fig1.add_trace(go.Scatter(x=xv, y=ai_y, mode="lines", name="AI 모델식", line=dict(color='red', width=2)))
+        fig1.update_layout(height=320, title="원데이터 vs AI 모델 비교", margin=dict(l=40, r=20, t=40, b=40))
         st.plotly_chart(fig1, use_container_width=True)
 
-        # 2) 도함수 비교
         fig2 = go.Figure()
-        fig2.add_trace(go.Scatter(x=xv, y=dy, mode="markers", name="데이터 변화율(Δy/Δt)", marker=dict(color='gray', opacity=0.5)))
+        fig2.add_trace(go.Scatter(x=xv, y=dy, mode="markers", name="데이터 변화율", marker=dict(color='gray', opacity=0.5)))
         if ai_dy is not None:
-            fig2.add_trace(go.Scatter(x=xv, y=ai_dy, mode="lines", name="AI 도함수 f'(t)", line=dict(color='blue', width=2.5)))
-        fig2.update_layout(height=320, title="변화율 비교 분석", xaxis_title=str(x_col), yaxis_title="변화율")
+            fig2.add_trace(go.Scatter(x=xv, y=ai_dy, mode="lines", name="AI 도함수", line=dict(color='blue', width=2)))
+        fig2.update_layout(height=320, title="변화율 비교 분석", margin=dict(l=40, r=20, t=40, b=40))
         st.plotly_chart(fig2, use_container_width=True)
 
-        # 3) 이계도함수 비교
         fig3 = go.Figure()
-        fig3.add_trace(go.Scatter(x=xv, y=d2y, mode="markers", name="데이터 이계변화율(Δ²y)", marker=dict(color='gray', opacity=0.5)))
+        fig3.add_trace(go.Scatter(x=xv, y=d2y, mode="markers", name="데이터 이계변화율", marker=dict(color='gray', opacity=0.5)))
         if ai_d2y is not None:
-            fig3.add_trace(go.Scatter(x=xv, y=ai_d2y, mode="lines", name="AI 이계도함수 f''(t)", line=dict(color='green', width=2.5)))
-        fig3.update_layout(height=320, title="곡률(오목·볼록) 비교 분석", xaxis_title=str(x_col), yaxis_title="이계도함수")
+            fig3.add_trace(go.Scatter(x=xv, y=ai_d2y, mode="lines", name="AI 이계도함수", line=dict(color='green', width=2)))
+        fig3.update_layout(height=320, title="곡률(오목·볼록) 비교 분석", margin=dict(l=40, r=20, t=40, b=40))
         st.plotly_chart(fig3, use_container_width=True)
-
+        
 st.divider()
-
-# ============================================================
-# 4) 미분 관점의 모델 해석
-# ============================================================
-# ... (이하 동일)
 
 # ============================================================
 # 4) 학생 검증/비판(핵심 제출물)
