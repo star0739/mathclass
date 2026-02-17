@@ -47,7 +47,6 @@ DEFAULT_STEP1_HEADER: List[str] = [
     "features",
     "model_primary",
     "model_primary_reason",
-    "note",
 ]
 
 
@@ -74,7 +73,6 @@ def append_step1_row(
     features: str = "",
     model_primary: str = "",
     model_primary_reason: str = "",
-    note: str = "",
     sheet_name: str = SHEET_NAME_STEP1,
 ) -> None:
     if not str(student_id).strip():
@@ -96,7 +94,6 @@ def append_step1_row(
         str(features).strip(),
         str(model_primary).strip(),
         str(model_primary_reason).strip(),
-        str(note).strip(),
     ]
 
     ws.append_row(row, value_input_option="USER_ENTERED")
