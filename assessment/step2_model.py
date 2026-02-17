@@ -129,13 +129,19 @@ def parse_step1_backup_txt(text: str) -> dict:
 
     out["model_primary"] = find_value("- 주된 모델:")
     # 주된 모델 근거 섹션
-    try:
-        i = lines.index("- 주된 모델 근거:")
-        # 다음 섹션까지
-        j = lines.index("[추가 메모]")
-        out["model_primary_reason"] = "\n".join(lines[i + 1 : j]).strip()
-    except ValueError:
-        out["model_primary_reason"] = ""
+
+    reason_text = ""
+    for i, ln in enumerate(lines):
+        if ln.strip(),startswith("- 주된 모델 근거:"):
+           for j in range(i + 1, len(lines)):
+               next_line = lines[j].strip()
+
+               if next_line.startswith("[") and next_line.endswith("]"):
+                  break
+
+               reason_text += lines[j] + "\n"
+           break
+    out["model_primary_reason"] = reason_text.strip()
 
     return out
 
@@ -184,11 +190,6 @@ def build_step2_backup(payload: dict) -> bytes:
     lines.append(f"- X축: {payload.get('x_col','')} | Y축: {payload.get('y_col','')}")
     lines.append(f"- 유효 데이터 점: {payload.get('valid_n','')}")
     lines.append("")
-
-    lines.append("[AI 프롬프트]")
-    lines.append(payload.get("ai_prompt","").strip() or "(미입력)")
-    lines.append("")
-
     lines.append("[AI 모델식/미분식(LaTeX)]")
     lines.append(payload.get("ai_model_latex","").strip() or "(미입력)")
     lines.append(payload.get("ai_derivative_latex","").strip() or "")
@@ -197,9 +198,6 @@ def build_step2_backup(payload: dict) -> bytes:
 
     lines.append("[미분 관점의 모델 분석(학생 작성)]")
     lines.append(payload.get("student_analysis","").strip() or "(미입력)")
-    lines.append("")
-
-    lines.append("[추가 메모]")
     lines.append("")
     lines.append("※ 수식은 $$...$$ 형태의 LaTeX로 유지하는 것이 안전합니다.")
 
