@@ -225,7 +225,7 @@ DEFAULT_STEP3_HEADER = [
     "A_model",
     "relative_error",
     "py_model",
-    "conclusion",
+    "student_critical_review2",
     "note",
 ]
 
@@ -254,7 +254,7 @@ def append_step3_row(
     A_model: float | str | None = None,
     relative_error: float | str | None = None,
     py_model: str = "",
-    conclusion: str = "",
+    student_critical_review2: str = "",
     note: str = "",
     sheet_name: str = SHEET_NAME_STEP3,
 ) -> None:
