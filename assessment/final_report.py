@@ -1,14 +1,3 @@
-# assessment/final_report.py
-# ------------------------------------------------------------
-# 최종 보고서 생성(서술형) + PDF 출력 페이지
-#
-# 요구사항(A안):
-# - 학생이 CSV, 1~3차시 TXT 백업, 그래프 이미지(학생이 미리 저장한 것)를 업로드
-# - 보고서 틀(Ⅰ/Ⅱ/Ⅲ + Ⅱ의 1)2)3))을 자동 생성하고,
-#   각 섹션은 "서술형 문단"으로 학생이 편집 후 PDF로 저장
-# - LaTeX는 PDF에서 깨지지 않도록 "이미지로 렌더링하여" 삽입
-# - 그래프는 학생 업로드 이미지를 사용하여 보고서에 배치
-# ------------------------------------------------------------
 
 from __future__ import annotations
 
@@ -20,6 +9,10 @@ from typing import Dict, Optional, Tuple, List
 import numpy as np
 import pandas as pd
 import streamlit as st
+import os
+from reportlab.pdfbase import pdfmetrics
+from reportlab.pdfbase.ttfonts import TTFont
+
 
 import matplotlib.pyplot as plt
 
@@ -322,6 +315,34 @@ def latex_to_png_bytes(latex: str, fontsize: int = 16) -> Optional[bytes]:
             pass
         return None
 
+def register_korean_fonts() -> tuple[str, str]:
+    """
+    assets/fonts/ 폴더에 넣은 TTF를 ReportLab에 등록하고
+    (regular_font_name, bold_font_name)을 반환한다.
+    """
+    here = os.path.dirname(os.path.abspath(__file__))
+    font_dir = os.path.normpath(os.path.join(here, "..", "assets"))
+
+    regular_path = os.path.join(font_dir, "NanumGothic-Regular.ttf")
+    bold_path = os.path.join(font_dir, "NanumGothic-Bold.ttf")
+
+    if not os.path.exists(regular_path):
+        raise FileNotFoundError(f"한글 폰트 파일이 없습니다: {regular_path}")
+
+    # Bold가 없으면 regular로 대체
+    if not os.path.exists(bold_path):
+        bold_path = regular_path
+
+    regular_name = "NanumGothic-Regular"
+    bold_name = "NanumGothic-Bold"
+
+    # 중복 등록 방지
+    if regular_name not in pdfmetrics.getRegisteredFontNames():
+        pdfmetrics.registerFont(TTFont(regular_name, regular_path))
+    if bold_name not in pdfmetrics.getRegisteredFontNames():
+        pdfmetrics.registerFont(TTFont(bold_name, bold_path))
+
+    return regular_name, bold_name
 
 # ============================================================
 # PDF 생성(Platypus)
@@ -348,16 +369,18 @@ def build_report_pdf(
         author=meta.get("student_id", ""),
     )
 
+    regular_font, bold_font = register_korean_fonts()
+    
     styles = getSampleStyleSheet()
     base = styles["BodyText"]
-    base.fontName = "Helvetica"
+    base.fontName = regular_font
     base.fontSize = 10
     base.leading = 14
 
     h1 = ParagraphStyle(
         "H1",
         parent=styles["Heading1"],
-        fontName="Helvetica-Bold",
+        fontName=bold_font,
         fontSize=14,
         leading=18,
         spaceBefore=8,
@@ -366,7 +389,7 @@ def build_report_pdf(
     h2 = ParagraphStyle(
         "H2",
         parent=styles["Heading2"],
-        fontName="Helvetica-Bold",
+        fontName=bold_font,
         fontSize=12,
         leading=16,
         spaceBefore=8,
@@ -375,7 +398,7 @@ def build_report_pdf(
     h3 = ParagraphStyle(
         "H3",
         parent=styles["Heading3"],
-        fontName="Helvetica-Bold",
+        fontName=bold_font,
         fontSize=11,
         leading=15,
         spaceBefore=6,
@@ -384,7 +407,7 @@ def build_report_pdf(
     caption = ParagraphStyle(
         "Caption",
         parent=base,
-        fontName="Helvetica-Oblique",
+        fontName=regular_font,
         fontSize=9,
         leading=12,
         alignment=TA_CENTER,
