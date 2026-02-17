@@ -4,4 +4,5 @@ matplotlib
 gspread
 google-auth
 plotly
+sympy
 
