@@ -215,8 +215,8 @@ def build_step2_backup(payload: dict) -> bytes:
 init_assessment_session()
 student_id = require_student_id("학번을 입력하세요.")
 
-st.title("(2차시) AI 모델식 도출 & 미분 기반 검증")
-st.caption("AI가 제안한 모델식을 입력하고, 데이터 변화율과 비교하며 비판적으로 검토합니다.")
+st.title("2차시: 함수 모델링 & 미분 기반 분석")
+st.caption("적절한 모델 식을 구하고, 데이터 변화율과 비교하며 비판적으로 검토합니다.")
 st.divider()
 
 # ============================================================
