@@ -291,7 +291,6 @@ def build_step3_backup(payload: dict) -> bytes:
     lines.append(payload.get("student_critical_review2", "").strip() or "(미입력)")
     lines.append("")
     lines.append("[추가 메모]")
-    lines.append(payload.get("note", "").strip() or "(없음)")
     lines.append("")
     return "\n".join(lines).encode("utf-8-sig")
 
@@ -580,7 +579,6 @@ payload = {
     "err_rect": float(err_rect),
     "err_trap": float(err_trap),
     "student_critical_review2": student_critical_review2.strip(),
-    "note": note.strip(),
 }
 
 col1, col2, col3 = st.columns([1, 1, 1.2])
@@ -632,7 +630,6 @@ if save_clicked or download_clicked or go_next:
                 relative_error=rel_trap,
                 py_model=payload["py_model"],
                 student_critical_review2=payload["student_critical_review2"],
-                note=payload["note"],
             )
             st.success("✅ 구글 시트에 성공적으로 저장되었습니다.")
         except Exception as e:
