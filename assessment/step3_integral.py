@@ -1,19 +1,20 @@
 # assessment/step3_integral.py
 # ------------------------------------------------------------
-# 공공데이터 분석 수행 - 3차시: 적분(누적) 관점에서 모델 평가 + 장점/한계 정리
+# 공공데이터 분석 수행 - 3차시: 정적분(면적)과 수치적분(구간합)의 관계 이해
 #
-# UX 목표(1/2차시와 유사):
-# 0) 2차시 기록 불러오기(백업 TXT 업로드) + CSV 업로드(그래프/적분 계산용)
-# 1) X/Y 선택 및 시간축 해석 방식 선택
-# 2) 누적량(수치적분) vs 모델 정적분 비교
-# 3) 누적 그래프 비교
-# 4) 종합 결론(장점/한계/개선) 작성
-# 5) 저장 및 백업(구글시트 + TXT) + (선택) 다음 페이지 이동
+# UX(1/2차시와 유사):
+# 0) 2차시 기록 불러오기(TXT 업로드) + CSV 업로드
+# 1) 데이터 열 자동 설정(X/Y) + 시간축(t) 자동 변환
+# 2) 모델식 확인 + 적분 구간 선택
+# 3) f(t) 그래프 위에 직사각형/사다리꼴 도형 시각화 + 근사값/오차 비교
+# 4) 종합 결론(장점/한계/개선)
+# 5) 저장 및 백업(구글시트 + TXT)
 # ------------------------------------------------------------
 
 from __future__ import annotations
 
 import re
+import sympy as sp
 import numpy as np
 import pandas as pd
 import streamlit as st
@@ -23,15 +24,12 @@ try:
     import plotly.graph_objects as go
 except Exception:
     PLOTLY_AVAILABLE = False
-    import matplotlib.pyplot as plt
 
 from assessment.common import (
     init_assessment_session,
     require_student_id,
     set_df,
     get_df,
-    get_df_preview,
-    set_xy,
     get_xy,
     get_step1_summary,
 )
@@ -42,7 +40,7 @@ from assessment.google_sheets import append_step3_row
 # -----------------------------
 # 운영 기준
 # -----------------------------
-MIN_VALID_POINTS = 5  # 적분 비교는 구간이 있으니 MVP는 낮게
+MIN_VALID_POINTS = 5
 
 
 # -----------------------------
@@ -88,7 +86,7 @@ def read_csv_kosis(file) -> pd.DataFrame:
 
 
 # -----------------------------
-# 년/월/년월 파서 (Step2와 동일 계열)
+# 년/월/년월 파서 (Step2 계열)
 # -----------------------------
 def parse_year_month(s: pd.Series) -> pd.Series:
     s = s.astype(str).str.strip()
@@ -118,7 +116,6 @@ def parse_year_month(s: pd.Series) -> pd.Series:
 
 # -----------------------------
 # Step2 백업 TXT 파서(최소)
-#  - Step2의 build_step2_backup 포맷을 대략적으로 읽어 필요한 값만 추출
 # -----------------------------
 def parse_step2_backup_txt(text: str) -> dict:
     out = {}
@@ -132,7 +129,6 @@ def parse_step2_backup_txt(text: str) -> dict:
         return ""
 
     out["student_id"] = find_value("학번:")
-    # 데이터 정보
     out["data_source"] = find_value("- 데이터 출처:")
     out["x_col"] = ""
     out["y_col"] = ""
@@ -143,22 +139,14 @@ def parse_step2_backup_txt(text: str) -> dict:
                 out["x_col"] = m.group(1).strip()
                 out["y_col"] = m.group(2).strip()
     out["valid_n"] = find_value("- 유효 데이터 점:")
-
-    # LaTeX/py 식은 섹션 기반 추출이 포맷 변화에 취약하니,
-    # MVP에서는 "키워드 라인"을 직접 찾지 않고, Step2 앱 저장을 우선 사용.
-    # (필요하면 Step2 백업 포맷을 key:value로 통일하는 리팩토링에서 개선)
-    out["py_model"] = ""  # 백업에서 안정적으로 뽑기 어려움 → Step2 세션 값 우선
+    out["py_model"] = ""  # Step2 백업 포맷에 따라 안정적 추출이 어려움(세션 값 우선)
     return out
 
 
 # -----------------------------
-# 수치적분(사다리꼴) + 누적 사다리꼴
+# 수치적분(사다리꼴) - np.trapz 의존 제거
 # -----------------------------
 def _trapz(y: np.ndarray, t: np.ndarray) -> float:
-    """
-    numpy.trapz가 없는 환경(일부 NumPy 2.x 구성) 대응.
-    사다리꼴 공식: Σ 0.5*(y[i]+y[i-1])*(t[i]-t[i-1])
-    """
     y = np.asarray(y, dtype=float)
     t = np.asarray(t, dtype=float)
 
@@ -171,15 +159,6 @@ def _trapz(y: np.ndarray, t: np.ndarray) -> float:
     return float(np.sum(0.5 * (y[1:] + y[:-1]) * dt))
 
 
-
-def _cumtrapz(y: np.ndarray, t: np.ndarray) -> np.ndarray:
-    A = np.zeros_like(y, dtype=float)
-    for k in range(1, len(y)):
-        dt = t[k] - t[k - 1]
-        A[k] = A[k - 1] + 0.5 * (y[k] + y[k - 1]) * dt
-    return A
-
-
 # -----------------------------
 # 모델 평가: Step2 py_model(표현식) eval
 # -----------------------------
@@ -187,13 +166,9 @@ def _eval_model_expr(expr: str, t: np.ndarray) -> np.ndarray:
     expr = (expr or "").strip()
     if not expr:
         raise ValueError("py_model이 비어 있습니다.")
-
-    # 구글시트에서 '='로 시작하면 수식으로 오해할 수 있으니 Step2에서 텍스트로 저장했을 수 있음
-    # 화면에서는 그대로 오지만, 혹시 '=...'이면 앞 '=' 제거는 하지 않고 오류로 처리(학생 수정 유도)
     if expr.startswith("="):
         raise ValueError("py_model이 '='로 시작합니다. 수식이 아니라 '표현식'만 입력하세요.")
 
-    # 최소한의 위험 토큰 차단(MVP)
     blocked = ["__", "import", "open(", "exec(", "eval(", "os.", "sys.", "subprocess", "pickle", "globals", "locals"]
     if any(tok in expr for tok in blocked):
         raise ValueError("허용되지 않는 토큰이 포함되어 py_model을 계산할 수 없습니다.")
@@ -210,7 +185,6 @@ def _eval_model_expr(expr: str, t: np.ndarray) -> np.ndarray:
     y_hat = eval(expr, {"__builtins__": {}}, env)
     y_hat = np.asarray(y_hat, dtype=float)
 
-    # 스칼라면 브로드캐스트
     if y_hat.shape == ():
         y_hat = np.full_like(t, float(y_hat), dtype=float)
 
@@ -218,9 +192,49 @@ def _eval_model_expr(expr: str, t: np.ndarray) -> np.ndarray:
         raise ValueError("모델 결과 길이가 t와 일치하지 않습니다.")
     return y_hat
 
+def _sympy_definite_integral(py_expr: str, a: float, b: float) -> float:
+    """
+    py_model 표현식(예: 22 - 0.017*t + 6*np.cos(...) + ...)을 sympy로 정적분.
+    실패하면 예외 발생(호출부에서 수치적분 fallback 가능).
+    """
+    expr = (py_expr or "").strip()
+    if not expr:
+        raise ValueError("py_model이 비어 있습니다.")
 
+    # numpy 접두어 제거
+    expr = expr.replace("np.", "")
+    expr = expr.replace("numpy.", "")
+
+    t = sp.Symbol("t", real=True)
+
+    locals_map = {
+        "t": t,
+        "sin": sp.sin,
+        "cos": sp.cos,
+        "tan": sp.tan,
+        "exp": sp.exp,
+        "log": sp.log,
+        "sqrt": sp.sqrt,
+        "pi": sp.pi,
+        "E": sp.E,
+        "Abs": sp.Abs,
+    }
+
+    sym = sp.sympify(expr, locals=locals_map)
+
+    I = sp.integrate(sym, (t, a, b))
+
+    # 적분이 미해결(Integral 형태)인 경우 방지
+    if isinstance(I, sp.Integral) or I.has(sp.Integral):
+        raise ValueError("sympy가 정적분을 기호적으로 계산하지 못했습니다.")
+
+    return float(sp.N(I))
+
+
+# -----------------------------
+# 리만합 분할
+# -----------------------------
 def _riemann_partitions(a: float, b: float, n: int) -> tuple[np.ndarray, float]:
-    """[a,b]를 n등분한 분할점과 dt 반환"""
     n = int(n)
     if n < 1:
         raise ValueError("n은 1 이상이어야 합니다.")
@@ -230,16 +244,45 @@ def _riemann_partitions(a: float, b: float, n: int) -> tuple[np.ndarray, float]:
 
 
 def _rect_y0y1(height: float) -> tuple[float, float]:
-    """높이가 음수일 때도 사각형이 보이도록 y0,y1 정렬"""
     return (0.0, float(height)) if height >= 0 else (float(height), 0.0)
 
+# -----------------------------
+# 데이터 기반 수치적분 (직사각형/사다리꼴)
+# -----------------------------
+def _data_rect_left(y: np.ndarray, t: np.ndarray) -> float:
+    """
+    좌측 직사각형 합:
+    각 구간 [t_i, t_{i+1}]에서 높이를 y_i로 사용
+    """
+    y = np.asarray(y, dtype=float)
+    t = np.asarray(t, dtype=float)
 
+    if len(y) < 2:
+        return 0.0
+
+    dt = t[1:] - t[:-1]
+    return float(np.sum(y[:-1] * dt))
+
+
+def _data_trap(y: np.ndarray, t: np.ndarray) -> float:
+    """
+    사다리꼴 합:
+    각 구간에서 0.5*(y_i + y_{i+1}) * dt
+    """
+    y = np.asarray(y, dtype=float)
+    t = np.asarray(t, dtype=float)
+
+    if len(y) < 2:
+        return 0.0
+
+    dt = t[1:] - t[:-1]
+    return float(np.sum(0.5 * (y[:-1] + y[1:]) * dt))
 
 # -----------------------------
-# Step3 백업 생성/파서 (Step2 UX와 유사)
+# Step3 백업 생성 (Step2 UX와 유사)
 # -----------------------------
 def build_step3_backup(payload: dict) -> bytes:
-    lines = []
+    lines: list[str] = []
     lines.append("공공데이터 분석 수행 (3차시) 백업")
     lines.append("=" * 40)
     lines.append(f"저장시각: {pd.Timestamp.now().strftime('%Y-%m-%d %H:%M:%S')}")
@@ -254,63 +297,25 @@ def build_step3_backup(payload: dict) -> bytes:
     lines.append("")
 
     lines.append("[모델식(py_model)]")
-    lines.append(payload.get("py_model","").strip() or "(미입력)")
+    lines.append(payload.get("py_model", "").strip() or "(미입력)")
     lines.append("")
 
-    lines.append("[적분 결과]")
-    lines.append(f"- 데이터 누적량(근사): {payload.get('A_data','')}")
-    lines.append(f"- 모델 누적량(근사): {payload.get('A_model','')}")
-    lines.append(f"- 상대오차: {payload.get('relative_error','')}")
+    lines.append("[정적분(기준값)과 수치적분 비교]")
+    lines.append(f"- 기준 정적분값 I(근사): {payload.get('I_ref','')}")
+    lines.append(f"- 분할 수 n: {payload.get('n_div','')}")
+    lines.append(f"- 좌/중/우 직사각형 합: {payload.get('S_left','')}, {payload.get('S_mid','')}, {payload.get('S_right','')}")
+    lines.append(f"- 사다리꼴 합: {payload.get('S_trap','')}")
+    lines.append(f"- 오차 |S-I| (좌/중/우/사다리꼴): {payload.get('err_left','')}, {payload.get('err_mid','')}, {payload.get('err_right','')}, {payload.get('err_trap','')}")
     lines.append("")
 
     lines.append("[종합 결론(학생 작성)]")
-    lines.append(payload.get("conclusion","").strip() or "(미입력)")
+    lines.append(payload.get("conclusion", "").strip() or "(미입력)")
     lines.append("")
     lines.append("[추가 메모]")
-    lines.append(payload.get("note","").strip() or "(없음)")
+    lines.append(payload.get("note", "").strip() or "(없음)")
     lines.append("")
-    lines.append("※ 이 파일은 학생 개인 백업용입니다. 필요 시 다시 앱에 업로드하여 복구할 수 있습니다.")
+    lines.append("※ 이 파일은 학생 개인 백업용입니다.")
     return "\n".join(lines).encode("utf-8-sig")
-
-
-def parse_step3_backup_txt(text: str) -> dict:
-    out = {}
-    lines = [ln.strip() for ln in (text or "").splitlines()]
-
-    def find_value(prefix: str) -> str:
-        for ln in lines:
-            if ln.startswith(prefix):
-                return ln.replace(prefix, "", 1).strip()
-        return ""
-
-    out["student_id"] = find_value("학번:")
-    out["data_source"] = find_value("- 데이터 출처:")
-    out["x_col"] = ""
-    out["y_col"] = ""
-    for ln in lines:
-        if ln.startswith("- X축:"):
-            m = re.search(r"- X축:\s*(.*?)\s*\|\s*Y축:\s*(.*)$", ln)
-            if m:
-                out["x_col"] = m.group(1).strip()
-                out["y_col"] = m.group(2).strip()
-    out["valid_n"] = find_value("- 유효 데이터 점:")
-    # 구간
-    rng = find_value("- 적분 구간 인덱스:")
-    m = re.search(r"(\d+)\s*~\s*(\d+)", rng)
-    if m:
-        out["i0"] = m.group(1)
-        out["i1"] = m.group(2)
-
-    # 결론 섹션
-    try:
-        i = lines.index("[종합 결론(학생 작성)]")
-        j = lines.index("[추가 메모]")
-        out["conclusion"] = "\n".join(lines[i + 1 : j]).strip()
-    except ValueError:
-        out["conclusion"] = ""
-
-    out["note"] = ""  # 메모는 MVP에서 생략(필요하면 섹션 파싱 추가)
-    return out
 
 
 # ============================================================
@@ -319,8 +324,8 @@ def parse_step3_backup_txt(text: str) -> dict:
 init_assessment_session()
 student_id = require_student_id("학번을 입력하세요.")
 
-st.title("(3차시) 적분(누적) 관점에서 모델 평가")
-st.caption("데이터 누적량과 모델 정적분을 비교하고, 최종적으로 모델의 장점과 한계를 정리합니다.")
+st.title("(3차시) 정적분과 수치적분(구간합) 비교")
+st.caption("모델 f(t)의 정적분(면적) 값을 기준으로, 직사각형 합/사다리꼴 합의 오차가 n에 따라 어떻게 줄어드는지 관찰합니다.")
 st.divider()
 
 # ============================================================
@@ -336,9 +341,8 @@ colA, colB = st.columns([1.2, 1])
 with colA:
     st.markdown("**2차시 TXT 업로드로 복구(선택)**")
     step2_txt = st.file_uploader("2차시 백업 TXT 업로드", type=["txt"], key="step3_step2_txt_upload")
-
 with colB:
-    st.markdown("**CSV 업로드(그래프/적분 계산용)**")
+    st.markdown("**CSV 업로드(그래프/계산용)**")
     csv_file = st.file_uploader("CSV 업로드", type=["csv"], key="step3_csv_upload")
 
 if step2_txt is not None:
@@ -346,8 +350,6 @@ if step2_txt is not None:
         raw = step2_txt.getvalue().decode("utf-8", errors="replace")
         parsed2 = parse_step2_backup_txt(raw)
 
-        # step2_state 보강(가능한 범위만)
-        # (py_model 등은 백업 포맷에서 안정적으로 못 뽑으므로 기존 step2 세션 값을 유지)
         step2 = {
             **step2,
             "student_id": parsed2.get("student_id") or step2.get("student_id") or student_id,
@@ -357,12 +359,11 @@ if step2_txt is not None:
             "valid_n": parsed2.get("valid_n") or step2.get("valid_n") or step1.get("valid_n", ""),
         }
         _set_step2_state(step2)
-        st.success("TXT에서 2차시 정보를(부분적으로) 불러왔습니다. (수식 py_model 등은 세션 저장값을 우선 사용)")
+        st.success("TXT에서 2차시 정보를(부분적으로) 불러왔습니다. (py_model 등은 세션 저장값을 우선 사용)")
     except Exception as e:
         st.error("2차시 TXT를 읽는 중 오류가 발생했습니다.")
         st.exception(e)
 
-# CSV 업로드 시 DF 저장
 if csv_file is not None:
     try:
         df_up = read_csv_kosis(csv_file)
@@ -374,15 +375,14 @@ if csv_file is not None:
 
 df = get_df()
 if df is None:
-    st.info("CSV를 업로드하면 다음 단계(적분 비교)로 진행할 수 있습니다.")
+    st.info("CSV를 업로드하면 다음 단계로 진행할 수 있습니다.")
     st.stop()
 
 st.divider()
 
 # ============================================================
-# 1) X/Y 선택(통일 규칙) + X축 해석 방식
+# 1) 데이터 열 자동 설정 + 시간축(t) 자동 변환
 # ============================================================
-
 st.subheader("1) 데이터 열 자동 설정")
 
 cols = list(df.columns)
@@ -390,7 +390,6 @@ if len(cols) < 2:
     st.error("열이 2개 이상이어야 합니다. CSV를 다시 확인하세요.")
     st.stop()
 
-# ✅ 통일 규칙: Step2 저장값 → Step1 summary → get_xy() → fallback
 x_prev, y_prev = get_xy()
 x_col = (step2.get("x_col") or step1.get("x_col") or (x_prev if x_prev in cols else "")).strip()
 y_col = (step2.get("y_col") or step1.get("y_col") or (y_prev if y_prev in cols else "")).strip()
@@ -402,12 +401,8 @@ if y_col not in cols:
 if y_col == x_col:
     y_col = cols[1] if len(cols) > 1 and cols[1] != x_col else cols[0]
 
-# 사용자에게는 “자동으로 고정했다” 정도만 안내
-st.caption(f"X축(시간): **{x_col}**  |  Y축(수치): **{y_col}** (2차시 선택값을 기반으로 자동 설정)")
+st.caption(f"X축(시간): **{x_col}**  |  Y축(수치): **{y_col}** (2차시 선택값 기반 자동 설정)")
 
-# x_mode도 Step3에서는 자동으로 고정(UX 단순화)
-# - 숫자로 변환 가능하면 numeric
-# - 아니면 year-month 파싱 시도 후 datetime으로
 y_series = pd.to_numeric(df[y_col], errors="coerce")
 
 x_dt = parse_year_month(df[x_col])
@@ -427,12 +422,10 @@ if len(xv) < MIN_VALID_POINTS:
     if len(xv) < 2:
         st.stop()
 
-# 정렬
 order = np.argsort(xv.values) if x_type == "datetime" else np.argsort(xv.to_numpy())
 xv = xv.iloc[order]
 yv = yv.iloc[order]
 
-# t 수치화(적분/모델 계산용) - Step2와 동일(월 인덱스)
 if x_type == "datetime":
     base = xv.iloc[0]
     t_all = ((xv.dt.year - base.year) * 12 + (xv.dt.month - base.month)).to_numpy(dtype=float)
@@ -444,12 +437,11 @@ else:
     t_all = xv.to_numpy(dtype=float)
 
 y_all = yv.to_numpy(dtype=float)
-
 st.metric("유효 데이터 점(숫자쌍) 개수", int(len(t_all)))
 st.divider()
 
 # ============================================================
-# 2) 모델식(py_model) 확인 + 적분 구간 선택
+# 2) 모델식 확인 + 적분 구간 선택
 # ============================================================
 st.subheader("2) 모델식 확인 & 적분 구간 선택")
 
@@ -461,27 +453,8 @@ py_model = st.text_input(
 )
 
 n = len(t_all)
-# Step3 백업 복구(선택)
-restored3 = {}
-st.markdown("**(선택) 3차시 백업 TXT로 복구**")
-step3_txt = st.file_uploader("3차시 백업 TXT 업로드", type=["txt"], key="step3_txt_upload")
-if step3_txt is not None:
-    try:
-        raw3 = step3_txt.getvalue().decode("utf-8", errors="replace")
-        restored3 = parse_step3_backup_txt(raw3)
-        st.success("3차시 백업에서 일부 값을 불러왔습니다.")
-    except Exception as e:
-        st.error("3차시 TXT를 읽는 중 오류가 발생했습니다.")
-        st.exception(e)
-
-def _safe_int(v, default):
-    try:
-        return int(v)
-    except Exception:
-        return default
-
-default_i0 = _safe_int(restored3.get("i0", step3_prev.get("i0", 0)), 0)
-default_i1 = _safe_int(restored3.get("i1", step3_prev.get("i1", n - 1)), n - 1)
+default_i0 = int(step3_prev.get("i0", 0) or 0)
+default_i1 = int(step3_prev.get("i1", n - 1) or (n - 1))
 default_i0 = max(0, min(n - 2, default_i0))
 default_i1 = max(default_i0 + 1, min(n - 1, default_i1))
 
@@ -494,200 +467,126 @@ i0, i1 = st.slider(
 )
 
 t = t_all[i0 : i1 + 1]
-y = y_all[i0 : i1 + 1]
-
-# x축 표시용(가능하면 datetime을 유지)
-x_display = xv.iloc[i0 : i1 + 1]  # datetime 또는 numeric 시리즈
-
 st.divider()
 
 # ============================================================
-# 3) 누적량(정적분) 비교
+# 3) f(t)로 보는 정적분 근사(직사각형 합 / 사다리꼴) + 오차
 # ============================================================
-st.subheader("3) 누적량(정적분) 비교")
+st.subheader("3) 데이터 기반 수치적분 vs 모델 정적분 비교")
 
-A_data = _trapz(y, t)
+# --- (1) 데이터 기반 수치적분 값 ---
+# 직사각형: 좌측 리만합(데이터 y_i를 구간 [t_i,t_{i+1}] 높이로)
+A_rect = _data_rect_left(y, t)
 
-A_model = None
-y_hat = None
-model_err_msg = ""
+# 사다리꼴: 데이터 점을 선분으로 연결한 사다리꼴 합
+A_trap = _data_trap(y, t)
 
+# --- (2) 모델 정적분 값 ---
+a, b = float(t[0]), float(t[-1])
+
+I_model = None
+I_err_msg = ""
 if py_model.strip():
     try:
-        y_hat_all = _eval_model_expr(py_model, t_all)
-        y_hat = y_hat_all[i0 : i1 + 1]
-        A_model = _trapz(y_hat, t)
+        I_model = _sympy_definite_integral(py_model, a, b)
     except Exception as e:
-        model_err_msg = str(e)
+        I_err_msg = str(e)
 
+# 모델 정적분이 안 되면(예: sympy 미해결) 수치적분 fallback(선택)
+if I_model is None:
+    st.warning("sympy 정적분 계산에 실패했습니다. 모델 정적분 값은 수치적으로 근사합니다.")
+    if I_err_msg:
+        st.caption(f"sympy 오류: {I_err_msg}")
+    tt_ref = np.linspace(a, b, 20001, dtype=float)
+    ff_ref = _eval_model_expr(py_model, tt_ref)
+    I_model = _trapz(ff_ref, tt_ref)  # 매우 촘촘한 사다리꼴(기준값)
+
+# --- (3) 값 표시(윗줄 3칸) ---
 c1, c2, c3 = st.columns(3)
-c1.metric("데이터 누적량  ∫y dt(근사)", f"{A_data:,.6g}")
+c1.metric("직사각형 값(데이터)", f"{A_rect:,.6g}")
+c2.metric("사다리꼴 값(데이터)", f"{A_trap:,.6g}")
+c3.metric("정적분 값(모델)", f"{I_model:,.6g}")
 
-if A_model is None:
-    c2.metric("모델 누적량  ∫f dt(근사)", "—")
-    c3.metric("상대오차", "—")
-    if model_err_msg:
-        st.warning(f"모델 적분을 계산하지 못했습니다: {model_err_msg}")
-else:
-    c2.metric("모델 누적량  ∫f dt(근사)", f"{A_model:,.6g}")
-    rel = abs(A_data - A_model) / (abs(A_data) + 1e-12)
-    c3.metric("상대오차", f"{rel:.3%}")
+# --- (4) 오차 표시(아랫줄 3칸: 마지막은 빈칸) ---
+e_rect = abs(A_rect - I_model)
+e_trap = abs(A_trap - I_model)
 
-st.divider()
+d1, d2, d3 = st.columns(3)
+d1.metric("직사각형 오차 |A-I|", f"{e_rect:,.6g}")
+d2.metric("사다리꼴 오차 |A-I|", f"{e_trap:,.6g}")
+d3.metric("", "")  # 열 맞추기용 빈칸
 
-# ------------------------------------------------------------
-# (추가) f(t) 기반: 직사각형 합/사다리꼴 시각화(교과서형)
-# ------------------------------------------------------------
-st.subheader("3-1) f(t)로 보는 정적분 근사(직사각형 합 / 사다리꼴)")
-
-if A_model is None:
-    st.info("모델식(py_model)이 계산되지 않아 시각화를 생략합니다.")
-else:
-    # 분할 개수 n (너무 크면 도형이 많아져서 느려질 수 있으니 상한)
-    max_n = int(min(80, max(4, (t[-1] - t[0]) if len(t) > 1 else 10)))
-    # t 범위가 짧아 max_n이 이상해질 수 있어 안전장치
-    max_n = max(10, min(80, len(t) * 3))
-
-    n_div = st.slider("분할 개수 n", min_value=4, max_value=max_n, value=min(24, max_n), step=2)
-    method_vis = st.radio("시각화 방식", ["직사각형(좌/중/우)", "사다리꼴"], horizontal=True)
-
-    a, b = float(t[0]), float(t[-1])
-    nodes, dt = _riemann_partitions(a, b, int(n_div))
-
-    # 좌/우/중점
-    left = nodes[:-1]
-    right = nodes[1:]
-    mid = (left + right) / 2.0
-
-    # f(t) 평가
-    f_left = _eval_model_expr(py_model, left)
-    f_right = _eval_model_expr(py_model, right)
-    f_mid = _eval_model_expr(py_model, mid)
-
-    # 근사값(면적)
-    S_left = float(np.sum(f_left * dt))
-    S_right = float(np.sum(f_right * dt))
-    S_mid = float(np.sum(f_mid * dt))
-    S_trap = float(np.sum(0.5 * (f_left + f_right) * dt))
-
-    # 숫자 요약
-    c1, c2, c3, c4 = st.columns(4)
-    c1.metric("좌측 직사각형 합", f"{S_left:,.6g}")
-    c2.metric("중점 직사각형 합", f"{S_mid:,.6g}")
-    c3.metric("우측 직사각형 합", f"{S_right:,.6g}")
-    c4.metric("사다리꼴 합", f"{S_trap:,.6g}")
-
-    # 참고: Step3에서 계산한 모델 적분(데이터 t 기반 사다리꼴)과 비교
-    st.caption(f"참고: 선택 구간에서(데이터 t 기반) 계산된 모델 적분(사다리꼴 근사) ≈ {A_model:,.6g}")
-
-    # f(t) 곡선(조밀 샘플)
-    tt = np.linspace(a, b, 500, dtype=float)
-    ff = _eval_model_expr(py_model, tt)
-
-    if PLOTLY_AVAILABLE:
-        fig = go.Figure()
-        fig.add_trace(go.Scatter(x=tt, y=ff, mode="lines", name="f(t)"))
-
-        if method_vis == "직사각형(좌/중/우)":
-            # 기본: 중점 직사각형을 도형으로 표시 + (선택적으로 좌/우는 점선 표시만)
-            for i in range(len(left)):
-                h = float(f_mid[i])
-                y0, y1 = _rect_y0y1(h)
-                x0 = float(left[i])
-                x1 = float(right[i])
-                fig.add_shape(
-                    type="rect",
-                    x0=x0, x1=x1, y0=y0, y1=y1,
-                    line=dict(width=1),
-                    fillcolor="rgba(0,0,0,0.08)",
-                )
-            fig.add_trace(go.Scatter(x=mid, y=f_mid, mode="markers", name="중점값 f(mid)"))
-
-        else:
-            # 사다리꼴: 각 구간을 폴리곤(4점)으로 채우기
-            for i in range(len(left)):
-                x0 = float(left[i]); x1 = float(right[i])
-                yL = float(f_left[i]); yR = float(f_right[i])
-                # 사다리꼴 꼭짓점 순서: (x0,0)->(x0,yL)->(x1,yR)->(x1,0)->닫기
-                fig.add_trace(go.Scatter(
-                    x=[x0, x0, x1, x1, x0],
-                    y=[0,  yL, yR, 0,  0],
-                    mode="lines",
-                    fill="toself",
-                    name="사다리꼴",
-                    showlegend=(i == 0),
-                    opacity=0.25,
-                ))
-            fig.add_trace(go.Scatter(x=left, y=f_left, mode="markers", name="f(left)"))
-            fig.add_trace(go.Scatter(x=right, y=f_right, mode="markers", name="f(right)"))
-
-        fig.update_layout(
-            height=460,
-            margin=dict(l=40, r=20, t=40, b=40),
-            xaxis_title="t (모델 시간축)",
-            yaxis_title="f(t)",
-        )
-        st.plotly_chart(fig, use_container_width=True)
-    else:
-        st.info("Plotly가 없어 도형 시각화는 생략합니다. (수치값은 위에 표시됨)")
-
-
-# ============================================================
-# 4) 누적 그래프(누적 적분 곡선) 비교
-# ============================================================
-st.subheader("4) 누적 그래프 비교")
-
-cum_data = _cumtrapz(y, t)
-cum_model = None if y_hat is None else _cumtrapz(y_hat, t)
+# --- (5) 그래프: 데이터 점 + 모델 곡선 + 데이터 도형 ---
+tt = np.linspace(a, b, 600, dtype=float)
+ff = _eval_model_expr(py_model, tt)
 
 if PLOTLY_AVAILABLE:
     fig = go.Figure()
-    fig.add_trace(go.Scatter(x=x_display, y=cum_data, mode="lines", name="누적(데이터)"))
-    if cum_model is not None:
-        fig.add_trace(go.Scatter(x=x_display, y=cum_model, mode="lines", name="누적(모델)"))
+
+    # 모델 곡선
+    fig.add_trace(go.Scatter(x=tt, y=ff, mode="lines", name="모델 f(t)"))
+
+    # 데이터 점(선택 구간)
+    fig.add_trace(go.Scatter(x=t, y=y, mode="markers+lines", name="데이터(구간)"))
+
+    # 도형 표시 방식 선택(직사각형 or 사다리꼴)
+    vis_mode = st.radio("도형 표시", ["직사각형(좌측)", "사다리꼴"], horizontal=True)
+
+    if vis_mode == "직사각형(좌측)":
+        for i in range(len(t) - 1):
+            x0 = float(t[i]); x1 = float(t[i + 1])
+            h = float(y[i])
+            y0, y1 = _rect_y0y1(h)
+            fig.add_shape(
+                type="rect",
+                x0=x0, x1=x1, y0=y0, y1=y1,
+                line=dict(width=1),
+                fillcolor="rgba(0,0,0,0.08)",
+            )
+    else:
+        for i in range(len(t) - 1):
+            x0 = float(t[i]); x1 = float(t[i + 1])
+            yL = float(y[i]); yR = float(y[i + 1])
+            fig.add_trace(go.Scatter(
+                x=[x0, x0, x1, x1, x0],
+                y=[0,  yL, yR, 0,  0],
+                mode="lines",
+                fill="toself",
+                name="사다리꼴",
+                showlegend=(i == 0),
+                opacity=0.25,
+            ))
+
     fig.update_layout(
-        height=420,
+        height=480,
         margin=dict(l=40, r=20, t=40, b=40),
-        xaxis_title=str(x_col),
-        yaxis_title="누적량",
+        xaxis_title="t (모델 시간축)",
+        yaxis_title="y",
     )
     st.plotly_chart(fig, use_container_width=True)
 else:
-    fig, ax = plt.subplots(figsize=(8, 4))
-    ax.plot(np.arange(len(cum_data)), cum_data, label="누적(데이터)")
-    if cum_model is not None:
-        ax.plot(np.arange(len(cum_model)), cum_model, label="누적(모델)")
-    ax.set_xlabel("index")
-    ax.set_ylabel("누적량")
-    ax.legend()
-    st.pyplot(fig, use_container_width=True)
+    st.info("Plotly가 없어 도형 시각화는 생략됩니다. (값/오차는 위에서 확인 가능)")
 
 st.divider()
 
 # ============================================================
-# 5) 종합 결론(장점/한계/개선 제안)
+# 4) 종합 결론(장점/한계/개선 제안)
 # ============================================================
-st.subheader("5) 종합 결론: 이 모델의 장점과 한계")
+st.subheader("4) 종합 결론: 이 모델의 장점과 한계")
 
 st.info(
     "아래 내용을 모두 포함해 서술하세요.\n"
-    "• 누적 관점에서 데이터와 모델이 얼마나 일치하는가(근거: 누적량/누적 그래프)\n"
-    "• 장점 1가지(근거 포함)\n"
-    "• 한계 1가지(근거 포함)\n"
+    "• n이 커질수록 오차(|S-I|)가 어떻게 변하는가?\n"
+    "• 좌/중/우/사다리꼴 중 어떤 방법이 더 빠르게 정확해졌는가?\n"
+    "• 이 모델의 장점 1가지, 한계 1가지(근거 포함)\n"
     "• 개선 제안 1가지(변수/모델/구간/방법 등)\n"
-)
-
-conclusion_default = (
-    restored3.get("conclusion")
-    or step3_prev.get("conclusion", "")
 )
 
 conclusion = st.text_area(
     "종합 서술(필수)",
-    value=conclusion_default,
+    value=step3_prev.get("conclusion", ""),
     height=220,
 )
-
 note = st.text_area(
     "추가 메모(선택)",
     value=step3_prev.get("note", ""),
@@ -697,9 +596,9 @@ note = st.text_area(
 st.divider()
 
 # ============================================================
-# 6) 저장 및 백업 (Step1/2와 유사)
+# 5) 저장 및 백업
 # ============================================================
-st.subheader("6) 저장 및 백업")
+st.subheader("5) 저장 및 백업")
 
 data_source = (step2.get("data_source") or step1.get("data_source") or "").strip()
 valid_n_now = int(len(t_all))
@@ -712,10 +611,22 @@ payload = {
     "valid_n": valid_n_now,
     "i0": int(i0),
     "i1": int(i1),
-    "A_data": float(A_data),
-    "A_model": "" if A_model is None else float(A_model),
-    "relative_error": "" if A_model is None else float(abs(A_data - A_model) / (abs(A_data) + 1e-12)),
     "py_model": py_model.strip(),
+    # 핵심 결과(학습목표에 맞춤)
+    "I_ref": float(I_ref),
+    "n_div": int(n_div),
+    "S_left": float(S_left),
+    "S_mid": float(S_mid),
+    "S_right": float(S_right),
+    "S_trap": float(S_trap),
+    "err_left": float(eL),
+    "err_mid": float(eM),
+    "err_right": float(eR),
+    "err_trap": float(eT),
+    # 구글시트 기존 컬럼 호환(유지): A_model=I_ref, relative_error=중점 상대오차(대표값)
+    "A_data": "",  # Step3 핵심에서 제외(공란 저장)
+    "A_model": float(I_ref),
+    "relative_error": float(rM),
     "conclusion": conclusion.strip(),
     "note": note.strip(),
 }
@@ -725,7 +636,6 @@ save_clicked = col1.button("💾 저장(구글시트)", use_container_width=True
 download_clicked = col2.button("⬇️ TXT 백업 만들기", use_container_width=True)
 go_next = col3.button("➡️ 종료/제출", use_container_width=True)
 
-# 다운로드 버튼은 항상 렌더링(최신 payload 반영)
 backup_bytes = build_step3_backup(payload)
 st.download_button(
     label="📄 (다운로드) 3차시 백업 TXT",
@@ -738,19 +648,20 @@ def _validate_step3() -> bool:
     if not payload["conclusion"]:
         st.warning("종합 서술을 입력하세요.")
         return False
+    if not payload["py_model"]:
+        st.warning("모델식(py_model)을 확인하세요.")
+        return False
     return True
 
 if save_clicked or download_clicked or go_next:
     if not _validate_step3():
         st.stop()
 
-    # (1) 세션 저장: 다운로드 클릭 시에도 실행(2차시 UX와 동일)
     _set_step3_state({**payload, "saved_at": pd.Timestamp.now().isoformat()})
 
     if download_clicked:
         st.success("✅ 백업 데이터가 준비되었습니다. 위 '다운로드' 버튼을 눌러주세요.")
 
-    # (2) 구글 시트 저장: 저장 버튼이나 종료/제출 버튼 클릭 시 실행
     if save_clicked or go_next:
         try:
             append_step3_row(
@@ -773,11 +684,9 @@ if save_clicked or download_clicked or go_next:
             st.error(f"⚠️ 구글 시트 저장 오류: {e}")
             st.stop()
 
-    # (3) 종료/제출 처리(페이지 이동이 필요하면 switch_page로 변경)
     if go_next:
-        st.success("제출/종료 처리되었습니다. (필요 시 다음 페이지로 이동 로직을 연결하세요.)")
+        st.success("제출/종료 처리되었습니다. (필요 시 다음 페이지 이동 로직을 연결하세요.)")
 
-# 검토용
 with st.expander("계산 세부값(검토용)", expanded=False):
     st.write(
         {
@@ -786,8 +695,13 @@ with st.expander("계산 세부값(검토용)", expanded=False):
             "x_type": x_type,
             "n_valid": int(len(t_all)),
             "range": (int(i0), int(i1)),
-            "A_data": float(A_data),
-            "A_model": None if A_model is None else float(A_model),
-            "py_model_preview": (py_model[:120] + ("..." if len(py_model) > 120 else "")),
+            "n_div": int(n_div),
+            "I_ref": float(I_ref),
+            "S_left": float(S_left),
+            "S_mid": float(S_mid),
+            "S_right": float(S_right),
+            "S_trap": float(S_trap),
+            "err_abs": {"left": float(eL), "mid": float(eM), "right": float(eR), "trap": float(eT)},
+            "err_rel": {"left": float(rL), "mid": float(rM), "right": float(rR), "trap": float(rT)},
         }
     )
