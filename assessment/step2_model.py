@@ -501,23 +501,30 @@ st.subheader("가설 재평가")
 
 st.info(
     "AI가 제안한 모델과 한계점을 살펴보고, "
-    "여러분이 1차시에 세운 가설 모델이 적절한지 판단해 봅시다. "
+    "여러분이 1차시에 세운 가설 모델이 적절한지 판단해 봅시다."
 )
 
 hypothesis_decision = st.radio(
     "가설 판단",
     ["가설 유지", "가설 수정"],
-    horizontal=True
+    horizontal=True,
+    key="hypothesis_decision",
 )
 
-if hypothesis_decision == "가설 수정" and not revised_model_safe:
-    st.warning("가설을 수정했다면, 수정한 모델 유형을 입력하세요.")
-    st.stop()
-
-    st.warning(
-        "가설 수정이 필요하다면 수정된 모델을 기준으로"
-        "AI에게 다시 분석을 요청하세요."
+# ✅ 항상 존재하도록 기본값을 먼저 둠(가설 유지일 때 NameError 방지)
+revised_model = ""
+if hypothesis_decision == "가설 수정":
+    revised_model = st.text_input(
+        "수정한 모델 유형을 작성하세요",
+        placeholder="예: 다항함수",
+        key="revised_model",
     )
+    st.warning(
+        "가설 수정이 필요하다면 **수정된 모델을 기준으로** AI에게 다시 분석을 요청하세요."
+    )
+
+# ✅ 항상 정의되도록 '안전 문자열'을 여기서 만들기
+revised_model_safe = revised_model.strip() if hypothesis_decision == "가설 수정" else ""
     
 # ============================================================
 # 4) 학생 검증/비판(핵심 제출물)
@@ -596,23 +603,34 @@ colS, colN = st.columns([1, 1])
 save_clicked = colS.button("💾 저장(구글시트)", use_container_width=True)
 go_next = colN.button("➡️ 3차시로 이동(추후)", use_container_width=True)
 
+
 def _validate_step2() -> bool:
+    # --- 가설 수정 검증 ---
+    if hypothesis_decision == "가설 수정" and not revised_model_safe:
+        st.warning("가설을 수정했다면, 수정한 모델 유형을 입력하세요.")
+        return False
+
+    # --- AI 입력 검증 ---
     if not ai_prompt.strip():
         st.warning("AI 프롬프트(원문)를 입력하세요.")
         return False
+
     if not ai_model_latex.strip():
         st.warning("AI 모델식(LaTeX)을 입력하세요.")
         return False
+
     if not student_critical_review.strip():
-        st.warning("검증/비판 내용을 입력하세요.")
+        st.warning("분석 내용을 입력하세요.")
         return False
+
     return True
+
 
 if save_clicked or go_next:
     if not _validate_step2():
         st.stop()
 
-    # 세션 저장(새로고침 대비용 - 완전 보장은 아니지만 UX 개선)
+    # 세션 저장(새로고침 대비용)
     _set_step2_state(payload)
 
     # 구글 시트 저장
@@ -634,6 +652,7 @@ if save_clicked or go_next:
             note=payload["note"],
         )
         st.success("✅ 저장 완료! (Google Sheet에 기록되었습니다)")
+
     except Exception as e:
         st.error("⚠️ Google Sheet 저장 중 오류가 발생했습니다.")
         st.exception(e)
@@ -642,4 +661,3 @@ if save_clicked or go_next:
     if go_next:
         st.info("3차시는 아직 페이지를 만들기 전이라 이동은 나중에 연결하면 됩니다.")
         # st.switch_page("assessment/step3_integral.py")
-
