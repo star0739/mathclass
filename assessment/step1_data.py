@@ -88,8 +88,6 @@ def build_backup_text(payload: dict) -> str:
     lines.append(f"- 주된 모델: {payload.get('model_primary','')}")
     lines.append("- 주된 모델 근거:")
     lines.append(payload.get("model_primary_reason","").strip() or "(미입력)")
-    lines.append("")
-    lines.append("※ 이 파일은 학생 개인 백업용입니다. 필요 시 다시 앱에 입력할 때 참고하세요.")
     return "\n".join(lines)
 
 
