@@ -766,6 +766,9 @@ with st.expander("LaTeX 미리보기(깨짐 확인)", expanded=True):
 xv_plot = st.session_state.get("step2_ai_xv")
 t_plot = st.session_state.get("step2_ai_t")
 
+dbg = _latex_to_numpy_expr(ai_model_latex)
+st.code(dbg or "(변환 실패)")
+
 f_fn = _latex_to_callable(ai_model_latex)
 fp_fn = _latex_to_callable(ai_derivative_latex)
 fpp_fn = _latex_to_callable(ai_second_derivative_latex)
