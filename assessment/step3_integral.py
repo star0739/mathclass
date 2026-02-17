@@ -219,6 +219,22 @@ def _eval_model_expr(expr: str, t: np.ndarray) -> np.ndarray:
     return y_hat
 
 
+def _riemann_partitions(a: float, b: float, n: int) -> tuple[np.ndarray, float]:
+    """[a,b]를 n등분한 분할점과 dt 반환"""
+    n = int(n)
+    if n < 1:
+        raise ValueError("n은 1 이상이어야 합니다.")
+    nodes = np.linspace(a, b, n + 1, dtype=float)
+    dt = (b - a) / n
+    return nodes, dt
+
+
+def _rect_y0y1(height: float) -> tuple[float, float]:
+    """높이가 음수일 때도 사각형이 보이도록 y0,y1 정렬"""
+    return (0.0, float(height)) if height >= 0 else (float(height), 0.0)
+
+
+
 # -----------------------------
 # Step3 백업 생성/파서 (Step2 UX와 유사)
 # -----------------------------
@@ -518,6 +534,103 @@ else:
     c3.metric("상대오차", f"{rel:.3%}")
 
 st.divider()
+
+# ------------------------------------------------------------
+# (추가) f(t) 기반: 직사각형 합/사다리꼴 시각화(교과서형)
+# ------------------------------------------------------------
+st.subheader("3-1) f(t)로 보는 정적분 근사(직사각형 합 / 사다리꼴)")
+
+if A_model is None:
+    st.info("모델식(py_model)이 계산되지 않아 시각화를 생략합니다.")
+else:
+    # 분할 개수 n (너무 크면 도형이 많아져서 느려질 수 있으니 상한)
+    max_n = int(min(80, max(4, (t[-1] - t[0]) if len(t) > 1 else 10)))
+    # t 범위가 짧아 max_n이 이상해질 수 있어 안전장치
+    max_n = max(10, min(80, len(t) * 3))
+
+    n_div = st.slider("분할 개수 n", min_value=4, max_value=max_n, value=min(24, max_n), step=2)
+    method_vis = st.radio("시각화 방식", ["직사각형(좌/중/우)", "사다리꼴"], horizontal=True)
+
+    a, b = float(t[0]), float(t[-1])
+    nodes, dt = _riemann_partitions(a, b, int(n_div))
+
+    # 좌/우/중점
+    left = nodes[:-1]
+    right = nodes[1:]
+    mid = (left + right) / 2.0
+
+    # f(t) 평가
+    f_left = _eval_model_expr(py_model, left)
+    f_right = _eval_model_expr(py_model, right)
+    f_mid = _eval_model_expr(py_model, mid)
+
+    # 근사값(면적)
+    S_left = float(np.sum(f_left * dt))
+    S_right = float(np.sum(f_right * dt))
+    S_mid = float(np.sum(f_mid * dt))
+    S_trap = float(np.sum(0.5 * (f_left + f_right) * dt))
+
+    # 숫자 요약
+    c1, c2, c3, c4 = st.columns(4)
+    c1.metric("좌측 직사각형 합", f"{S_left:,.6g}")
+    c2.metric("중점 직사각형 합", f"{S_mid:,.6g}")
+    c3.metric("우측 직사각형 합", f"{S_right:,.6g}")
+    c4.metric("사다리꼴 합", f"{S_trap:,.6g}")
+
+    # 참고: Step3에서 계산한 모델 적분(데이터 t 기반 사다리꼴)과 비교
+    st.caption(f"참고: 선택 구간에서(데이터 t 기반) 계산된 모델 적분(사다리꼴 근사) ≈ {A_model:,.6g}")
+
+    # f(t) 곡선(조밀 샘플)
+    tt = np.linspace(a, b, 500, dtype=float)
+    ff = _eval_model_expr(py_model, tt)
+
+    if PLOTLY_AVAILABLE:
+        fig = go.Figure()
+        fig.add_trace(go.Scatter(x=tt, y=ff, mode="lines", name="f(t)"))
+
+        if method_vis == "직사각형(좌/중/우)":
+            # 기본: 중점 직사각형을 도형으로 표시 + (선택적으로 좌/우는 점선 표시만)
+            for i in range(len(left)):
+                h = float(f_mid[i])
+                y0, y1 = _rect_y0y1(h)
+                x0 = float(left[i])
+                x1 = float(right[i])
+                fig.add_shape(
+                    type="rect",
+                    x0=x0, x1=x1, y0=y0, y1=y1,
+                    line=dict(width=1),
+                    fillcolor="rgba(0,0,0,0.08)",
+                )
+            fig.add_trace(go.Scatter(x=mid, y=f_mid, mode="markers", name="중점값 f(mid)"))
+
+        else:
+            # 사다리꼴: 각 구간을 폴리곤(4점)으로 채우기
+            for i in range(len(left)):
+                x0 = float(left[i]); x1 = float(right[i])
+                yL = float(f_left[i]); yR = float(f_right[i])
+                # 사다리꼴 꼭짓점 순서: (x0,0)->(x0,yL)->(x1,yR)->(x1,0)->닫기
+                fig.add_trace(go.Scatter(
+                    x=[x0, x0, x1, x1, x0],
+                    y=[0,  yL, yR, 0,  0],
+                    mode="lines",
+                    fill="toself",
+                    name="사다리꼴",
+                    showlegend=(i == 0),
+                    opacity=0.25,
+                ))
+            fig.add_trace(go.Scatter(x=left, y=f_left, mode="markers", name="f(left)"))
+            fig.add_trace(go.Scatter(x=right, y=f_right, mode="markers", name="f(right)"))
+
+        fig.update_layout(
+            height=460,
+            margin=dict(l=40, r=20, t=40, b=40),
+            xaxis_title="t (모델 시간축)",
+            yaxis_title="f(t)",
+        )
+        st.plotly_chart(fig, use_container_width=True)
+    else:
+        st.info("Plotly가 없어 도형 시각화는 생략합니다. (수치값은 위에 표시됨)")
+
 
 # ============================================================
 # 4) 누적 그래프(누적 적분 곡선) 비교
