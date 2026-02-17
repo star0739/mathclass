@@ -277,7 +277,7 @@ st.divider()
 st.subheader("1) AI로 모델식(y=f(t)) 제안 받기")
 
 st.info(
-    "1차시에서 세운 가설 모델과 그 근거를 바탕으로 AI에게 모델식을 제안받습니다.\n"
+    "1차시에서 세운 가설 모델과 그 근거를 바탕으로 AI에게 모델식을 제안받습니다.\n\n"
     "⚠ 반드시 **파이썬 계산용 식**도 함께 출력하도록 요청하세요."
 )
 
@@ -314,9 +314,9 @@ with col1:
 
 with col2:
     st.markdown("**파이썬 수식 (그래프 시뮬레이션용)**")
-    py_model = st.text_input("모델식 f(t) 식", value=step2_prev.get("py_model", ""), placeholder="3.2 * np.exp(0.04 * t)")
-    py_d1 = st.text_input("도함수 f'(t) 식", value=step2_prev.get("py_d1", ""), placeholder="0.128 * np.exp(0.04 * t)")
-    py_d2 = st.text_input("이계도함수 f''(t) 식", value=step2_prev.get("py_d2", ""), placeholder="0.00512 * np.exp(0.04 * t)")
+    py_model = st.text_input("모델식 f(t) 식('f=' 이후 식 붙여넣기)", value=step2_prev.get("py_model", ""), placeholder="3.2 * np.exp(0.04 * t)")
+    py_d1 = st.text_input("도함수 f'(t) 식('d1=' 이후 식 붙여넣기)", value=step2_prev.get("py_d1", ""), placeholder="0.128 * np.exp(0.04 * t)")
+    py_d2 = st.text_input("이계도함수 f''(t) 식('d2=' 이후 식 붙여넣기)", value=step2_prev.get("py_d2", ""), placeholder="0.00512 * np.exp(0.04 * t)")
 
 st.subheader("가설 재평가")
 hypothesis_decision = st.radio("가설 판단", ["가설 유지", "가설 수정"], horizontal=True, key="hypothesis_decision")
