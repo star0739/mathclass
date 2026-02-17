@@ -208,3 +208,96 @@ def append_step2_row(
     ]
 
     ws.append_row(row, value_input_option="USER_ENTERED")
+
+# --- (추가) 3차시 저장용 ---
+SHEET_NAME_STEP3 = "미적분_수행평가_3차시"
+
+DEFAULT_STEP3_HEADER = [
+    "timestamp",
+    "student_id",
+    "data_source",
+    "x_col",
+    "y_col",
+    "valid_n",
+    "i0",
+    "i1",
+    "A_data",
+    "A_model",
+    "relative_error",
+    "py_model",
+    "conclusion",
+    "note",
+]
+
+
+def ensure_step3_header(ws) -> None:
+    values = ws.get_all_values()
+    if not values:
+        ws.append_row(DEFAULT_STEP3_HEADER, value_input_option="USER_ENTERED")
+        return
+    first_row = values[0]
+    if len(first_row) == 0 or all((c.strip() == "" for c in first_row)):
+        ws.update("A1", [DEFAULT_STEP3_HEADER])
+        return
+
+
+def append_step3_row(
+    *,
+    student_id: str,
+    data_source: str = "",
+    x_col: str = "",
+    y_col: str = "",
+    valid_n: int | None = None,
+    i0: int | None = None,
+    i1: int | None = None,
+    A_data: float | None = None,
+    A_model: float | str | None = None,
+    relative_error: float | str | None = None,
+    py_model: str = "",
+    conclusion: str = "",
+    note: str = "",
+    sheet_name: str = SHEET_NAME_STEP3,
+) -> None:
+    if not str(student_id).strip():
+        raise ValueError("student_id는 비어 있을 수 없습니다.")
+
+    ws = get_worksheet(sheet_name=sheet_name, worksheet_index=0)
+    ensure_step3_header(ws)
+
+    # '='로 시작하면 구글시트가 수식으로 오해할 수 있어 텍스트로 고정
+    def _as_text(v: str) -> str:
+        v = (v or "").strip()
+        if v.startswith("="):
+            return "'" + v
+        return v
+
+    def _as_number_or_blank(v):
+        if v is None:
+            return ""
+        # Step3 payload에서 ""로 들어오는 케이스도 처리
+        if isinstance(v, str) and v.strip() == "":
+            return ""
+        try:
+            return float(v)
+        except Exception:
+            # 숫자 변환 실패 시 텍스트로 저장(수식 오해 방지 포함)
+            return _as_text(str(v))
+
+    row = [
+        datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+        str(student_id).strip(),
+        _as_text(data_source),
+        _as_text(x_col),
+        _as_text(y_col),
+        "" if valid_n is None else int(valid_n),
+        "" if i0 is None else int(i0),
+        "" if i1 is None else int(i1),
+        _as_number_or_blank(A_data),
+        _as_number_or_blank(A_model),
+        _as_number_or_blank(relative_error),
+        _as_text(py_model),
+        _as_text(conclusion),
+        _as_text(note),
+    ]
+
+    ws.append_row(row, value_input_option="USER_ENTERED")
