@@ -314,12 +314,12 @@ with col1:
 
 with col2:
     st.markdown("**파이썬 수식 (그래프 시뮬레이션용)**")
-    py_model = st.text_input("모델식 f(t) 식('f=' 이후 식 붙여넣기)", value=step2_prev.get("py_model", ""), placeholder="3.2 * np.exp(0.04 * t)")
-    py_d1 = st.text_input("도함수 f'(t) 식('d1=' 이후 식 붙여넣기)", value=step2_prev.get("py_d1", ""), placeholder="0.128 * np.exp(0.04 * t)")
-    py_d2 = st.text_input("이계도함수 f''(t) 식('d2=' 이후 식 붙여넣기)", value=step2_prev.get("py_d2", ""), placeholder="0.00512 * np.exp(0.04 * t)")
+    py_model = st.text_input("모델식 f(t) 식 ('f='다음 내용)", value=step2_prev.get("py_model", ""), placeholder="3.2 * np.exp(0.04 * t)")
+    py_d1 = st.text_input("도함수 f'(t) 식 ('d1='다음 내용)", value=step2_prev.get("py_d1", ""), placeholder="0.128 * np.exp(0.04 * t)")
+    py_d2 = st.text_input("이계도함수 f''(t) 식 ('d2='다음 내)", value=step2_prev.get("py_d2", ""), placeholder="0.00512 * np.exp(0.04 * t)")
 
 st.subheader("가설 재평가")
-hypothesis_decision = st.radio("가설 판단", ["가설 유지", "가설 수정"], horizontal=True, key="hypothesis_decision")
+hypothesis_decision = st.radio("AI가 제안한 모델의 한계를 바탕으로 가설의 적정성을 판단하세요.", ["가설 유지", "가설 수정"], horizontal=True, key="hypothesis_decision")
 
 revised_model = ""
 if hypothesis_decision == "가설 수정":
@@ -489,6 +489,9 @@ payload = {
     "ai_model_latex": ai_model_latex,
     "ai_derivative_latex": ai_derivative_latex,
     "ai_second_derivative_latex": ai_second_derivative_latex,
+    "py_model": py_model,
+    "py_d1": py_d1,
+    "py_d2": py_d2,
     "student_analysis": student_critical_review,  # UI 변수명 그대로 쓰되, 키는 analysis로
     "note": note,
 }
@@ -550,6 +553,9 @@ if save_clicked or go_next:
             ai_model_latex=payload["ai_model_latex"],
             ai_derivative_latex=payload["ai_derivative_latex"],
             ai_second_derivative_latex=payload["ai_second_derivative_latex"],
+            py_model=payload["py_model"],
+            py_d1=payload["py_d1"],
+            py_d2=payload["py_d2"],
             student_analysis=payload["student_analysis"],
             note=payload["note"],
         )
