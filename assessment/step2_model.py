@@ -381,54 +381,80 @@ st.info(
     "✅ 보고서 문장 대신, **모델식/도함수/이계도함수**를 명확히 출력"
 )
 
-# 템플릿 버튼(학생용)
-template_general = (
-    "너는 수학 모델링 조교야. 아래 데이터에 대해 함수 모델을 제안해줘.\n\n"
-    "[내 조건]\n"
-    "- 수식은 반드시 LaTeX로 출력하고, 모든 수식은 $$...$$ 로 감싸라.\n"
-    "- 유니코드 위첨자(², ³ 등)는 쓰지 말고 ^{ } 형태를 사용하라.\n"
-    "- 출력은 '식' 위주로, 길게 보고서처럼 쓰지 마라.\n\n"
-    "[데이터]\n"
-    "- t는 시간 인덱스(월 단위)이고 t=0,1,2,... 로 둔다.\n"
-    "- (t, y) 데이터를 참고하여 모델식 y=f(t)를 제안하라.\n\n"
-    "[내 가설 모델 유형]\n"
-    f"- 1차시 가설 모델: {step1.get('model_primary','(미기록)')}\n\n"
-    "[반드시 포함할 출력 항목]\n"
-    "1) 최종 모델식: $$y = ...$$\n"
-    "2) 도함수: $$f'(t)=...$$\n"
-    "3) 이계도함수: $$f''(t)=...$$\n"
-    "4) 모델의 한계 2가지(짧게)\n"
+# ============================================================
+# 2) AI 프롬프트 자동 생성 (통합 템플릿)
+# ============================================================
+st.subheader("2) AI로 모델식(y=f(t)) 제안 받기")
+
+st.info(
+    "1차시에서 세운 가설 모델과 그 근거를 바탕으로,\n"
+    "AI에게 모델식을 제안받습니다.\n\n"
+    "⚠ 수식은 반드시 LaTeX 형식($$ ... $$)으로 출력하도록 지시하세요."
 )
 
-template_trig = (
-    "너는 수학 모델링 조교야. 아래 월별 데이터에 대해 12개월 주기를 고려한 모델을 제안해줘.\n\n"
-    "[내 조건]\n"
-    "- 수식은 반드시 LaTeX로 출력하고, 모든 수식은 $$...$$ 로 감싸라.\n"
-    "- 유니코드 위첨자(², ³ 등)는 쓰지 말고 ^{ } 형태를 사용하라.\n"
-    "- 출력은 '식' 위주로, 길게 보고서처럼 쓰지 마라.\n\n"
-    "[데이터]\n"
-    "- t는 월 인덱스(t=0이 시작 월)이다.\n\n"
-    "[반드시 포함할 출력 항목]\n"
-    "1) 삼각모델: $$y = a + bt + c\\sin(\\frac{2\\pi}{12}t + \\phi)$$ (또는 동등한 형태)\n"
-    "2) 도함수: $$f'(t)=...$$\n"
-    "3) 이계도함수: $$f''(t)=...$$\n"
-    "4) 한계 2가지(짧게)\n"
+# 1차시 정보 자동 불러오기
+model_hypothesis = step1.get("model_primary", "")
+model_reason = step1.get("model_primary_reason", "")
+
+st.markdown("### 🔹 1차시 가설 확인")
+st.write(f"**가설 모델:** {model_hypothesis or '(기록 없음)'}")
+st.write(f"**가설 근거:** {model_reason or '(기록 없음)'}")
+
+additional_context = st.text_area(
+    "추가 설명(선택) — 1차시 이후 새롭게 생각한 점이 있다면 작성",
+    height=80,
 )
 
-c1, c2 = st.columns(2)
-with c1:
-    if st.button("📌 프롬프트 템플릿(일반) 넣기", use_container_width=True):
-        st.session_state["step2_ai_prompt"] = template_general
-with c2:
-    if st.button("📌 프롬프트 템플릿(삼각/계절성) 넣기", use_container_width=True):
-        st.session_state["step2_ai_prompt"] = template_trig
+# -----------------------------
+# 통합 프롬프트 자동 생성 함수
+# -----------------------------
+def build_unified_prompt(model_hypothesis, model_reason, additional_context):
+    return f"""
+너는 수학 모델링 조교다. 아래 조건에 따라 함수 모델을 제안하라.
 
+[중요 조건]
+- 수식은 반드시 LaTeX 형식으로 출력하라.
+- 모든 수식은 $$ ... $$ 로 감싸라.
+- 유니코드 위첨자(², ³ 등)는 사용하지 말고 ^{{ }} 형태를 사용하라.
+- 보고서처럼 길게 쓰지 말고, 식과 핵심 해석 위주로 작성하라.
+
+[데이터 설명]
+- t는 시간 인덱스(월 단위 또는 순차 인덱스)이다.
+- (t, y) 데이터를 참고하여 모델을 제안하라.
+
+[내가 세운 가설 모델]
+- 모델 유형: {model_hypothesis}
+- 그렇게 생각한 이유: {model_reason}
+
+[추가 설명]
+{additional_context}
+
+[반드시 포함할 출력 항목]
+1) 최종 모델식: $$y = ...$$
+2) 도함수: $$f'(t)=...$$
+3) 이계도함수: $$f''(t)=...$$
+4) 모델의 한계를 하나의 문단으로 작성하라. 
+   (최소 두 가지 한계를 포함하고, 번호나 목록 형태로 나열하지 말 것)
+""".strip()
+
+
+# 자동 생성 버튼
+if st.button("📌 프롬프트 자동 생성", use_container_width=True):
+    generated_prompt = build_unified_prompt(
+        model_hypothesis,
+        model_reason,
+        additional_context,
+    )
+    st.session_state["step2_ai_prompt"] = generated_prompt
+
+
+# 프롬프트 입력/수정 영역
 ai_prompt = st.text_area(
-    "AI에 입력한 프롬프트(원문) — 그대로 붙여넣기",
-    value=step2_prev.get("ai_prompt", st.session_state.get("step2_ai_prompt", "")),
-    height=180,
-    key="step2_ai_prompt",
+    "AI에 입력할 프롬프트(자동 생성 후 필요하면 수정)",
+    value=st.session_state.get("step2_ai_prompt", ""),
+    height=260,
 )
+
 
 st.divider()
 
