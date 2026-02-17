@@ -487,7 +487,7 @@ ai_limitations = st.text_area(
 with st.expander("LaTeX 미리보기(깨짐 확인)", expanded=True):
     blocks = extract_latex_blocks(ai_model_latex) + extract_latex_blocks(ai_derivative_latex) + extract_latex_blocks(ai_second_derivative_latex)
     if not blocks:
-        st.caption(""$$"..."$$" 형태로 입력하면 여기에서 수식이 렌더됩니다.")
+        st.caption("$$...$$ 형태로 입력하면 여기에서 수식이 렌더됩니다.")
     else:
         for b in blocks[:10]:
             try:
