@@ -114,7 +114,7 @@ def get_student_id() -> str:
     return (st.session_state.get(SKeys.STUDENT_ID) or "").strip()
 
 
-def require_student_id(message: str = "학번/식별 코드를 먼저 입력하세요.") -> str:
+def require_student_id(message: str = "학번을 먼저 입력하세요.") -> str:
     """
     학생 식별이 없으면 입력을 유도하고, 이후 단계 진행을 막는다.
     step1~3 공통 상단에서 호출 권장.
