@@ -206,6 +206,7 @@ def build_step2_backup(payload: dict) -> bytes:
 
     return "\n".join(lines).encode("utf-8-sig")
 
+
 # -----------------------------
 # AI 입력 수식으로 그래프 그리기(가능한 범위에서)
 # -----------------------------
@@ -274,6 +275,7 @@ def _plot_ai_functions(xv, t, f_fn, fp_fn, fpp_fn):
             ax.plot(xv, fpp_fn(t), label="y=f''(t)")
         ax.legend()
         st.pyplot(fig, use_container_width=True)
+
 
 # ============================================================
 # UI 시작
@@ -497,7 +499,7 @@ def build_unified_prompt(model_hypothesis, model_reason, additional_context):
 {additional_context}
 
 [반드시 포함할 출력 항목]
-1) 최종 모델식: $$f(t) = ...$$
+1) 최종 모델식: $$y = ...$$
 2) 도함수: $$f'(t)=...$$
 3) 이계도함수: $$f''(t)=...$$
 4) 모델의 한계를 하나의 문단으로 작성하고, 가설 모델의 수정 여부를 판단하라.
@@ -563,7 +565,11 @@ with colL:
 
     # LaTeX 미리보기
     with st.expander("LaTeX 미리보기(깨짐 확인)", expanded=True):
-        blocks = extract_latex_blocks(ai_model_latex) + extract_latex_blocks(ai_derivative_latex) + extract_latex_blocks(ai_second_derivative_latex)
+        blocks = (
+            extract_latex_blocks(ai_model_latex)
+            + extract_latex_blocks(ai_derivative_latex)
+            + extract_latex_blocks(ai_second_derivative_latex)
+        )
         if not blocks:
             st.caption("LaTeX 형식을 올바르게 입력하면 수식이 정상적으로 출력됩니다.")
         else:
@@ -574,7 +580,6 @@ with colL:
                     st.code(b)
 
 with colR:
-    # AI 그래프
     xv_plot = st.session_state.get("step2_ai_xv")
     t_plot = st.session_state.get("step2_ai_t")
 
@@ -615,4 +620,146 @@ if hypothesis_decision == "가설 수정":
         key="revised_model",
     )
     st.warning(
-        "수정된 모델을 기준으로 AI에게 다시 분석을 요청하고, **항
+        "수정된 모델을 기준으로 AI에게 다시 분석을 요청하고, **항목 3)을 재작성 하세요.**"
+    )
+
+# ✅ 항상 정의되도록 '안전 문자열'을 여기서 만들기 (중복 제거: 이후 섹션에서 재계산하지 않음)
+revised_model_safe = revised_model.strip() if hypothesis_decision == "가설 수정" else ""
+
+# ============================================================
+# 4) 학생 검증/비판(핵심 제출물)
+# ============================================================
+st.subheader("4) 미분 관점의 모델 해석")
+
+st.info(
+    "🔹 변화율 비교\n\n"
+    "데이터의 변화율($\\Delta y/\\Delta t$) 그래프에서 특징 두 가지를 찾고, "
+    "AI가 제시한 도함수 $f'(t)$가 이를 얼마나 잘 설명하는지 서술하시오.\n\n"
+    "🔹 곡선의 모양 분석\n\n"
+    "데이터의 이계변화율($\\Delta^2 y/\\Delta t^2$) 그래프에 나타난 오목·볼록 상태를 "
+    "AI의 이계도함수 $f''(t)$와 비교하여 분석하시오.\n\n"
+    "🔹 모델의 한계\n\n"
+    "실제 데이터와 모델 식의 차이가 큰 구간을 한 곳 제시하고, "
+    "모델링 과정에서 누락되었을 가능성이 있는 변수나 환경적 요인을 추론하여 서술해 봅시다."
+)
+
+student_critical_review = st.text_area(
+    "분석 내용(필수)",
+    value=step2_prev.get("student_critical_review", ""),
+    height=220,
+    placeholder=(
+        "수식은 반드시 LaTeX 형식($$ ... $$)으로 입력하세요."
+    ),
+)
+
+note = st.text_area("추가 메모(선택)", value=step2_prev.get("note", ""), height=100)
+
+st.divider()
+
+# ============================================================
+# 5) 저장(구글시트) + TXT 백업 다운로드
+# ============================================================
+st.subheader("5) 저장 및 백업")
+
+# step1에서 가져올 수 있는 기본 정보
+data_source = (step1.get("data_source") or "").strip()
+model_hypothesis_step1 = (step1.get("model_primary") or "").strip()
+
+# X/Y 컬럼(있다면)
+x_col_now = st.session_state.get("step2_x_col", step1.get("x_col",""))
+y_col_now = st.session_state.get("step2_y_col", step1.get("y_col",""))
+
+# valid_n (있다면)
+valid_n_now = None
+try:
+    valid_n_now = int(st.session_state.get("step2_valid_n", ""))  # 사용 안 해도 OK
+except Exception:
+    pass
+
+payload = {
+    "student_id": student_id,
+    "data_source": data_source,
+    "x_col": x_col_now,
+    "y_col": y_col_now,
+    "valid_n": valid_n_now,
+    "model_hypothesis_step1": model_hypothesis_step1,
+    "hypothesis_decision": hypothesis_decision,
+    "revised_model": revised_model_safe,
+    "ai_prompt": ai_prompt,
+    "ai_model_latex": ai_model_latex,
+    "ai_derivative_latex": ai_derivative_latex,
+    "ai_second_derivative_latex": ai_second_derivative_latex,
+    "student_analysis": student_critical_review,  # UI 변수명 그대로 쓰되, 키는 analysis로
+    "note": note,
+}
+
+backup_bytes = build_step2_backup(payload)
+st.download_button(
+    label="📄 (다운로드) 2차시 백업 TXT",
+    data=backup_bytes,
+    file_name=f"미적분_수행평가_2차시_{student_id}.txt",
+    mime="text/plain; charset=utf-8",
+)
+
+colS, colN = st.columns([1, 1])
+save_clicked = colS.button("💾 저장(구글시트)", use_container_width=True)
+go_next = colN.button("➡️ 3차시로 이동(추후)", use_container_width=True)
+
+
+def _validate_step2() -> bool:
+    # --- 가설 수정 검증 ---
+    if hypothesis_decision == "가설 수정" and not revised_model_safe:
+        st.warning("가설을 수정했다면, 수정한 모델 유형을 입력하세요.")
+        return False
+
+    # --- AI 입력 검증 ---
+    if not ai_prompt.strip():
+        st.warning("AI 프롬프트(원문)를 입력하세요.")
+        return False
+
+    if not ai_model_latex.strip():
+        st.warning("AI 모델식(LaTeX)을 입력하세요.")
+        return False
+
+    if not student_critical_review.strip():
+        st.warning("분석 내용을 입력하세요.")
+        return False
+
+    return True
+
+
+if save_clicked or go_next:
+    if not _validate_step2():
+        st.stop()
+
+    # 세션 저장(새로고침 대비용)
+    _set_step2_state(payload)
+
+    # 구글 시트 저장
+    try:
+        append_step2_row(
+            student_id=payload["student_id"],
+            data_source=payload["data_source"],
+            x_col=payload["x_col"],
+            y_col=payload["y_col"],
+            valid_n=payload["valid_n"],
+            model_hypothesis_step1=payload["model_hypothesis_step1"],
+            hypothesis_decision=payload["hypothesis_decision"],
+            revised_model=payload["revised_model"],
+            ai_prompt=payload["ai_prompt"],
+            ai_model_latex=payload["ai_model_latex"],
+            ai_derivative_latex=payload["ai_derivative_latex"],
+            ai_second_derivative_latex=payload["ai_second_derivative_latex"],
+            student_analysis=payload["student_analysis"],
+            note=payload["note"],
+        )
+        st.success("✅ 저장 완료! (Google Sheet에 기록되었습니다)")
+
+    except Exception as e:
+        st.error("⚠️ Google Sheet 저장 중 오류가 발생했습니다.")
+        st.exception(e)
+        st.stop()
+
+    if go_next:
+        st.info("3차시는 아직 페이지를 만들기 전이라 이동은 나중에 연결하면 됩니다.")
+        # st.switch_page("assessment/step3_integral.py")
