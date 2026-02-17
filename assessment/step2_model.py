@@ -1,13 +1,3 @@
-# assessment/step2_model.py
-# ------------------------------------------------------------
-# 공공데이터 분석 수행 - 2차시: AI 모델식 도출 + 미분 기반 검증(비판적 검토)
-#
-# 핵심:
-# - 1차시 기록이 날아가도 복구 가능: (1) 1차시 TXT 업로드 (2) CSV 업로드
-# - AI가 제안한 모델식을 "LaTeX($$...$$)" 형태로 받도록 안내 + 입력
-# - 데이터 기반 근사 변화율(Δy/Δt)과 비교하여 학생이 비판적으로 검토
-# - 저장 시: Google Sheet(미적분_수행평가_2차시) + TXT 백업 다운로드
-# ------------------------------------------------------------
 
 import re
 import streamlit as st
@@ -115,14 +105,12 @@ def parse_step1_backup_txt(text: str) -> dict:
         if start_idx is None:
             return ""
 
-        # end 지정이 있으면 그 위치까지
         if end_key is not None:
             for j in range(start_idx + 1, len(lines)):
                 if lines[j] == end_key:
                     return "\n".join(lines[start_idx + 1 : j]).strip()
             return "\n".join(lines[start_idx + 1 :]).strip()
 
-        # end 지정이 없으면 다음 섹션 헤더를 추정
         for j in range(start_idx + 1, len(lines)):
             ln = lines[j]
             if ln.startswith("[") and ln.endswith("]"):
@@ -146,14 +134,12 @@ def parse_step1_backup_txt(text: str) -> dict:
     out["valid_n"] = find_value("- 유효 데이터 점 개수:")
     out["features"] = ""
 
-    # [그래프 관찰 특징] 섹션 추출
     sec = find_section_text("[그래프 관찰 특징]", "[모델링 가설]")
     if sec:
         out["features"] = sec
 
     out["model_primary"] = find_value("- 주된 모델:")
 
-    # 주된 모델 근거 섹션(원본은 "- 주된 모델 근거:" ~ "[추가 메모]" 사이)
     sec2 = find_section_text("- 주된 모델 근거:", "[추가 메모]")
     out["model_primary_reason"] = sec2.strip() if sec2 else ""
 
@@ -175,7 +161,6 @@ def extract_latex_blocks(s: str) -> list[str]:
 # 데이터 기반 근사 도함수(차분/gradient)
 # -----------------------------
 def compute_derivatives(t: np.ndarray, y: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
-    # t가 등간격이 아닐 수도 있어 gradient에 t를 넣어 안정화
     dy = np.gradient(y, t)
     d2y = np.gradient(dy, t)
     return dy, d2y
@@ -189,7 +174,7 @@ def build_step2_backup(payload: dict) -> bytes:
     lines.append("공공데이터 분석 수행 (2차시) 백업")
     lines.append("=" * 40)
     lines.append(f"저장시각: {pd.Timestamp.now().strftime('%Y-%m-%d %H:%M:%S')}")
-    lines.append(f"학번/식별코드: {payload.get('student_id','')}")
+    lines.append(f"학번: {payload.get('student_id','')}")
     lines.append("")
 
     lines.append("[가설 재평가]")
@@ -230,46 +215,153 @@ def build_step2_backup(payload: dict) -> bytes:
 # -----------------------------
 # AI 입력 수식으로 그래프 그리기(가능한 범위에서)
 # -----------------------------
+import ast
+
 @st.cache_resource(show_spinner=False)
 def _get_sympy_runtime():
-    import sympy as sp
     try:
-        from sympy.parsing.latex import parse_latex
+        import sympy as sp
+        try:
+            from sympy.parsing.latex import parse_latex
+        except Exception:
+            parse_latex = None
+        return sp, parse_latex
+    except ModuleNotFoundError:
+        return None, None
     except Exception:
-        parse_latex = None
-    return sp, parse_latex
+        return None, None
+
+
+def _latex_to_numpy_expr(expr_text: str) -> str | None:
+    raw = (expr_text or "").strip()
+    if not raw:
+        return None
+
+    blocks = extract_latex_blocks(raw)
+    s = blocks[0] if blocks else raw
+
+    if "=" in s:
+        s = s.split("=", 1)[1].strip()
+
+    s = s.replace("\\,", " ").replace("\\;", " ").replace("\n", " ").strip()
+
+    replacements = {
+        "\\cdot": "*",
+        "\\times": "*",
+        "−": "-",
+        "–": "-",
+        "—": "-",
+        "\\left": "",
+        "\\right": "",
+        "\\,": "",
+        "\\;": "",
+    }
+    for k, v in replacements.items():
+        s = s.replace(k, v)
+
+    func_map = {
+        "\\sin": "np.sin",
+        "\\cos": "np.cos",
+        "\\tan": "np.tan",
+        "\\ln": "np.log",
+        "\\log": "np.log",
+        "\\exp": "np.exp",
+        "\\sqrt": "np.sqrt",
+    }
+    for k, v in func_map.items():
+        s = s.replace(k, v)
+
+    frac_pat = re.compile(r"\\frac\s*\{([^{}]+)\}\s*\{([^{}]+)\}")
+    for _ in range(10):
+        new_s = frac_pat.sub(r"(\1)/(\2)", s)
+        if new_s == s:
+            break
+        s = new_s
+
+    s = re.sub(r"\^\{([^{}]+)\}", r"**(\1)", s)
+    s = re.sub(r"\^([0-9t])", r"**\1", s)
+
+    s = re.sub(r"\be\*\*\(([^)]+)\)", r"np.exp(\1)", s)
+    s = re.sub(r"\be\^\{([^{}]+)\}", r"np.exp(\1)", s)
+
+    s = re.sub(r"\s+", "", s)
+
+    if not s:
+        return None
+    return s
+
+
+class _SafeExprChecker(ast.NodeVisitor):
+    ALLOWED_NODES = (
+        ast.Expression,
+        ast.BinOp,
+        ast.UnaryOp,
+        ast.Add, ast.Sub, ast.Mult, ast.Div, ast.Pow, ast.Mod,
+        ast.UAdd, ast.USub,
+        ast.Call,
+        ast.Load,
+        ast.Name,
+        ast.Constant,
+        ast.Attribute,
+    )
+
+    ALLOWED_NAMES = {"t", "np"}
+
+    ALLOWED_ATTRS = {
+        "sin", "cos", "tan",
+        "exp", "log",
+        "sqrt",
+        "pi",
+    }
+
+    def generic_visit(self, node):
+        if not isinstance(node, self.ALLOWED_NODES):
+            raise ValueError(f"Disallowed node: {type(node).__name__}")
+        super().generic_visit(node)
+
+    def visit_Name(self, node: ast.Name):
+        if node.id not in self.ALLOWED_NAMES:
+            raise ValueError(f"Disallowed name: {node.id}")
+
+    def visit_Attribute(self, node: ast.Attribute):
+        if not (isinstance(node.value, ast.Name) and node.value.id == "np"):
+            raise ValueError("Only np.<func> attributes are allowed")
+        if node.attr not in self.ALLOWED_ATTRS:
+            raise ValueError(f"Disallowed np attribute: {node.attr}")
+        self.generic_visit(node)
+
+    def visit_Call(self, node: ast.Call):
+        if not isinstance(node.func, ast.Attribute):
+            raise ValueError("Only calls to np.<func>(...) are allowed")
+        self.visit(node.func)
+        for arg in node.args:
+            self.visit(arg)
+        if node.keywords:
+            raise ValueError("Keyword args are not allowed")
 
 
 @st.cache_data(show_spinner=False)
 def _latex_to_sympy_srepr(expr_text: str) -> str | None:
-    """
-    입력(LaTeX 블록 또는 일반 문자열)을 sympy expression으로 파싱한 뒤 srepr 문자열을 반환.
-    캐시 안전성을 위해 "함수"가 아니라 "문자열"을 저장한다.
-    """
     sp, parse_latex = _get_sympy_runtime()
+    if sp is None:
+        return None
 
     raw = (expr_text or "").strip()
     if not raw:
         return None
 
-    # $$...$$가 있으면 내부를 우선 사용
     blocks = extract_latex_blocks(raw)
     s = blocks[0] if blocks else raw
 
-    # y=, f'(t)=, f''(t)= 같은 좌변 제거
     if "=" in s:
         s = s.split("=", 1)[1].strip()
 
-    # 흔한 LaTeX 공백/줄바꿈 정리
     s = s.replace("\\,", " ").replace("\\;", " ").replace("\n", " ").strip()
-
-    t = sp.Symbol("t", real=True)
 
     try:
         if parse_latex is not None:
             sym = parse_latex(s)
         else:
-            # 매우 제한적인 fallback(LaTeX가 아닌 sympy 표기일 때만)
             sym = sp.sympify(s)
         return sp.srepr(sym)
     except Exception:
@@ -277,13 +369,11 @@ def _latex_to_sympy_srepr(expr_text: str) -> str | None:
 
 
 def _sympy_srepr_to_callable(srepr_text: str | None):
-    """
-    srepr 문자열을 sympy expression으로 복원한 뒤 numpy callable로 변환.
-    실패 시 None.
-    """
     if not srepr_text:
         return None
     sp, _ = _get_sympy_runtime()
+    if sp is None:
+        return None
     try:
         sym = sp.sympify(srepr_text)
         t = sp.Symbol("t", real=True)
@@ -293,14 +383,29 @@ def _sympy_srepr_to_callable(srepr_text: str | None):
         return None
 
 
+def _numpy_expr_to_callable(expr: str | None):
+    if not expr:
+        return None
+    try:
+        tree = ast.parse(expr, mode="eval")
+        _SafeExprChecker().visit(tree)
+
+        def _fn(t):
+            return eval(compile(tree, "<expr>", "eval"), {"np": np, "t": t}, {})
+
+        return _fn
+    except Exception:
+        return None
+
+
 def _latex_to_callable(expr_text: str):
-    """
-    $$...$$ 내부 문자열 또는 일반 문자열을 sympy로 파싱해 numpy callable로 변환.
-    파싱 실패 시 None 반환.
-    (캐시 사용)
-    """
     srepr_text = _latex_to_sympy_srepr(expr_text or "")
-    return _sympy_srepr_to_callable(srepr_text)
+    fn = _sympy_srepr_to_callable(srepr_text)
+    if fn is not None:
+        return fn
+
+    expr = _latex_to_numpy_expr(expr_text or "")
+    return _numpy_expr_to_callable(expr)
 
 
 def _safe_eval(fn, t: np.ndarray) -> np.ndarray | None:
@@ -317,29 +422,21 @@ def _safe_eval(fn, t: np.ndarray) -> np.ndarray | None:
         return None
 
 
-def _plot_ai_functions(xv, t, f_fn, fp_fn, fpp_fn):
-    y0 = _safe_eval(f_fn, t)
-    y1 = _safe_eval(fp_fn, t)
-    y2 = _safe_eval(fpp_fn, t)
+def _plot_single_ai_function(xv, t, fn, title: str):
+    y = _safe_eval(fn, t)
+    if y is None:
+        st.info("AI 출력식에서 LaTeX 수식을 해석하지 못했습니다. $$...$$ 형태로 다시 확인해 주세요.")
+        return
 
     if PLOTLY_AVAILABLE:
         fig = go.Figure()
-        if y0 is not None:
-            fig.add_trace(go.Scatter(x=xv, y=y0, mode="lines", name="y=f(t)"))
-        if y1 is not None:
-            fig.add_trace(go.Scatter(x=xv, y=y1, mode="lines", name="y=f'(t)"))
-        if y2 is not None:
-            fig.add_trace(go.Scatter(x=xv, y=y2, mode="lines", name="y=f''(t)"))
-        fig.update_layout(height=420, margin=dict(l=40, r=20, t=20, b=40))
+        fig.add_trace(go.Scatter(x=xv, y=y, mode="lines", name=title))
+        fig.update_layout(height=360, margin=dict(l=40, r=20, t=30, b=40), title=title)
         st.plotly_chart(fig, use_container_width=True)
     else:
         fig, ax = plt.subplots()
-        if y0 is not None:
-            ax.plot(xv, y0, label="y=f(t)")
-        if y1 is not None:
-            ax.plot(xv, y1, label="y=f'(t)")
-        if y2 is not None:
-            ax.plot(xv, y2, label="y=f''(t)")
+        ax.plot(xv, y, label=title)
+        ax.set_title(title)
         ax.legend()
         st.pyplot(fig, use_container_width=True)
 
@@ -375,7 +472,6 @@ if txt_file is not None:
     try:
         raw = txt_file.getvalue().decode("utf-8", errors="replace")
         parsed = parse_step1_backup_txt(raw)
-        # step1 dict 보강
         step1.update({
             "student_id": parsed.get("student_id") or step1.get("student_id") or student_id,
             "data_source": parsed.get("data_source") or step1.get("data_source",""),
@@ -392,7 +488,6 @@ if txt_file is not None:
         st.error("TXT를 읽는 중 오류가 발생했습니다.")
         st.exception(e)
 
-# CSV 업로드 시 DF 저장
 if csv_file is not None:
     try:
         df = read_csv_kosis(csv_file)
@@ -411,7 +506,6 @@ st.divider()
 # ============================================================
 st.subheader("1) 데이터 기반 변화율 확인")
 
-# AI 그래프 그리기용(있으면 저장)
 st.session_state["step2_ai_xv"] = None
 st.session_state["step2_ai_t"] = None
 
@@ -420,7 +514,6 @@ if df is None:
 else:
     cols = list(df.columns)
     x_prev, y_prev = get_xy()
-    # step1 기록이 있으면 우선 적용
     x_init = step1.get("x_col") if step1.get("x_col") in cols else (x_prev if x_prev in cols else cols[0])
     y_init = step1.get("y_col") if step1.get("y_col") in cols else (y_prev if y_prev in cols else (cols[1] if len(cols) > 1 else cols[0]))
 
@@ -456,12 +549,10 @@ else:
     if len(xv) < MIN_VALID_POINTS:
         st.warning("유효 데이터가 부족하여 변화율 계산이 어렵습니다. (최소 30점 이상 권장)")
     else:
-        # 정렬
         order = np.argsort(xv.values) if x_type == "datetime" else np.argsort(xv.to_numpy())
         xv = xv.iloc[order]
         yv = yv.iloc[order]
 
-        # t 수치화: datetime이면 월 인덱스, numeric이면 그대로
         if x_type == "datetime":
             base = xv.iloc[0]
             t = ((xv.dt.year - base.year) * 12 + (xv.dt.month - base.month)).to_numpy(dtype=float)
@@ -470,7 +561,6 @@ else:
 
         y_arr = yv.to_numpy(dtype=float)
 
-        # t 중복 방지(0 간격으로 gradient 불안정해지는 케이스 방어)
         tmp = pd.DataFrame({"t": t, "y": y_arr})
         tmp = tmp.groupby("t", as_index=False).mean(numeric_only=True)
         t = tmp["t"].to_numpy(dtype=float)
@@ -483,11 +573,7 @@ else:
             valid_n = int(len(t))
             st.metric("유효 데이터 점 개수", valid_n)
 
-            # AI 그래프 그리기용 저장
-            # (xv는 원래 datetime/numeric 축으로 유지하되, t 중복 제거로 길이가 달라질 수 있어
-            #  그래프 축도 같은 길이로 맞춤: 원 x축을 t 기준으로 재구성)
             if x_type == "datetime":
-                # base에 t(월)만큼 더한 월을 x축으로 복원(대략적인 대응)
                 base_dt = pd.to_datetime(xv.iloc[0])
                 xv_plot = pd.to_datetime(base_dt) + pd.to_timedelta(t * 30, unit="D")
             else:
@@ -497,7 +583,6 @@ else:
             st.session_state["step2_ai_t"] = t
             st.session_state["step2_valid_n"] = valid_n
 
-            # 그래프(원자료/변화율/가속)
             if PLOTLY_AVAILABLE:
                 fig1 = go.Figure()
                 fig1.add_trace(go.Scatter(x=xv_plot, y=y_arr, mode="lines+markers", name="y"))
@@ -546,7 +631,6 @@ st.info(
     "⚠ 수식은 반드시 LaTeX 형식으로 출력하도록 지시하세요."
 )
 
-# 1차시 정보 자동 불러오기
 model_hypothesis = step1.get("model_primary", "")
 model_reason = step1.get("model_primary_reason", "")
 
@@ -556,12 +640,9 @@ st.write(f"**가설 근거:** {model_reason or '(기록 없음)'}")
 
 additional_context = st.text_area(
     "추가 설명(선택) — 1차시 이후 새롭게 생각한 점이 있다면 작성",
-    height=80,
+    height=40,
 )
 
-# -----------------------------
-# 통합 프롬프트 자동 생성 함수
-# -----------------------------
 def build_unified_prompt(model_hypothesis, model_reason, additional_context):
     return f"""
 너는 수학 모델링 조교다. 첨부한 데이터 파일을 토대로 아래 조건에 따라 구체적인 함수 모델식을 제안하라.
@@ -584,15 +665,13 @@ def build_unified_prompt(model_hypothesis, model_reason, additional_context):
 {additional_context}
 
 [반드시 포함할 출력 항목]
-1) 최종 모델식: $$y = ...$$
+1) 최종 모델식: $$f(t)=...$$
 2) 도함수: $$f'(t)=...$$
 3) 이계도함수: $$f''(t)=...$$
 4) 모델의 한계를 하나의 문단으로 작성하고, 가설 모델의 수정 여부를 판단하라.
    (최소 두 가지 한계를 포함하고, 번호나 목록 형태로 나열하지 말 것)
 """.strip()
 
-
-# 자동 생성 버튼
 if st.button("📌 프롬프트 자동 생성", use_container_width=True):
     generated_prompt = build_unified_prompt(
         model_hypothesis,
@@ -601,8 +680,6 @@ if st.button("📌 프롬프트 자동 생성", use_container_width=True):
     )
     st.session_state["step2_ai_prompt"] = generated_prompt
 
-
-# 프롬프트 입력/수정 영역
 ai_prompt = st.text_area(
     "AI에 입력할 프롬프트(자동 생성 후 필요하면 수정)",
     value=st.session_state.get("step2_ai_prompt", ""),
@@ -613,72 +690,72 @@ ai_prompt = st.text_area(
 st.divider()
 
 # ============================================================
-# 3) AI 출력 결과 입력(LaTeX) + 미리보기
+# 3) AI 출력 결과 입력(LaTeX) + 미리보기 + 그래프
+# (좌/우 컬럼 제거, 요청 순서대로 출력)
 # ============================================================
 st.subheader("3) AI 출력 식 입력 — LaTeX 그대로 붙여넣기")
 
-colL, colR = st.columns([1, 1.6])
+ai_model_latex = st.text_area(
+    "AI가 제안한 모델식 f(t) (LaTeX 포함)",
+    value=step2_prev.get("ai_model_latex", ""),
+    height=120,
+    placeholder="예: $$ y = 3.2 e^{0.04 t} $$",
+)
 
-with colL:
-    ai_model_latex = st.text_area(
-        "AI가 제안한 모델식 f(t) (LaTeX 포함)",
-        value=step2_prev.get("ai_model_latex", ""),
-        height=120,
-        placeholder="예: $$ y = 3.2 e^{0.04 t} $$",
+ai_derivative_latex = st.text_area(
+    "AI가 제안한 도함수 f'(t) (LaTeX 포함)",
+    value=step2_prev.get("ai_derivative_latex", ""),
+    height=120,
+    placeholder="예: $$ f'(t) = 0.128 e^{0.04 t} $$",
+)
+
+ai_second_derivative_latex = st.text_area(
+    "AI가 제안한 이계도함수 f''(t) (LaTeX 포함)",
+    value=step2_prev.get("ai_second_derivative_latex", ""),
+    height=120,
+    placeholder="예: $$ f''(t) = 0.00512 e^{0.04 t} $$",
+)
+
+ai_limitations = st.text_area(
+    "AI가 제시한 모델의 한계 (문장 그대로 붙여넣기)",
+    value=step2_prev.get("ai_limitations", ""),
+    height=120,
+    placeholder="AI가 제시한 '모델의 한계' 내용을 그대로 붙여넣으세요.",
+)
+
+with st.expander("LaTeX 미리보기(깨짐 확인)", expanded=True):
+    blocks = (
+        extract_latex_blocks(ai_model_latex)
+        + extract_latex_blocks(ai_derivative_latex)
+        + extract_latex_blocks(ai_second_derivative_latex)
     )
-
-    ai_derivative_latex = st.text_area(
-        "AI가 제안한 도함수 f'(t) (LaTeX 포함)",
-        value=step2_prev.get("ai_derivative_latex", ""),
-        height=120,
-        placeholder="예: $$ f'(t) = 0.128 e^{0.04 t} $$",
-    )
-
-    ai_second_derivative_latex = st.text_area(
-        "AI가 제안한 이계도함수 f''(t) (LaTeX 포함)",
-        value=step2_prev.get("ai_second_derivative_latex", ""),
-        height=120,
-        placeholder="예: $$ f''(t) = 0.00512 e^{0.04 t} $$",
-    )
-
-    ai_limitations = st.text_area(
-        "AI가 제시한 모델의 한계 (문장 그대로 붙여넣기)",
-        value=step2_prev.get("ai_limitations", ""),
-        height=120,
-        placeholder="AI가 제시한 '모델의 한계' 내용을 그대로 붙여넣으세요.",
-    )
-
-    # LaTeX 미리보기
-    with st.expander("LaTeX 미리보기(깨짐 확인)", expanded=True):
-        blocks = (
-            extract_latex_blocks(ai_model_latex)
-            + extract_latex_blocks(ai_derivative_latex)
-            + extract_latex_blocks(ai_second_derivative_latex)
-        )
-        if not blocks:
-            st.caption("LaTeX 형식을 올바르게 입력하면 수식이 정상적으로 출력됩니다.")
-        else:
-            for b in blocks[:10]:
-                try:
-                    st.latex(b)
-                except Exception:
-                    st.code(b)
-
-with colR:
-    xv_plot = st.session_state.get("step2_ai_xv")
-    t_plot = st.session_state.get("step2_ai_t")
-
-    f_fn = _latex_to_callable(ai_model_latex)
-    fp_fn = _latex_to_callable(ai_derivative_latex)
-    fpp_fn = _latex_to_callable(ai_second_derivative_latex)
-
-    if xv_plot is None or t_plot is None:
-        st.info("AI 함수 그래프는 1)에서 유효 데이터 30점 이상이 확보되면 자동으로 그릴 수 있습니다.")
+    if not blocks:
+        st.caption("LaTeX 형식을 올바르게 입력하면 수식이 정상적으로 출력됩니다.")
     else:
-        if f_fn is None and fp_fn is None and fpp_fn is None:
-            st.info("AI 출력식에서 LaTeX 수식을 해석하지 못했습니다. $$...$$ 형태로 다시 확인해 주세요.")
-        else:
-            _plot_ai_functions(xv_plot, t_plot, f_fn, fp_fn, fpp_fn)
+        for b in blocks[:10]:
+            try:
+                st.latex(b)
+            except Exception:
+                st.code(b)
+
+xv_plot = st.session_state.get("step2_ai_xv")
+t_plot = st.session_state.get("step2_ai_t")
+
+f_fn = _latex_to_callable(ai_model_latex)
+fp_fn = _latex_to_callable(ai_derivative_latex)
+fpp_fn = _latex_to_callable(ai_second_derivative_latex)
+
+if xv_plot is None or t_plot is None:
+    st.info("AI 함수 그래프는 1)에서 유효 데이터 30점 이상이 확보되면 자동으로 그릴 수 있습니다.")
+else:
+    st.markdown("### y=f(t) 그래프")
+    _plot_single_ai_function(xv_plot, t_plot, f_fn, "y=f(t)")
+
+    st.markdown("### y=f'(t) 그래프")
+    _plot_single_ai_function(xv_plot, t_plot, fp_fn, "y=f'(t)")
+
+    st.markdown("### y=f''(t) 그래프")
+    _plot_single_ai_function(xv_plot, t_plot, fpp_fn, "y=f''(t)")
 
 st.divider()
 
@@ -696,7 +773,6 @@ hypothesis_decision = st.radio(
     key="hypothesis_decision",
 )
 
-# ✅ 항상 존재하도록 기본값을 먼저 둠(가설 유지일 때 NameError 방지)
 revised_model = ""
 if hypothesis_decision == "가설 수정":
     revised_model = st.text_input(
@@ -708,7 +784,6 @@ if hypothesis_decision == "가설 수정":
         "수정된 모델을 기준으로 AI에게 다시 분석을 요청하고, **항목 3)을 재작성 하세요.**"
     )
 
-# ✅ 항상 정의되도록 '안전 문자열'을 여기서 만들기 (중복 제거: 이후 섹션에서 재계산하지 않음)
 revised_model_safe = revised_model.strip() if hypothesis_decision == "가설 수정" else ""
 
 # ============================================================
@@ -747,18 +822,15 @@ st.divider()
 # ============================================================
 st.subheader("5) 저장 및 백업")
 
-# step1에서 가져올 수 있는 기본 정보
 data_source = (step1.get("data_source") or "").strip()
 model_hypothesis_step1 = (step1.get("model_primary") or "").strip()
 
-# X/Y 컬럼(있다면)
 x_col_now = st.session_state.get("step2_x_col", step1.get("x_col",""))
 y_col_now = st.session_state.get("step2_y_col", step1.get("y_col",""))
 
-# valid_n (있다면)
 valid_n_now = None
 try:
-    valid_n_now = int(st.session_state.get("step2_valid_n", ""))  # 사용 안 해도 OK
+    valid_n_now = int(st.session_state.get("step2_valid_n", ""))
 except Exception:
     pass
 
@@ -775,7 +847,7 @@ payload = {
     "ai_model_latex": ai_model_latex,
     "ai_derivative_latex": ai_derivative_latex,
     "ai_second_derivative_latex": ai_second_derivative_latex,
-    "student_analysis": student_critical_review,  # UI 변수명 그대로 쓰되, 키는 analysis로
+    "student_analysis": student_critical_review,
     "note": note,
 }
 
@@ -793,12 +865,10 @@ go_next = colN.button("➡️ 3차시로 이동(추후)", use_container_width=Tr
 
 
 def _validate_step2() -> bool:
-    # --- 가설 수정 검증 ---
     if hypothesis_decision == "가설 수정" and not revised_model_safe:
         st.warning("가설을 수정했다면, 수정한 모델 유형을 입력하세요.")
         return False
 
-    # --- AI 입력 검증 ---
     if not ai_prompt.strip():
         st.warning("AI 프롬프트(원문)를 입력하세요.")
         return False
@@ -818,10 +888,8 @@ if save_clicked or go_next:
     if not _validate_step2():
         st.stop()
 
-    # 세션 저장(새로고침 대비용)
     _set_step2_state(payload)
 
-    # 구글 시트 저장
     try:
         append_step2_row(
             student_id=payload["student_id"],
