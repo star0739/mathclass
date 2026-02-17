@@ -690,4 +690,5 @@ if save_clicked or download_clicked or go_next:
             st.stop()
 
     if go_next:
-        st.success("제출/종료 처리되었습니다. (필요 시 다음 페이지 이동 로직을 연결하세요.)")
+        st.success("최종 보고서 작성 페이지로 이동합니다.")
+        st.switch_page("assessment/final_report.py")
