@@ -1,13 +1,3 @@
-# assessment/step2_model.py
-# ------------------------------------------------------------
-# 공공데이터 분석 수행 - 2차시: AI 모델식 도출 + 미분 기반 검증(비판적 검토)
-#
-# 핵심:
-# - 1차시 기록이 날아가도 복구 가능: (1) 1차시 TXT 업로드 (2) CSV 업로드
-# - AI가 제안한 모델식을 "LaTeX($$...$$)" 형태로 받도록 안내 + 입력
-# - 데이터 기반 근사 변화율(Δy/Δt)과 비교하여 학생이 비판적으로 검토
-# - 저장 시: Google Sheet(미적분_수행평가_2차시) + TXT 백업 다운로드
-# ------------------------------------------------------------
 
 import re
 import streamlit as st
@@ -206,6 +196,75 @@ def build_step2_backup(payload: dict) -> bytes:
 
     return "\n".join(lines).encode("utf-8-sig")
 
+# -----------------------------
+# AI 입력 수식으로 그래프 그리기(가능한 범위에서)
+# -----------------------------
+def _latex_to_callable(expr_text: str):
+    """
+    $$...$$ 내부 문자열 또는 일반 문자열을 sympy로 파싱해 numpy callable로 변환.
+    파싱 실패 시 None 반환.
+    """
+    try:
+        import sympy as sp
+        try:
+            from sympy.parsing.latex import parse_latex
+            parse_fn = parse_latex
+        except Exception:
+            parse_fn = None
+    except Exception:
+        return None
+
+    raw = (expr_text or "").strip()
+    if not raw:
+        return None
+
+    # $$...$$가 있으면 내부를 우선 사용
+    blocks = extract_latex_blocks(raw)
+    s = blocks[0] if blocks else raw
+
+    # y=, f'(t)=, f''(t)= 같은 좌변 제거
+    if "=" in s:
+        s = s.split("=", 1)[1].strip()
+
+    # 흔한 LaTeX 공백/줄바꿈 정리
+    s = s.replace("\\,", " ").replace("\\;", " ").replace("\n", " ").strip()
+
+    t = sp.Symbol("t", real=True)
+
+    try:
+        if parse_fn is not None:
+            sym = parse_fn(s)
+        else:
+            # 매우 제한적인 fallback(LaTeX가 아닌 sympy 표기일 때만)
+            sym = sp.sympify(s)
+        fn = sp.lambdify(t, sym, modules=["numpy"])
+        return fn
+    except Exception:
+        return None
+
+
+def _plot_ai_functions(xv, t, f_fn, fp_fn, fpp_fn):
+    if PLOTLY_AVAILABLE:
+        fig = go.Figure()
+        if f_fn is not None:
+            fig.add_trace(go.Scatter(x=xv, y=f_fn(t), mode="lines", name="y=f(t)"))
+        if fp_fn is not None:
+            fig.add_trace(go.Scatter(x=xv, y=fp_fn(t), mode="lines", name="y=f'(t)"))
+        if fpp_fn is not None:
+            fig.add_trace(go.Scatter(x=xv, y=fpp_fn(t), mode="lines", name="y=f''(t)"))
+        fig.update_layout(height=420, margin=dict(l=40, r=20, t=20, b=40))
+        st.plotly_chart(fig, use_container_width=True)
+    else:
+        fig, ax = plt.subplots()
+        if f_fn is not None:
+            ax.plot(xv, f_fn(t), label="y=f(t)")
+        if fp_fn is not None:
+            ax.plot(xv, fp_fn(t), label="y=f'(t)")
+        if fpp_fn is not None:
+            ax.plot(xv, fpp_fn(t), label="y=f''(t)")
+        ax.legend()
+        st.pyplot(fig, use_container_width=True)
+
 # ============================================================
 # UI 시작
 # ============================================================
@@ -265,9 +324,6 @@ if csv_file is not None:
         st.exception(e)
 
 df = get_df()
-if df is not None:
-    st.markdown("#### 참고: 현재 데이터 미리보기")
-    st.dataframe(get_df_preview(df), use_container_width=True)
 
 st.divider()
 
@@ -275,6 +331,10 @@ st.divider()
 # 1) 데이터 시각화 + 데이터 기반 변화율(근사 도함수) 자동 계산
 # ============================================================
 st.subheader("1) 데이터 기반 변화율 확인")
+
+# AI 그래프 그리기용(있으면 저장)
+st.session_state["step2_ai_xv"] = None
+st.session_state["step2_ai_t"] = None
 
 if df is None:
     st.info("CSV를 업로드하면 2차시에서 변화율 그래프를 자동으로 확인할 수 있습니다.")
@@ -334,6 +394,11 @@ else:
         dy, d2y = compute_derivatives(t, y_arr)
         valid_n = int(len(t))
         st.metric("유효 데이터 점 개수", valid_n)
+
+        # AI 그래프 그리기용 저장
+        st.session_state["step2_ai_xv"] = xv
+        st.session_state["step2_ai_t"] = t
+        st.session_state["step2_valid_n"] = valid_n
 
         # 그래프(원자료/변화율/가속)
         if PLOTLY_AVAILABLE:
@@ -402,7 +467,7 @@ additional_context = st.text_area(
 # -----------------------------
 def build_unified_prompt(model_hypothesis, model_reason, additional_context):
     return f"""
-너는 수학 모델링 조교다. 아래 조건에 따라 함수 모델을 제안하라.
+너는 수학 모델링 조교다. 첨부한 데이터 파일을 토대로 아래 조건에 따라 함수 모델을 제안하라.
 
 [중요 조건]
 - 수식은 반드시 LaTeX 형식으로 출력하라.
@@ -425,7 +490,7 @@ def build_unified_prompt(model_hypothesis, model_reason, additional_context):
 1) 최종 모델식: $$y = ...$$
 2) 도함수: $$f'(t)=...$$
 3) 이계도함수: $$f''(t)=...$$
-4) 모델의 한계를 하나의 문단으로 작성하라. 
+4) 모델의 한계를 하나의 문단으로 작성하고, 가설 모델의 수정 여부를 판단하라.
    (최소 두 가지 한계를 포함하고, 번호나 목록 형태로 나열하지 말 것)
 """.strip()
 
@@ -455,45 +520,65 @@ st.divider()
 # ============================================================
 st.subheader("3) AI 출력 식 입력 — LaTeX 그대로 붙여넣기")
 
-ai_model_latex = st.text_area(
-    "AI가 제안한 모델식 f(t) (LaTeX 포함)",
-    value=step2_prev.get("ai_model_latex", ""),
-    height=120,
-    placeholder="예: $$ y = 3.2 e^{0.04 t} $$",
-)
+colL, colR = st.columns([1, 1.6])
 
-ai_derivative_latex = st.text_area(
-    "AI가 제안한 도함수 f'(t) (LaTeX 포함)",
-    value=step2_prev.get("ai_derivative_latex", ""),
-    height=120,
-    placeholder="예: $$ f'(t) = 0.128 e^{0.04 t} $$",
-)
+with colL:
+    ai_model_latex = st.text_area(
+        "AI가 제안한 모델식 f(t) (LaTeX 포함)",
+        value=step2_prev.get("ai_model_latex", ""),
+        height=120,
+        placeholder="예: $$ y = 3.2 e^{0.04 t} $$",
+    )
 
-ai_second_derivative_latex = st.text_area(
-    "AI가 제안한 이계도함수 f''(t) (LaTeX 포함)",
-    value=step2_prev.get("ai_second_derivative_latex", ""),
-    height=120,
-    placeholder="예: $$ f''(t) = 0.00512 e^{0.04 t} $$",
-)
+    ai_derivative_latex = st.text_area(
+        "AI가 제안한 도함수 f'(t) (LaTeX 포함)",
+        value=step2_prev.get("ai_derivative_latex", ""),
+        height=120,
+        placeholder="예: $$ f'(t) = 0.128 e^{0.04 t} $$",
+    )
 
-ai_limitations = st.text_area(
-    "AI가 제시한 모델의 한계 (문장 그대로 붙여넣기)",
-    value=step2_prev.get("ai_limitations", ""),
-    height=120,
-    placeholder="AI가 제시한 '모델의 한계' 내용을 그대로 붙여넣으세요.",
-)
+    ai_second_derivative_latex = st.text_area(
+        "AI가 제안한 이계도함수 f''(t) (LaTeX 포함)",
+        value=step2_prev.get("ai_second_derivative_latex", ""),
+        height=120,
+        placeholder="예: $$ f''(t) = 0.00512 e^{0.04 t} $$",
+    )
 
-# LaTeX 미리보기
-with st.expander("LaTeX 미리보기(깨짐 확인)", expanded=True):
-    blocks = extract_latex_blocks(ai_model_latex) + extract_latex_blocks(ai_derivative_latex) + extract_latex_blocks(ai_second_derivative_latex)
-    if not blocks:
-        st.caption("LaTeX 형식을 올바르게 입력하면 수식이 정상적으로 출력됩니다.")
+    ai_limitations = st.text_area(
+        "AI가 제시한 모델의 한계 (문장 그대로 붙여넣기)",
+        value=step2_prev.get("ai_limitations", ""),
+        height=120,
+        placeholder="AI가 제시한 '모델의 한계' 내용을 그대로 붙여넣으세요.",
+    )
+
+with colR:
+    # LaTeX 미리보기
+    with st.expander("LaTeX 미리보기(깨짐 확인)", expanded=True):
+        blocks = extract_latex_blocks(ai_model_latex) + extract_latex_blocks(ai_derivative_latex) + extract_latex_blocks(ai_second_derivative_latex)
+        if not blocks:
+            st.caption("LaTeX 형식을 올바르게 입력하면 수식이 정상적으로 출력됩니다.")
+        else:
+            for b in blocks[:10]:
+                try:
+                    st.latex(b)
+                except Exception:
+                    st.code(b)
+
+    # AI 그래프
+    xv_plot = st.session_state.get("step2_ai_xv")
+    t_plot = st.session_state.get("step2_ai_t")
+
+    f_fn = _latex_to_callable(ai_model_latex)
+    fp_fn = _latex_to_callable(ai_derivative_latex)
+    fpp_fn = _latex_to_callable(ai_second_derivative_latex)
+
+    if xv_plot is None or t_plot is None:
+        st.info("AI 함수 그래프는 1)에서 유효 데이터 30점 이상이 확보되면 자동으로 그릴 수 있습니다.")
     else:
-        for b in blocks[:10]:
-            try:
-                st.latex(b)
-            except Exception:
-                st.code(b)
+        if f_fn is None and fp_fn is None and fpp_fn is None:
+            st.info("AI 출력식에서 LaTeX 수식을 해석하지 못했습니다. $$...$$ 형태로 다시 확인해 주세요.")
+        else:
+            _plot_ai_functions(xv_plot, t_plot, f_fn, fp_fn, fpp_fn)
 
 st.divider()
 
@@ -576,8 +661,6 @@ try:
     valid_n_now = int(st.session_state.get("step2_valid_n", ""))  # 사용 안 해도 OK
 except Exception:
     pass
-
-revised_model_safe = revised_model.strip() if hypothesis_decision == "가설 수정" else ""
 
 payload = {
     "student_id": student_id,
