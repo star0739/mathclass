@@ -226,11 +226,11 @@ step2_prev = _get_step2_state()
 
 colA, colB = st.columns([1.2, 1])
 with colA:
-    st.markdown("**(권장) 1차시 TXT 업로드로 복구**")
+    st.markdown("**1차시 TXT 업로드로 복구**")
     txt_file = st.file_uploader("1차시 백업 TXT 업로드", type=["txt"], key="step2_txt_upload")
 
 with colB:
-    st.markdown("**(선택) CSV 다시 업로드(그래프/도함수 계산용)**")
+    st.markdown("**CSV 다시 업로드(그래프/도함수 계산용)**")
     csv_file = st.file_uploader("CSV 업로드", type=["csv"], key="step2_csv_upload")
 
 if txt_file is not None:
