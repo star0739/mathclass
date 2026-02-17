@@ -155,7 +155,21 @@ def parse_step2_backup_txt(text: str) -> dict:
 # 수치적분(사다리꼴) + 누적 사다리꼴
 # -----------------------------
 def _trapz(y: np.ndarray, t: np.ndarray) -> float:
-    return float(np.trapz(y, t))
+    """
+    numpy.trapz가 없는 환경(일부 NumPy 2.x 구성) 대응.
+    사다리꼴 공식: Σ 0.5*(y[i]+y[i-1])*(t[i]-t[i-1])
+    """
+    y = np.asarray(y, dtype=float)
+    t = np.asarray(t, dtype=float)
+
+    if len(y) != len(t):
+        raise ValueError("y와 t의 길이가 다릅니다.")
+    if len(y) < 2:
+        return 0.0
+
+    dt = t[1:] - t[:-1]
+    return float(np.sum(0.5 * (y[1:] + y[:-1]) * dt))
+
 
 
 def _cumtrapz(y: np.ndarray, t: np.ndarray) -> np.ndarray:
