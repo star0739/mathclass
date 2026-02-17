@@ -116,3 +116,88 @@ def append_step1_row(
     ]
 
     ws.append_row(row, value_input_option="USER_ENTERED")
+
+
+# --- (추가) 2차시 저장용 ---
+SHEET_NAME_STEP2 = "미적분_수행평가_2차시"
+
+DEFAULT_STEP2_HEADER = [
+    "timestamp",
+    "student_id",
+    "data_source",
+    "x_col",
+    "y_col",
+    "valid_n",
+    "model_hypothesis_step1",
+    "ai_prompt",
+    "ai_model_latex",
+    "ai_derivative_latex",
+    "ai_second_derivative_latex",
+    "student_critical_review",
+    "final_decision",
+    "note",
+]
+
+
+def ensure_step2_header(ws) -> None:
+    values = ws.get_all_values()
+    if not values:
+        ws.append_row(DEFAULT_STEP2_HEADER, value_input_option="USER_ENTERED")
+        return
+    first_row = values[0]
+    if len(first_row) == 0 or all((c.strip() == "" for c in first_row)):
+        ws.update("A1", [DEFAULT_STEP2_HEADER])
+        return
+
+
+def append_step2_row(
+    *,
+    student_id: str,
+    data_source: str = "",
+    x_col: str = "",
+    y_col: str = "",
+    valid_n: int | None = None,
+    model_hypothesis_step1: str = "",
+    ai_prompt: str = "",
+    ai_model_latex: str = "",
+    ai_derivative_latex: str = "",
+    ai_second_derivative_latex: str = "",
+    student_critical_review: str = "",
+    final_decision: str = "",
+    note: str = "",
+    sheet_name: str = SHEET_NAME_STEP2,
+) -> None:
+    from datetime import datetime
+
+    if not str(student_id).strip():
+        raise ValueError("student_id는 비어 있을 수 없습니다.")
+
+    ws = get_worksheet(sheet_name=sheet_name, worksheet_index=0)
+    ensure_step2_header(ws)
+
+    # 구글 시트가 '='로 시작하는 내용을 수식으로 오해할 수 있어,
+    # LaTeX/긴 텍스트는 앞에 ' 를 붙여 텍스트로 고정(안전장치)
+    def _as_text(v: str) -> str:
+        v = (v or "").strip()
+        if v.startswith("="):
+            return "'" + v
+        return v
+
+    row = [
+        datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+        str(student_id).strip(),
+        _as_text(data_source),
+        _as_text(x_col),
+        _as_text(y_col),
+        "" if valid_n is None else int(valid_n),
+        _as_text(model_hypothesis_step1),
+        _as_text(ai_prompt),
+        _as_text(ai_model_latex),
+        _as_text(ai_derivative_latex),
+        _as_text(ai_second_derivative_latex),
+        _as_text(student_critical_review),
+        _as_text(final_decision),
+        _as_text(note),
+    ]
+
+    ws.append_row(row, value_input_option="USER_ENTERED")
