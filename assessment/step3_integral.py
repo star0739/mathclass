@@ -603,7 +603,14 @@ st.info(
     "이 값이 나타내는 전체 변화량 또는 누적 효과를 구체적으로 설명하시오.\n\n"
 )
 
-student_critical_review2 = st.text_area("적분 분석 내용(필수)", value=step3_prev.get("student_critical_review2", ""), height=220)
+student_critical_review = st.text_area(
+    "적분 분석 내용(필수)",
+    value=step2_prev.get("student_critical_review", ""),
+    height=220,
+    placeholder=(
+        "본문에는 수식 대신 일반 텍스트와 기호를 사용해 주세요. 수식 편집기를 사용하면 추후 보고서 취합 시 글자 깨짐 현상이 발생할 수 있습니다."
+    ),
+)
 
 
 st.divider()
