@@ -206,8 +206,6 @@ def build_step2_backup(payload: dict) -> bytes:
 
     lines.append("[미분 관점의 모델 분석(학생 작성)]")
     lines.append(payload.get("student_analysis","").strip() or "(미입력)")
-    lines.append("")
-    lines.append("※ 수식은 $$...$$ 형태의 LaTeX로 유지하는 것이 안전합니다.")
 
     return "\n".join(lines).encode("utf-8-sig")
 
