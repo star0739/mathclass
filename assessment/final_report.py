@@ -132,6 +132,12 @@ def parse_step2_backup_txt(text: str) -> Dict[str, str]:
 
     out["student_id"] = _find_line_value(lines, "학번:")
 
+    # ✅ (추가) 2차시에서 '수정한 가설 모델' 파싱
+    # - Step2 백업에는 보통 [가설 재평가] 섹션이 있고, 그 안에 "- 수정한 가설 모델:" 라인이 있음
+    block = _section_text(lines, "[가설 재평가]", ["[데이터 정보]"])
+    out["revised_model"] = _find_line_value(block.splitlines(), "- 수정한 가설 모델:") if block else ""
+
+    # 기존 유지
     out["ai_latex_block"] = _section_text(
         lines,
         "[AI 모델식/미분식(LaTeX)]",
@@ -550,12 +556,12 @@ def _maybe_init_drafts() -> None:
 
     if K_BDATA not in st.session_state:
         features = (s1.get("features") or "").strip()
-        model_hint = (s1.get("model_primary") or "").strip()
+        model_hint = (s2.get("revised_model") or s1.get("model_primary") or "").strip()
         extra = ""
         if features:
             extra += f"\n\n(그래프 관찰 특징)\n{features}"
         if model_hint:
-            extra += f"\n\n(1차시 가설 모델)\n{model_hint}"
+            extra += f"\n\n(가설 모델)\n{model_hint}"
 
         st.session_state[K_BDATA] = (
             "본론에서는 먼저 원자료 그래프를 통해 전체적인 추세와 변동의 특징을 확인한다. "
