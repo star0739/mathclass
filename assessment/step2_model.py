@@ -464,7 +464,7 @@ st.divider()
 # ============================================================
 st.subheader("5) 저장 및 백업")
 
-# 데이터 및 세션 정보 정리
+# 1. 데이터 및 세션 정보 정리 (Payload 구성)
 data_source = (step1.get("data_source") or "").strip()
 model_hypothesis_step1 = (step1.get("model_primary") or "").strip()
 x_col_now = st.session_state.get("step2_x_col", step1.get("x_col", ""))
@@ -472,23 +472,7 @@ y_col_now = st.session_state.get("step2_y_col", step1.get("y_col", ""))
 valid_n_now = st.session_state.get("step2_valid_n")
 revised_model_safe = revised_model.strip() if hypothesis_decision == "가설 수정" else ""
 
-# 1. 검증 함수 정의
-def _validate_step2() -> bool:
-    if hypothesis_decision == "가설 수정" and not revised_model_safe:
-        st.warning("가설을 수정했다면, 수정한 모델 유형을 입력하세요.")
-        return False
-    if not ai_prompt.strip():
-        st.warning("AI 프롬프트(원문)를 입력하세요.")
-        return False
-    if not ai_model_latex.strip():
-        st.warning("AI 모델식(LaTeX)을 입력하세요.")
-        return False
-    if not student_critical_review.strip():
-        st.warning("분석 내용을 입력하세요.")
-        return False
-    return True
-
-# 2. 저장용 payload 구성
+# 저장용 payload (ai_prompt 제외, py_model 등 추가)
 payload = {
     "student_id": student_id,
     "data_source": data_source,
@@ -508,58 +492,73 @@ payload = {
     "note": note.strip(),
 }
 
-# 3. UX 구성 (3컬럼 버튼 레이아웃)
+# 2. 버튼 레이아웃 (1차시와 동일한 비율)
 col1, col2, col3 = st.columns([1, 1, 1.2])
 
 save_clicked = col1.button("💾 저장(구글시트)", use_container_width=True)
+download_clicked = col2.button("⬇️ TXT 백업 만들기", use_container_width=True) # 세션 저장 역할
+go_next = col3.button("➡️ 3차시로 이동(추후)", use_container_width=True)
 
-# TXT 다운로드 버튼 생성 및 배치
-backup_bytes = build_step2_backup(payload)
-col2.download_button(
-    label="📄 TXT 백업 다운로드",
+# 3. 검증 함수 (ai_prompt 제외 로직 반영)
+def _validate_step2() -> bool:
+    if hypothesis_decision == "가설 수정" and not revised_model_safe:
+        st.warning("가설을 수정했다면, 수정한 모델 유형을 입력하세요.")
+        return False
+    if not ai_model_latex.strip():
+        st.warning("AI 모델식(LaTeX)을 입력하세요.")
+        return False
+    if not student_critical_review.strip():
+        st.warning("분석 내용을 입력하세요.")
+        return False
+    return True
+
+# 4. 실제 파일 다운로드 버튼 (항상 렌더링되지만, 데이터는 최신 payload 반영)
+backup_bytes = build_step2_backup(payload) # build_step2_backup에서 ai_prompt 출력부 제거 필요
+st.download_button(
+    label="📄 (다운로드) 2차시 백업 TXT",
     data=backup_bytes,
     file_name=f"미적분_수행평가_2차시_{student_id}.txt",
     mime="text/plain; charset=utf-8",
-    use_container_width=True
 )
 
-go_next = col3.button("➡️ 3차시로 이동(추후)", use_container_width=True)
-
-# 4. 저장 및 이동 로직 처리
-if save_clicked or go_next:
+# 5. 버튼 클릭 시 로직 처리
+if save_clicked or download_clicked or go_next:
     if not _validate_step2():
         st.stop()
 
-    # 세션 저장(새로고침 대비 및 차시 연동)
+    # (1) 세션 저장: 'TXT 백업 만들기' 클릭 시에도 실행됨
     _set_step2_state({**payload, "saved_at": pd.Timestamp.now().isoformat()})
+    
+    if download_clicked:
+        st.success("✅ 백업 데이터가 준비되었습니다. 위 '다운로드' 버튼을 눌러주세요.")
 
-    # 구글 시트 저장
-    try:
-        append_step2_row(
-            student_id=payload["student_id"],
-            data_source=payload["data_source"],
-            x_col=payload["x_col"],
-            y_col=payload["y_col"],
-            valid_n=payload["valid_n"],
-            model_hypothesis_step1=payload["model_hypothesis_step1"],
-            hypothesis_decision=payload["hypothesis_decision"],
-            revised_model=payload["revised_model"],
-            ai_model_latex=payload["ai_model_latex"],
-            ai_derivative_latex=payload["ai_derivative_latex"],
-            ai_second_derivative_latex=payload["ai_second_derivative_latex"],
-            py_model=payload["py_model"],
-            py_d1=payload["py_d1"],
-            py_d2=payload["py_d2"],
-            student_analysis=payload["student_analysis"],
-            note=payload["note"],
-        )
-        st.success("✅ 저장 완료! (Google Sheet에 기록되었습니다)")
-    except Exception as e:
-        st.error("⚠️ Google Sheet 저장 중 오류가 발생했습니다.")
-        st.exception(e)
-        st.stop()
+    # (2) 구글 시트 저장: 저장 버튼이나 다음 단계 버튼 클릭 시 실행
+    if save_clicked or go_next:
+        try:
+            append_step2_row(
+                student_id=payload["student_id"],
+                data_source=payload["data_source"],
+                x_col=payload["x_col"],
+                y_col=payload["y_col"],
+                valid_n=payload["valid_n"],
+                model_hypothesis_step1=payload["model_hypothesis_step1"],
+                hypothesis_decision=payload["hypothesis_decision"],
+                revised_model=payload["revised_model"],
+                ai_model_latex=payload["ai_model_latex"],
+                ai_derivative_latex=payload["ai_derivative_latex"],
+                ai_second_derivative_latex=payload["ai_second_derivative_latex"],
+                py_model=payload["py_model"],
+                py_d1=payload["py_d1"],
+                py_d2=payload["py_d2"],
+                student_analysis=payload["student_analysis"],
+                note=payload["note"],
+            )
+            st.success("✅ 구글 시트에 성공적으로 저장되었습니다.")
+        except Exception as e:
+            st.error(f"⚠️ 구글 시트 저장 오류: {e}")
+            st.stop()
 
+    # (3) 다음 차시 이동
     if go_next:
-        # 향후 3차시 페이지 생성 시 아래 주석 해제
         st.info("3차시 페이지는 준비 중입니다.")
         # st.switch_page("assessment/step3_integral.py")
