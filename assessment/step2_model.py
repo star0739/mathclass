@@ -532,7 +532,11 @@ revised_model_safe = revised_model.strip() if hypothesis_decision == "가설 수
 st.subheader("4) 미분 관점의 모델 해석")
 
 st.info(
-    "최종 결정된 모델을 미분 개념으로 깊이 있게 분석해 봅시다.\n"
+    "Δy/Δt 그래프의 변화율 특징을 두 가지 이상 찾아보고,\n"
+    "AI의 도함수 f'(t)가 이를 얼마나 잘 설명하는지 논리적으로 서술하세요.\n"
+    "다음으로 Δ²y/Δt² 그래프에 나타난 오목·볼록의 변화를\n"
+    "AI의 이계도함수 f''(t)와 비교해 보세요.\n"
+    "마지막으로 모델이 실제 현상을 충분히 설명하지 못하는 구간을 한 곳 제시하고, 그 원인이 무엇인지 분석하세요."
 )
 
 student_critical_review = st.text_area(
@@ -540,11 +544,7 @@ student_critical_review = st.text_area(
     value=step2_prev.get("student_critical_review", ""),
     height=220,
     placeholder=(
-        "우선 Δy/Δt 그래프의 변화율 특징을 두 가지 이상 찾아보고, "
-        "AI의 도함수 f'(t)가 이를 얼마나 잘 설명하는지 논리적으로 서술하세요. "
-        "다음으로 Δ²y/Δt² 그래프에 나타난 오목·볼록의 변화를 "
-        "AI의 이계도함수 f''(t)와 비교해 보세요. "
-        "마지막으로 모델이 실제 현상을 충분히 설명하지 못하는 구간을 한 곳 제시하고, 그 원인이 무엇인지 분석하세요."
+        "수식은 반드시 LaTeX 형식($$ ... $$)으로 입력하세요."
     ),
 )
 
