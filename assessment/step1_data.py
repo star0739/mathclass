@@ -90,7 +90,6 @@ def build_backup_text(payload: dict) -> str:
     lines.append(payload.get("model_primary_reason","").strip() or "(미입력)")
     lines.append("")
     lines.append("[추가 메모]")
-    lines.append(payload.get("note","").strip() or "(없음)")
     lines.append("")
     lines.append("※ 이 파일은 학생 개인 백업용입니다. 필요 시 다시 앱에 입력할 때 참고하세요.")
     return "\n".join(lines)
@@ -270,11 +269,6 @@ model_primary_reason = st.text_area(
     placeholder="예: 12개월마다 반복되는 패턴이 있어 삼각함수가 적절. 선형은 주기성을 설명 못함 등",
 )
 
-note = st.text_area(
-    "추가 메모(선택)",
-    value=str(prev.get("note", "")),
-    height=90,
-)
 
 col1, col2, col3 = st.columns([1, 1, 1.2])
 save_clicked = col1.button("💾 저장(구글시트)", use_container_width=True)
@@ -312,7 +306,6 @@ payload = {
     "features": features.strip(),
     "model_primary": _final_model(model_primary, model_primary_custom),
     "model_primary_reason": model_primary_reason.strip(),
-    "note": note.strip(),
 }
 
 # TXT 백업 다운로드 버튼(즉시 다운로드 버튼을 표시하기 위해 항상 렌더)
@@ -344,7 +337,6 @@ if save_clicked or go_next:
             features=payload["features"],
             model_primary=payload["model_primary"],
             model_primary_reason=payload["model_primary_reason"],
-            note=payload["note"],
         )
         st.success("✅ 저장 완료! (Google Sheet에 기록되었습니다)")
     except Exception as e:
