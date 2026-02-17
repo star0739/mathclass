@@ -1,17 +1,3 @@
-# assessment/step3_integral.py
-# ------------------------------------------------------------
-# 공공데이터 분석 수행 - 3차시
-# 원본 데이터(이산 점) 기반 수치적분(직사각형/사다리꼴) 면적과
-# 모델식 f(t)의 정적분 값을 같은 구간에서 비교/시각화한다.
-#
-# UX:
-# 0) 2차시 TXT 복구(선택) + CSV 업로드(필수)
-# 1) X/Y 자동 설정 + 시간축(t) 자동 변환
-# 2) 모델식 확인 + 적분 구간 선택
-# 3) 직사각형/사다리꼴(데이터) vs 정적분(모델) 값/오차 + 도형 시각화
-# 4) 종합 결론 작성
-# 5) 저장 및 백업(구글시트 + TXT)
-# ------------------------------------------------------------
 
 from __future__ import annotations
 
@@ -651,7 +637,7 @@ payload["rel_trap"] = rel_trap
 col1, col2, col3 = st.columns([1, 1, 1.2])
 save_clicked = col1.button("💾 저장(구글시트)", use_container_width=True)
 download_clicked = col2.button("⬇️ TXT 백업 만들기", use_container_width=True)
-go_next = col3.button("➡️ 종료/제출", use_container_width=True)
+go_next = col3.button("➡️ 최종 보고서 작성", use_container_width=True)
 
 backup_bytes = build_step3_backup(payload)
 st.download_button(
@@ -681,8 +667,6 @@ if save_clicked or download_clicked or go_next:
 
     if save_clicked or go_next:
         try:
-            # 구글시트 컬럼(기존 append_step3_row) 호환을 위해:
-            # A_data는 공란, A_model은 모델 정적분, relative_error는 사다리꼴 상대오차로 저장
             append_step3_row(
                 student_id=payload["student_id"],
                 data_source=payload["data_source"],
