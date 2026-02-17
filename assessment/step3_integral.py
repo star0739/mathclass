@@ -707,18 +707,3 @@ if save_clicked or download_clicked or go_next:
 
     if go_next:
         st.success("제출/종료 처리되었습니다. (필요 시 다음 페이지 이동 로직을 연결하세요.)")
-
-with st.expander("계산 세부값(검토용)", expanded=False):
-    st.write(
-        {
-            "x_col": x_col,
-            "y_col": y_col,
-            "x_type": x_type,
-            "range": (int(i0), int(i1)),
-            "A_rect": float(A_rect),
-            "A_trap": float(A_trap),
-            "I_model": float(I_model),
-            "err_rect": float(err_rect),
-            "err_trap": float(err_trap),
-        }
-    )
