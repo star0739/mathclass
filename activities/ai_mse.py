@@ -225,7 +225,7 @@ $$
         )
 
 
-        st.text_input("", key=ss_mse1, placeholder="예: 1/4 또는 0.25")
+        st.text_input("", key=ss_mse1, placeholder="예: 1/3 (분수꼴)")
 
         if st.button("$f_1$ 정답 확인", key=f"{key_prefix}_check_f1"):
             ok_yhat = _check_list(yhat_s, ANS1["yhat"])
@@ -240,8 +240,7 @@ $$
 
     # -------- f2 --------
     with right:
-        st.markdown(r"## $f_2(x)=0.5x+0.5$")
-        st.markdown("### 표를 완성하시오 (예측값과 오차를 직접 계산)")
+        st.markdown(r"### $f_2(x)=0.5x+0.5$")
 
         df2 = st.data_editor(
             st.session_state[ss_t2],
@@ -264,9 +263,9 @@ $$
         for v in err_s:
             boxes.append(_frac_latex(v) if v is not None else r"\square")
 
-        st.markdown("학생이 입력한 오차로 MSE 식을 채우면:")
+        st.markdown("입력한 오차로 MSE 식을 채우면:")
         st.markdown(
-            r"$$\text{MSE}=\frac{1}{3}\left\{\left("
+            r"$${E(0.5,0.5}=\frac{1}{3}\left\{\left("
             + boxes[0]
             + r"\right)^2+\left("
             + boxes[1]
@@ -275,10 +274,9 @@ $$
             + r"\right)^2\right\}$$"
         )
 
-        st.markdown("### 최종 MSE를 입력하시오")
-        st.text_input("E(0.5,0.5) =", key=ss_mse2, placeholder="예: 5/6 또는 0.8333")
+        st.text_input("", key=ss_mse2, placeholder="예: 1/3 (분수꼴)")
 
-        if st.button("f₂ 정답 확인", key=f"{key_prefix}_check_f2"):
+        if st.button("$f_2$ 정답 확인", key=f"{key_prefix}_check_f2"):
             ok_yhat = _check_list(yhat_s, ANS2["yhat"])
             ok_err = _check_list(err_s, ANS2["err"])
             mse_in = _parse_fraction(st.session_state[ss_mse2])
@@ -291,7 +289,7 @@ $$
 
     # -------- (3) 선택 --------
     st.divider()
-    st.markdown("## (3) 더 적절한 함수를 고르시오")
+    st.markdown("### 자료의 경향성을 더 잘 나타내는 예측함수는?")
 
     correct = "same"
     if ANS1["mse"] < ANS2["mse"]:
