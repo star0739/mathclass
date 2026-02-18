@@ -117,15 +117,20 @@ def render(show_title: bool = True, key_prefix: str = "ai_ce") -> None:
     with st.expander("문제", expanded=True):
         st.markdown(
             rf"""
-어린이 보호 구역 표지판을 인식하는 인공지능은\n\n
-각 장면(번호: $i$)에서 표지판의 형태, 색상, 주변 환경 등을 수치화하여 하나의 입력값($x_i$)으로 변환한다.\n\n
-그리고 다음 **예측함수**를 사용하여 각 장면이 “어린이 보호 구역일 확률"을 0과 1 사이의 값으로 제시한다.\n\n
+어린이 보호 구역 표지판을 인식하는 인공지능은
+
+각 장면(번호: $i$)에서 표지판의 형태, 색상, 주변 환경 등을 수치화하여 하나의 입력값($x_i$)으로 변환한다.
+
+그리고 다음 **예측함수**를 사용하여 각 장면이 “어린이 보호 구역일 확률"을 0과 1 사이의 값으로 제시한다.
+
 예측함수(시그모이드): 
 
 $$
 f(x)=\frac{{1}}{{1+e^{{-(ax+b)}}}} (a={A}, b={B})
 $$
-여기서 $y=1$는 어린이 보호 구역, $y=0$은 일반 도로를 의미한다.\n\n
+
+여기서 $y=1$는 어린이 보호 구역, $y=0$은 일반 도로를 의미한다.
+
 다음 5개 장면에 대해 입력값($x_i$)과 실제 정답($y_i$)은 아래 표와 같다.
 """
         )
@@ -133,6 +138,15 @@ $$
     # 인공지능의 장면 분석 데이터
     st.markdown("### 인공지능의 장면 분석 데이터")
     st.dataframe(_true_df(), use_container_width=True, hide_index=True)
+
+    st.markdown("")
+    
+    st.markdown("### 1) 교차 엔트로피 손실함수")
+    st.markdown(
+        r"""
+오차 크기 $|e_i|$와 맞은 정도($1-|e_i|$)를 직접 계산하여 입력하세요.
+"""
+    )
 
     # 손실함수 제시
     st.markdown(
@@ -150,14 +164,8 @@ $$
     """
     )
 
-    st.markdown("### 활동 1: 표를 완성하시오")
-    st.markdown(
-        r"""
-- 각 장면에 대해 입력한다.
-- 이어서 각 장면의 손실 \(L_i\)를 계산해 입력한다.
-"""
-    )
 
+    
     df_edit = st.data_editor(
         st.session_state[ss_tbl],
         use_container_width=True,
@@ -175,7 +183,7 @@ $$
     )
     st.session_state[ss_tbl] = df_edit
 
-    st.markdown("### 평균 손실 E(8, -4) 계산")
+    st.markdown("### 손실함수 E(8, -4) 계산")
 
     match_vals = []
     for val in df_edit["맞은 정도 (1-|e_i|)"].tolist():
