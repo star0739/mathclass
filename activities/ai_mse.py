@@ -117,7 +117,7 @@ def render(show_title: bool = True, key_prefix: str = "ai_mse") -> None:
     with st.expander("문제", expanded=True):
         st.markdown(
             r"""
-어느 대나무 세 그루가 각각 $$x$$일 동안 자라는 길이 $$y\text{ m}$$를 조사한 결과의 순서쌍 $(x,y)$가 각각 다음과 같다.
+어느 대나무 세 그루가 각각 $x$일 동안 자라는 길이 $y\text{m}$를 조사한 결과의 순서쌍 $(x,y)$가 각각 다음과 같다.
 
 $$
 P(1,1),\quad Q(2,2),\quad R(3,2)
@@ -154,9 +154,10 @@ $$
     # f1
     # -----------------------------
     with left:
-        st.markdown(r"## $f_1(x)=x-0.5$")
+        st.markdown(r"### $f_1(x)=x-0.5$")
 
-        st.markdown("### 입력(학생이 직접 채우기)")
+        st.markdown("### 데이터 입력")
+        st.info("입력은 아래 방향부터 먼저 채웁니다.")
         df_in1 = st.data_editor(
             st.session_state[ss_in1],
             use_container_width=True,
@@ -173,10 +174,10 @@ $$
 
         df_view1 = _compute_view(df_in1, f1)
 
-        st.markdown("### 자동 계산(예측값, 오차)")
+        st.markdown("### 예측값, 오차 확인")
         st.dataframe(df_view1, use_container_width=True, hide_index=True)
 
-        st.markdown("### 평균제곱오차(MSE): 숫자 대입 형태")
+        st.markdown("### $f_1$의 평균제곱오차")
         st.markdown(f"$$\n{_latex_mse_substitution(df_view1)}\n$$")
 
         if _valid_for_mse(df_view1):
