@@ -215,7 +215,7 @@ $$
 
         st.markdown("입력한 오차로 MSE 식을 채우면:")
         st.markdown(
-            r"$$\text{MSE}=\frac{1}{3}\left\{\left("
+            r"$$\text{E(1,-0.5)}=\frac{1}{3}\left\{\left("
             + boxes[0]
             + r"\right)^2+\left("
             + boxes[1]
@@ -224,7 +224,7 @@ $$
             + r"\right)^2\right\}$$"
         )
 
-        st.markdown(r"### $$E(1, -0.5)$$")
+
         st.text_input("", key=ss_mse1, placeholder="예: 1/4 또는 0.25")
 
         if st.button("$f_1$ 정답 확인", key=f"{key_prefix}_check_f1"):
