@@ -82,7 +82,7 @@ def _render_activity(module) -> None:
 def main() -> None:
     _init_state()
 
-    st.title("📘 미적분 탐구활동")
+    st.title("미적분 탐구활동")
 
     # 단원 선택 버튼
     unit_names = list(UNIT_ACTIVITIES.keys())
