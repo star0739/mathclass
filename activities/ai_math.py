@@ -55,7 +55,7 @@ def _render_activity(module) -> None:
 
 
 def main() -> None:
-    st.title("🤖 인공지능 수학 탐구활동")
+    st.title("인공지능 수학 탐구활동")
 
     if not ACTIVITIES:
         st.info("연결된 탐구활동이 아직 없습니다.")
