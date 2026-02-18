@@ -208,25 +208,31 @@ $$
 
     def _check_student():
         # 학생 입력 파싱
-        p_s = [_parse_float(v) for v in df_edit["오차 크기 |e_i|"].tolist()]
-        L_s = [_parse_float(v) for v in df_edit["맞은 정도 (1-|e_i|)"].tolist()]
+        err_s = [_parse_float(v) for v in df_edit["오차 크기 |e_i|"].tolist()]
+        match_s = [_parse_float(v) for v in df_edit["맞은 정도 (1-|e_i|)"].tolist()]
 
-        # 모두 입력했는지
-        if any(v is None for v in p_s) or any(v is None for v in L_s):
+        if any(v is None for v in err_s) or any(v is None for v in match_s):
             return False, "빈칸이 있습니다. 모든 칸을 채워주세요."
 
-        # 오차 허용(수치 계산 오차 고려)
-        tol_p = 0.02      # 확률 ±0.02
-        tol_L = 0.05      # 손실 ±0.05
+        # 표에 표시된 f(x_i)를 기준으로 '정답' 계산 (반올림 차이 문제 해결)
+        p_list = [float(v) for v in df_edit["AI 예측값 f(x_i)"].tolist()]
+        y_list = [int(v) for v in df_edit["실제 정답 y_i"].tolist()]
+
+        err_ans = [abs(y - p) for y, p in zip(y_list, p_list)]
+        match_ans = [1 - e for e in err_ans]
+
+        # 허용 오차(반올림/계산기 입력 오차 고려)
+        tol = 0.002  # 필요하면 0.005까지 늘려도 됨
 
         ok = True
-        for i in range(len(DATA)):
-            if abs(p_s[i] - float(ans.loc[i, "p"])) > tol_p:
+        for i in range(len(err_s)):
+            if abs(err_s[i] - err_ans[i]) > tol:
                 ok = False
-            if abs(L_s[i] - float(ans.loc[i, "L"])) > tol_L:
+            if abs(match_s[i] - match_ans[i]) > tol:
                 ok = False
 
         return ok, ""
+
 
     col_btn1, col_btn2 = st.columns([1, 2])
     with col_btn1:
