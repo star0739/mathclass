@@ -5,7 +5,7 @@ from fractions import Fraction
 import pandas as pd
 import streamlit as st
 
-TITLE = "평균제곱오차(MSE)로 예측함수 비교"
+TITLE = "평균제곱오차(MSE)"
 
 # 고정 데이터
 CASES = ["P", "Q", "R"]
