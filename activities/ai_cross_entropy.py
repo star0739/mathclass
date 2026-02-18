@@ -63,16 +63,16 @@ def _parse_float(val):
 
 
 def _default_student_table():
-    # 학생 입력: f(x_i)와 손실 L_i
     rows = []
-    for case, x, y in DATA:
+    for idx, (case, x, y) in enumerate(DATA, start=1):
         rows.append(
             {
-                "장면": case,
-                "특징값 x": x,
-                "실제 y": y,
-                "예측확률 f(x)": "",
-                "손실 L_i": "",
+                "장면(i)": idx,
+                "입력값 x_i": x,
+                "실제 정답 y_i": y,
+                "AI 예측값 f(x_i)": round(f(x), 3),   # 자동 계산
+                "오차 크기 |e_i|": "",
+                "맞은 정도 (1-|e_i|)": "",
             }
         )
     return pd.DataFrame(rows)
@@ -149,10 +149,10 @@ $$
 """
     )
 
-    st.markdown("### 활동 1: 예측확률과 손실을 직접 계산해 표를 완성하시오")
+    st.markdown("### 활동 1: 표를 완성하시오")
     st.markdown(
         r"""
-- 각 장면에 대해 \(f(x_i)\)를 계산해 **예측확률** 칸에 입력한다.
+- 각 장면에 대해 입력한다.
 - 이어서 각 장면의 손실 \(L_i\)를 계산해 입력한다.
 """
     )
@@ -163,23 +163,53 @@ $$
         hide_index=True,
         num_rows="fixed",
         column_config={
-            "장면": st.column_config.TextColumn(disabled=True),
-            "특징값 x": st.column_config.NumberColumn(disabled=True),
-            "실제 y": st.column_config.NumberColumn(disabled=True),
-            "예측확률 f(x)": st.column_config.TextColumn(),
-            "손실 L_i": st.column_config.TextColumn(),
+            "장면(i)": st.column_config.NumberColumn(disabled=True),
+            "입력값 x_i": st.column_config.NumberColumn(disabled=True),
+            "실제 정답 y_i": st.column_config.NumberColumn(disabled=True),
+            "AI 예측값 f(x_i)": st.column_config.NumberColumn(disabled=True),
+            "오차 크기 |e_i|": st.column_config.TextColumn(),
+            "맞은 정도 (1-|e_i|)": st.column_config.TextColumn(),
         },
         key=f"{key_prefix}_editor",
     )
     st.session_state[ss_tbl] = df_edit
+
+    st.markdown("### 평균 손실 E(8, -4) 계산")
+
+    match_vals = []
+    for val in df_edit["맞은 정도 (1-|e_i|)"].tolist():
+        parsed = _parse_float(val)
+        if parsed is not None:
+            match_vals.append(parsed)
+        else:
+            match_vals.append(None)
+
+    # 식에 들어갈 LaTeX 구성
+    terms = []
+    for v in match_vals:
+        if v is None:
+            terms.append(r"\ln(\square)")
+        else:
+            terms.append(rf"\ln({v})")
+
+    latex_expr = r"E(8,-4)=-\frac{1}{5}\left\{" + " + ".join(terms) + r"\right\}"
+
+    st.markdown(f"$$ {latex_expr} $$")
+
+    if all(v is not None for v in match_vals):
+        try:
+            total = -sum(math.log(v) for v in match_vals) / len(match_vals)
+            st.markdown(f"$$E(8,-4) \\approx {round(total,3)}$$")
+        except Exception:
+            pass
 
     # 정답 확인(간단)
     ans = _answer_table()
 
     def _check_student():
         # 학생 입력 파싱
-        p_s = [_parse_float(v) for v in df_edit["예측확률 f(x)"].tolist()]
-        L_s = [_parse_float(v) for v in df_edit["손실 L_i"].tolist()]
+        p_s = [_parse_float(v) for v in df_edit["오차 크기 |e_i|"].tolist()]
+        L_s = [_parse_float(v) for v in df_edit["맞은 정도 (1-|e_i|"].tolist()]
 
         # 모두 입력했는지
         if any(v is None for v in p_s) or any(v is None for v in L_s):
@@ -261,7 +291,7 @@ $$
 
 def _true_df() -> pd.DataFrame:
     # 주어진 데이터(고정)
-    return pd.DataFrame({"장면": [d[0] for d in DATA], "특징값 x": [d[1] for d in DATA], "실제 y": [d[2] for d in DATA]})
+    return pd.DataFrame({"장면": [d[0] for d in DATA], "입력값 x_i": [d[1] for d in DATA], "실제 정답 y_i": [d[2] for d in DATA]})
 
 
 if __name__ == "__main__":
