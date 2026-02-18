@@ -179,7 +179,7 @@ $$
 예측함수 $f(x)=ax+b$에 대한 평균제곱오차 $E(a,b)$는 다음과 같이 계산한다.
 
 $$
-\text{MSE}=\frac{1}{n}\left\{(y_1-\hat{f}(x_1))^2+(y_2-\hat{f}(x_2))^2+\cdots+(y_n-\hat{f}(x_n))^2\right\}
+\text{MSE}=\frac{1}{n}\left\{(y_1-f(x_1))^2+(y_2-f(x_2))^2+\cdots+(y_n-f(x_n))^2\right\}
 $$
 """
     )
@@ -222,9 +222,10 @@ $$
             + r"\right)^2\right\}$$"
         )
 
-        st.text_input("E(1,-0.5) =", key=ss_mse1, placeholder="예: 1/4 또는 0.25")
+        st.markdown(r"### $$E(1, -0.5)$$")
+        st.text_input("", key=ss_mse1, placeholder="예: 1/4 또는 0.25")
 
-        if st.button("f₁ 정답 확인", key=f"{key_prefix}_check_f1"):
+        if st.button("$f_1$ 정답 확인", key=f"{key_prefix}_check_f1"):
             ok_yhat = _check_list(yhat_s, ANS1["yhat"])
             ok_err = _check_list(err_s, ANS1["err"])
             mse_in = _parse_fraction(st.session_state[ss_mse1])
