@@ -209,7 +209,7 @@ $$
     def _check_student():
         # 학생 입력 파싱
         p_s = [_parse_float(v) for v in df_edit["오차 크기 |e_i|"].tolist()]
-        L_s = [_parse_float(v) for v in df_edit["맞은 정도 (1-|e_i|"].tolist()]
+        L_s = [_parse_float(v) for v in df_edit["맞은 정도 (1-|e_i|)"].tolist()]
 
         # 모두 입력했는지
         if any(v is None for v in p_s) or any(v is None for v in L_s):
