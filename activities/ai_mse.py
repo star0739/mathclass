@@ -50,8 +50,11 @@ def _latex_paren(v: float) -> str:
     return s
 
 
+# -----------------------------
+# 기본 입력(빈칸)
+# -----------------------------
 def _default_inputs_blank() -> pd.DataFrame:
-    # 학생이 문제를 보고 스스로 채우도록 빈칸
+    # 학생이 문제를 보고 스스로 채우도록 빈칸(np.nan)
     return pd.DataFrame(
         {
             "사례": ["P", "Q", "R"],
@@ -61,8 +64,17 @@ def _default_inputs_blank() -> pd.DataFrame:
     )
 
 
+# -----------------------------
+# 계산/검증
+# -----------------------------
 def _compute_view(df_in: pd.DataFrame, f) -> pd.DataFrame:
     df = df_in.copy()
+
+    # 컬럼 보정(혹시 깨졌을 때)
+    for col in ["사례", "입력값 x", "출력값 y"]:
+        if col not in df.columns:
+            df[col] = np.nan
+
     df["입력값 x"] = df["입력값 x"].map(_to_float)
     df["출력값 y"] = df["출력값 y"].map(_to_float)
 
@@ -73,7 +85,8 @@ def _compute_view(df_in: pd.DataFrame, f) -> pd.DataFrame:
 
 
 def _valid_for_mse(df_view: pd.DataFrame) -> bool:
-    return not df_view[["입력값 x", "출력값 y", "예측값 f(x)", "오차 y-f(x)"]].isna().any().any()
+    need = ["입력값 x", "출력값 y", "예측값 f(x)", "오차 y-f(x)"]
+    return not df_view[need].isna().any().any()
 
 
 def _mse_value(df_view: pd.DataFrame) -> float:
@@ -81,11 +94,10 @@ def _mse_value(df_view: pd.DataFrame) -> float:
     return float(np.mean(e**2))
 
 
+# -----------------------------
+# MSE 식(숫자 대입 형태)
+# -----------------------------
 def _latex_mse_substitution(df_view: pd.DataFrame) -> str:
-    """
-    MSE = 1/3{(y1-yhat1)^2 + (y2-yhat2)^2 + (y3-yhat3)^2}
-    에 숫자 대입된 형태를 반환(LaTeX 내부 문자열).
-    """
     n = len(df_view)
     terms = []
     for _, r in df_view.iterrows():
@@ -103,104 +115,122 @@ def render(show_title: bool = True, key_prefix: str = "ai_mse") -> None:
     if show_title:
         st.subheader(TITLE)
 
-    # 입력표(모델별로 따로)만 세션에 저장: 사례,x,y
+    # 공통 입력표(한 번 입력)
     ss_in = f"{key_prefix}_inputs_shared"
     if ss_in not in st.session_state:
         st.session_state[ss_in] = _default_inputs_blank()
 
     # -----------------------------
-    # 문제 제시(글+수식 혼합: calculus 스타일)
+    # 문제(글+수식 혼합: calculus 스타일)
     # -----------------------------
     with st.expander("문제", expanded=True):
         st.markdown(
             r"""
-어느 대나무 세 그루가 각각 $x$일 동안 자라는 길이 $y\text{m}$를 조사한 결과의 순서쌍 $(x,y)$가 각각 다음과 같다.
+어느 대나무 세 그루가 각각 $x$일 동안 자라는 길이 $y\text{ m}$를 조사한 결과의 순서쌍 $(x,y)$가 각각 다음과 같다.
 
 $$
 P(1,1),\quad Q(2,2),\quad R(3,2)
 $$
 
-이 대나무가 어떤 기간($x$)에 대하여 자란 길이($y$)를 예측하는 두 함수가 각각 다음과 같다고 하자.
+이 대나무가 어떤 기간 $x$에 대하여 자란 길이 $y$를 예측하는 두 함수가 각각 다음과 같다고 하자.
 
 $$
 f_1(x)=x-0.5,\qquad f_2(x)=0.5x+0.5
 $$
 
-(1) 예측함수 $f_1(x)$에 대한 평균제곱오차 $E(1,-0.5)$의 값을 구하시오.  
-(2) 예측함수 $f_2(x)$에 대한 평균제곱오차 $E(0.5,0.5)$의 값을 구하시오.  
-(3) 두 예측함수 $f_1, f_2$ 중에서 자료의 경향성을 더 잘 나타내는 것을 고르시오.
+1) 예측함수 $f_1(x)$에 대한 평균제곱오차 $E(1,-0.5)$의 값을 구하시오.  
+2) 예측함수 $f_2(x)$에 대한 평균제곱오차 $E(0.5,0.5)$의 값을 구하시오.  
+3) 두 예측함수 $f_1, f_2$ 중에서 자료의 경향성을 더 잘 나타내는 것을 고르시오.
 """
         )
 
     with st.sidebar:
-        if st.button("두 표 모두 초기화", key=f"{key_prefix}_reset_all"):
+        if st.button("입력표 초기화", key=f"{key_prefix}_reset_shared"):
             st.session_state[ss_in] = _default_inputs_blank()
             st.rerun()
 
         st.markdown(
             r"""
-- 각 표에서 **입력값 $x$**, **출력값 $y$**를 직접 입력하세요.  
-- **예측값**, **오차**는 자동으로 계산되어 아래 표에 표시됩니다.
+- 아래 표에서 **입력값 $x$**, **출력값 $y$**를 한 번만 입력하세요.  
+- 입력값을 바꾸면 $f_1, f_2$의 예측값/오차, MSE가 자동으로 갱신됩니다.
 """
         )
+
+    # -----------------------------
+    # 1) 공통 입력
+    # -----------------------------
+    st.markdown("### 1) 데이터 입력(공통)")
+    df_in = st.data_editor(
+        st.session_state[ss_in],
+        use_container_width=True,
+        hide_index=True,
+        num_rows="fixed",
+        column_config={
+            "사례": st.column_config.TextColumn(disabled=True),
+            "입력값 x": st.column_config.NumberColumn(step=1.0),
+            "출력값 y": st.column_config.NumberColumn(step=1.0),
+        },
+        key=f"{key_prefix}_editor_shared",
+    )
+    st.session_state[ss_in] = df_in
+
+    # 공통 입력 -> 두 모델 계산
+    df_view1 = _compute_view(df_in, f1)
+    df_view2 = _compute_view(df_in, f2)
 
     left, right = st.columns([1, 1], gap="large")
 
     # -----------------------------
     # f1
     # -----------------------------
-st.markdown("### 1) 데이터 입력 (공통: P, Q, R의 $x$, $y$)")
-df_in = st.data_editor(
-    st.session_state[ss_in],
-    use_container_width=True,
-    hide_index=True,
-    num_rows="fixed",
-    column_config={
-        "사례": st.column_config.TextColumn(disabled=True),
-        "입력값 x": st.column_config.NumberColumn(step=1.0),
-        "출력값 y": st.column_config.NumberColumn(step=1.0),
-    },
-    key=f"{key_prefix}_editor_inputs_shared",
-)
-st.session_state[ss_in] = df_in
+    with left:
+        st.markdown(r"## $f_1(x)=x-0.5$")
+        st.dataframe(df_view1, use_container_width=True, hide_index=True)
 
-# 공통 입력을 기반으로 두 모델 계산표 생성
-df_view1 = _compute_view(df_in, f1)
-df_view2 = _compute_view(df_in, f2)
+        st.markdown("### 평균제곱오차(MSE) 식: 숫자 대입 형태")
+        st.markdown(f"$$\n{_latex_mse_substitution(df_view1)}\n$$")
 
-left, right = st.columns([1, 1], gap="large")
-
-with left:
-    st.markdown(r"## $f_1(x)=x-0.5$")
-    st.dataframe(df_view1, use_container_width=True, hide_index=True)
-
-    st.markdown("### 평균제곱오차(MSE) 식: 숫자 대입 형태")
-    st.markdown(f"$$\n{_latex_mse_substitution(df_view1)}\n$$")
-
-    if _valid_for_mse(df_view1):
-        mse1 = _mse_value(df_view1)
-        st.markdown(f"$$E(1,-0.5)=\\text{{MSE}}_1={_fmt_num(mse1)}$$")
-    else:
-        st.info("P, Q, R의 $x$와 $y$를 모두 입력하면 $E(1,-0.5)$를 계산할 수 있습니다.")
-
-with right:
-    st.markdown(r"## $f_2(x)=0.5x+0.5$")
-    st.dataframe(df_view2, use_container_width=True, hide_index=True)
-
-    st.markdown("### 평균제곱오차(MSE) 식: 숫자 대입 형태")
-    st.markdown(f"$$\n{_latex_mse_substitution(df_view2)}\n$$")
-
-    if _valid_for_mse(df_view2):
-        mse2 = _mse_value(df_view2)
-        st.markdown(f"$$E(0.5,0.5)=\\text{{MSE}}_2={_fmt_num(mse2)}$$")
-    else:
-        st.info("P, Q, R의 $x$와 $y$를 모두 입력하면 $E(0.5,0.5)$를 계산할 수 있습니다.")
+        if _valid_for_mse(df_view1):
+            mse1 = _mse_value(df_view1)
+            st.markdown(f"$$E(1,-0.5)=\\text{{MSE}}_1={_fmt_num(mse1)}$$")
+        else:
+            st.info("P, Q, R의 $x$와 $y$를 모두 입력하면 $E(1,-0.5)$를 계산할 수 있습니다.")
 
     # -----------------------------
-    # 비교
+    # f2
+    # -----------------------------
+    with right:
+        st.markdown(r"## $f_2(x)=0.5x+0.5$")
+        st.dataframe(df_view2, use_container_width=True, hide_index=True)
+
+        st.markdown("### 평균제곱오차(MSE) 식: 숫자 대입 형태")
+        st.markdown(f"$$\n{_latex_mse_substitution(df_view2)}\n$$")
+
+        if _valid_for_mse(df_view2):
+            mse2 = _mse_value(df_view2)
+            st.markdown(f"$$E(0.5,0.5)=\\text{{MSE}}_2={_fmt_num(mse2)}$$")
+        else:
+            st.info("P, Q, R의 $x$와 $y$를 모두 입력하면 $E(0.5,0.5)$를 계산할 수 있습니다.")
+
+    # -----------------------------
+    # 3) 비교
     # -----------------------------
     st.divider()
-    st.markdown("## 3) 어떤 함수가 더 적절한가?")
+    st.markdown("## 2) 어떤 함수가 더 적절한가?")
+
+    if _valid_for_mse(df_view1) and _valid_for_mse(df_view2):
+        mse1 = _mse_value(df_view1)
+        mse2 = _mse_value(df_view2)
+
+        if abs(mse1 - mse2) < 1e-12:
+            st.success("두 함수의 평균제곱오차가 같습니다.")
+        elif mse1 < mse2:
+            st.success("평균제곱오차가 더 작은 $f_1$이 자료의 경향성을 더 잘 나타냅니다.")
+        else:
+            st.success("평균제곱오차가 더 작은 $f_2$가 자료의 경향성을 더 잘 나타냅니다.")
+    else:
+        st.warning("P, Q, R의 $x$와 $y$를 모두 입력하면 비교할 수 있습니다.")
+
 
 if __name__ == "__main__":
     try:
