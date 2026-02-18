@@ -231,44 +231,44 @@ $$
     # -----------------------------
     # 3) 비교
     # -----------------------------
-st.divider()
-st.markdown("## 2) 어떤 함수가 더 적절한가?")
+        st.divider()
+        st.markdown("## 2) 어떤 함수가 더 적절한가?")
 
-mse1_fr = _mse_fraction(df_view1)
-mse2_fr = _mse_fraction(df_view2)
+        mse1_fr = _mse_fraction(df_view1)
+        mse2_fr = _mse_fraction(df_view2)
 
-if mse1_fr is None or mse2_fr is None:
-    st.warning("P, Q, R의 $x$와 $y$를 모두 입력하면 선택 문제를 풀 수 있습니다.")
-else:
-    # 정답 결정(더 작은 MSE)
-    if mse1_fr < mse2_fr:
-        correct = "f_1"
-        correct_label = r"$f_1$"
-    elif mse2_fr < mse1_fr:
-        correct = "f_2"
-        correct_label = r"$f_2$"
-    else:
-        correct = "same"
-        correct_label = r"$f_1, f_2$ (동일)"
-
-    st.markdown("다음 중 평균제곱오차(MSE)가 더 작아 자료의 경향성을 더 잘 나타내는 함수를 고르시오.")
-
-    choice = st.radio(
-        "선택",
-        options=["f_1", "f_2"],
-        format_func=lambda v: r"$f_1$" if v == "f_1" else r"$f_2$",
-        key=f"{key_prefix}_choice",
-        horizontal=True,
-    )
-
-    # 제출 버튼(즉시 채점)
-    if st.button("정답 확인", key=f"{key_prefix}_check"):
-        if correct == "same":
-            st.info("두 함수의 MSE가 같아서 어느 쪽을 골라도 동일한 적합도입니다.")
-        elif choice == correct:
-            st.success("정답입니다!")
+        if mse1_fr is None or mse2_fr is None:
+            st.warning("P, Q, R의 $x$와 $y$를 모두 입력하면 선택 문제를 풀 수 있습니다.")
         else:
-            st.error("오답입니다.")
+            # 정답 결정(더 작은 MSE)
+            if mse1_fr < mse2_fr:
+                correct = "f_1"
+                correct_label = r"$f_1$"
+            elif mse2_fr < mse1_fr:
+                correct = "f_2"
+                correct_label = r"$f_2$"
+            else:
+                correct = "same"
+                correct_label = r"$f_1, f_2$ (동일)"
+
+            st.markdown("다음 중 평균제곱오차(MSE)가 더 작아 자료의 경향성을 더 잘 나타내는 함수를 고르시오.")
+        
+            choice = st.radio(
+                "선택",
+                options=["f_1", "f_2"],
+                format_func=lambda v: r"$f_1$" if v == "f_1" else r"$f_2$",
+                key=f"{key_prefix}_choice",
+                horizontal=True,
+            )
+        
+            # 제출 버튼(즉시 채점)
+            if st.button("정답 확인", key=f"{key_prefix}_check"):
+                if correct == "same":
+                    st.info("두 함수의 MSE가 같아서 어느 쪽을 골라도 동일한 적합도입니다.")
+                elif choice == correct:
+                    st.success("정답입니다!")
+                else:
+                    st.error("오답입니다.")
 
         # 근거(분수 형태)도 함께 제시
         st.markdown("근거(MSE):")
