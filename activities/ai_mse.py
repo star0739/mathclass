@@ -305,14 +305,14 @@ $$
         horizontal=True,
     )
 
-    if st.button("선택 정답 확인", key=f"{key_prefix}_check_choice"):
+    if st.button("정답 확인", key=f"{key_prefix}_check_choice"):
         if correct == "same":
             st.info("두 함수의 평균제곱오차가 같습니다.")
         else:
             if st.session_state[ss_choice] == correct:
-                st.success("정답입니다!")
+                st.success("정답입니다! MSE 값이 작을수록 자료 예측에 더 적합합니다.")
             else:
-                st.error("오답입니다. 다시 생각해보세요.")
+                st.error("오답입니다. MSE 값의 의미를 다시 생각해보세요.")
 
 
 if __name__ == "__main__":
