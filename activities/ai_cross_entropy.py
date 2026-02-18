@@ -5,7 +5,7 @@ import math
 import pandas as pd
 import streamlit as st
 
-TITLE = "시그모이드 예측함수로 교차 엔트로피 손실 해석하기"
+TITLE = "교차 엔트로피(Cross Entropy)"
 
 
 # -----------------------------
