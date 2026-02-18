@@ -20,9 +20,13 @@ if str(CURRENT_DIR) not in sys.path:
 
 # --------------------------------------------------
 # 2. 탐구활동 모듈 import
-#    (ai_mse.py가 같은 폴더(activities)에 있다고 가정)
 # --------------------------------------------------
-import ai_mse as mse_activity
+try:
+    import ai_mse as mse_activity  # activities 폴더를 sys.path에 넣었으면 이게 우선
+except ModuleNotFoundError:
+    # 패키지 경로로 재시도 (환경에 따라 이쪽이 필요할 때가 있음)
+    from mathclass.activities import ai_mse as mse_activity
+
 
 # 앞으로 추가될 활동 예시:
 # import ai_something as something_activity
