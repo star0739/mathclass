@@ -215,7 +215,7 @@ $$
 
         st.markdown("입력한 오차로 MSE 식을 채우면:")
         st.markdown(
-            r"$$\text{E(1,-0.5)}=\frac{1}{3}\left\{\left("
+            r"$${E(1,-0.5)}=\frac{1}{3}\left\{\left("
             + boxes[0]
             + r"\right)^2+\left("
             + boxes[1]
