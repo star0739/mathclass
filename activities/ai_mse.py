@@ -104,12 +104,9 @@ def render(show_title: bool = True, key_prefix: str = "ai_mse") -> None:
         st.subheader(TITLE)
 
     # 입력표(모델별로 따로)만 세션에 저장: 사례,x,y
-    ss_in1 = f"{key_prefix}_inputs_f1"
-    ss_in2 = f"{key_prefix}_inputs_f2"
-    if ss_in1 not in st.session_state:
-        st.session_state[ss_in1] = _default_inputs_blank()
-    if ss_in2 not in st.session_state:
-        st.session_state[ss_in2] = _default_inputs_blank()
+    ss_in = f"{key_prefix}_inputs_shared"
+    if ss_in not in st.session_state:
+        st.session_state[ss_in] = _default_inputs_blank()
 
     # -----------------------------
     # 문제 제시(글+수식 혼합: calculus 스타일)
@@ -137,8 +134,7 @@ $$
 
     with st.sidebar:
         if st.button("두 표 모두 초기화", key=f"{key_prefix}_reset_all"):
-            st.session_state[ss_in1] = _default_inputs_blank()
-            st.session_state[ss_in2] = _default_inputs_blank()
+            st.session_state[ss_in] = _default_inputs_blank()
             st.rerun()
 
         st.markdown(
@@ -153,73 +149,52 @@ $$
     # -----------------------------
     # f1
     # -----------------------------
-    with left:
-        st.markdown(r"### $f_1(x)=x-0.5$")
+st.markdown("### 1) 데이터 입력 (공통: P, Q, R의 $x$, $y$)")
+df_in = st.data_editor(
+    st.session_state[ss_in],
+    use_container_width=True,
+    hide_index=True,
+    num_rows="fixed",
+    column_config={
+        "사례": st.column_config.TextColumn(disabled=True),
+        "입력값 x": st.column_config.NumberColumn(step=1.0),
+        "출력값 y": st.column_config.NumberColumn(step=1.0),
+    },
+    key=f"{key_prefix}_editor_inputs_shared",
+)
+st.session_state[ss_in] = df_in
 
-        st.markdown("### 데이터 입력")
-        st.info("입력은 아래 방향부터 먼저 채웁니다.")
-        df_in1 = st.data_editor(
-            st.session_state[ss_in1],
-            use_container_width=True,
-            hide_index=True,
-            num_rows="fixed",
-            column_config={
-                "사례": st.column_config.TextColumn(disabled=True),
-                "입력값 x": st.column_config.NumberColumn(step=1.0),
-                "출력값 y": st.column_config.NumberColumn(step=1.0),
-            },
-            key=f"{key_prefix}_editor_inputs_f1",
-        )
-        st.session_state[ss_in1] = df_in1
+# 공통 입력을 기반으로 두 모델 계산표 생성
+df_view1 = _compute_view(df_in, f1)
+df_view2 = _compute_view(df_in, f2)
 
-        df_view1 = _compute_view(df_in1, f1)
+left, right = st.columns([1, 1], gap="large")
 
-        st.markdown("### 예측값, 오차 확인")
-        st.dataframe(df_view1, use_container_width=True, hide_index=True)
+with left:
+    st.markdown(r"## $f_1(x)=x-0.5$")
+    st.dataframe(df_view1, use_container_width=True, hide_index=True)
 
-        st.markdown("### $f_1$의 평균제곱오차")
-        st.markdown(f"$$\n{_latex_mse_substitution(df_view1)}\n$$")
+    st.markdown("### 평균제곱오차(MSE) 식: 숫자 대입 형태")
+    st.markdown(f"$$\n{_latex_mse_substitution(df_view1)}\n$$")
 
-        if _valid_for_mse(df_view1):
-            mse1 = _mse_value(df_view1)
-            st.markdown(f"$$E(1,-0.5)={_fmt_num(mse1)}$$")
-        else:
-            st.info("P, Q, R의 $x$와 $y$를 모두 입력하면 $E(1,-0.5)$를 계산할 수 있습니다.")
+    if _valid_for_mse(df_view1):
+        mse1 = _mse_value(df_view1)
+        st.markdown(f"$$E(1,-0.5)=\\text{{MSE}}_1={_fmt_num(mse1)}$$")
+    else:
+        st.info("P, Q, R의 $x$와 $y$를 모두 입력하면 $E(1,-0.5)$를 계산할 수 있습니다.")
 
-    # -----------------------------
-    # f2
-    # -----------------------------
-    with right:
-        st.markdown(r"## $f_2(x)=0.5x+0.5$")
+with right:
+    st.markdown(r"## $f_2(x)=0.5x+0.5$")
+    st.dataframe(df_view2, use_container_width=True, hide_index=True)
 
-        st.markdown("### 입력(학생이 직접 채우기)")
-        df_in2 = st.data_editor(
-            st.session_state[ss_in2],
-            use_container_width=True,
-            hide_index=True,
-            num_rows="fixed",
-            column_config={
-                "사례": st.column_config.TextColumn(disabled=True),
-                "입력값 x": st.column_config.NumberColumn(step=1.0),
-                "출력값 y": st.column_config.NumberColumn(step=1.0),
-            },
-            key=f"{key_prefix}_editor_inputs_f2",
-        )
-        st.session_state[ss_in2] = df_in2
+    st.markdown("### 평균제곱오차(MSE) 식: 숫자 대입 형태")
+    st.markdown(f"$$\n{_latex_mse_substitution(df_view2)}\n$$")
 
-        df_view2 = _compute_view(df_in2, f2)
-
-        st.markdown("### 자동 계산(예측값, 오차)")
-        st.dataframe(df_view2, use_container_width=True, hide_index=True)
-
-        st.markdown("### 평균제곱오차(MSE): 숫자 대입 형태")
-        st.markdown(f"$$\n{_latex_mse_substitution(df_view2)}\n$$")
-
-        if _valid_for_mse(df_view2):
-            mse2 = _mse_value(df_view2)
-            st.markdown(f"$$E(0.5,0.5)={_fmt_num(mse2)}$$")
-        else:
-            st.info("P, Q, R의 $x$와 $y$를 모두 입력하면 $E(0.5,0.5)$를 계산할 수 있습니다.")
+    if _valid_for_mse(df_view2):
+        mse2 = _mse_value(df_view2)
+        st.markdown(f"$$E(0.5,0.5)=\\text{{MSE}}_2={_fmt_num(mse2)}$$")
+    else:
+        st.info("P, Q, R의 $x$와 $y$를 모두 입력하면 $E(0.5,0.5)$를 계산할 수 있습니다.")
 
     # -----------------------------
     # 비교
