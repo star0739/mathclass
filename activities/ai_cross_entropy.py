@@ -139,7 +139,6 @@ $$
         r"""
 교차 엔트로피 손실함수는 다음과 같이 계산한다.
 
-st.markdown(r"""
 $$
 E(a,b)=-\frac{1}{n}\sum_{i=1}^{n}\left[y_i \ln f(x_i)+(1-y_i)\ln\left(1-f(x_i)\right)\right]
 $$
@@ -166,7 +165,7 @@ $$
         hide_index=True,
         num_rows="fixed",
         column_config={
-            "장면(번호:i)": st.column_config.NumberColumn(disabled=True),
+            "장면(i)": st.column_config.NumberColumn(disabled=True),
             "입력값 x_i": st.column_config.NumberColumn(disabled=True),
             "실제 정답 y_i": st.column_config.NumberColumn(disabled=True),
             "AI 예측값 f(x_i)": st.column_config.NumberColumn(disabled=True),
