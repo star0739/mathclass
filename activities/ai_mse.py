@@ -20,10 +20,12 @@ def f2(x: float) -> float:
 
 
 # -----------------------------
-# 표현 유틸 (LaTeX에 들어갈 숫자/괄호)
+# 숫자/LaTeX 유틸
 # -----------------------------
 def _to_float(v) -> float:
     try:
+        if v is None:
+            return np.nan
         return float(v)
     except Exception:
         return np.nan
@@ -49,87 +51,74 @@ def _latex_paren(v: float) -> str:
 
 
 # -----------------------------
-# 기본 데이터
+# 기본 입력표(빈칸)
 # -----------------------------
-def _default_input_df() -> pd.DataFrame:
+def _default_table_blank() -> pd.DataFrame:
+    # 학생이 문제를 보고 스스로 채우도록 x,y는 빈칸(np.nan)
     return pd.DataFrame(
         {
             "사례": ["P", "Q", "R"],
-            "입력값 x": [1.0, 2.0, 3.0],
-            "출력값 y": [1.0, 2.0, 2.0],
+            "입력값 x": [np.nan, np.nan, np.nan],
+            "출력값 y": [np.nan, np.nan, np.nan],
+            "예측값 f(x)": [np.nan, np.nan, np.nan],
+            "오차 y-f(x)": [np.nan, np.nan, np.nan],
         }
     )
 
 
 # -----------------------------
-# 계산
+# 표 계산(예측값/오차 자동 갱신)
 # -----------------------------
-def _compute(df_in: pd.DataFrame, f) -> pd.DataFrame:
-    df = df_in.copy()
-    df["x"] = df["입력값 x"].map(_to_float)
-    df["y"] = df["출력값 y"].map(_to_float)
+def _recompute_table(df_edit: pd.DataFrame, f) -> pd.DataFrame:
+    df = df_edit.copy()
 
-    df["yhat"] = df["x"].map(lambda t: f(t) if not np.isnan(t) else np.nan)
-    df["err"] = df["y"] - df["yhat"]
-    df["sqerr"] = df["err"] ** 2
+    # 필요한 컬럼이 없다면 보정
+    for col in ["사례", "입력값 x", "출력값 y", "예측값 f(x)", "오차 y-f(x)"]:
+        if col not in df.columns:
+            df[col] = np.nan
 
-    return pd.DataFrame(
-        {
-            "사례": df["사례"],
-            "입력값 x": df["x"],
-            "출력값 y": df["y"],
-            "예측값 f(x)": df["yhat"],
-            "오차 y-f(x)": df["err"],
-            "제곱오차 (y-f(x))^2": df["sqerr"],
-        }
-    )
+    df["입력값 x"] = df["입력값 x"].map(_to_float)
+    df["출력값 y"] = df["출력값 y"].map(_to_float)
+
+    def _yhat(x):
+        return f(x) if not np.isnan(x) else np.nan
+
+    df["예측값 f(x)"] = df["입력값 x"].map(_yhat)
+    df["오차 y-f(x)"] = df["출력값 y"] - df["예측값 f(x)"]
+    return df[["사례", "입력값 x", "출력값 y", "예측값 f(x)", "오차 y-f(x)"]]
 
 
-def _is_valid(df_calc: pd.DataFrame) -> bool:
-    # x,y가 모두 숫자이고 결측이 없어야 MSE 계산/표현 가능
-    return not df_calc[["입력값 x", "출력값 y", "예측값 f(x)"]].isna().any().any()
+def _is_valid_for_mse(df: pd.DataFrame) -> bool:
+    need = ["입력값 x", "출력값 y", "예측값 f(x)", "오차 y-f(x)"]
+    return not df[need].isna().any().any()
 
 
-def _mse_value(df_calc: pd.DataFrame) -> float:
-    return float(np.mean(df_calc["오차 y-f(x)"].to_numpy() ** 2))
+def _mse_value(df: pd.DataFrame) -> float:
+    e = df["오차 y-f(x)"].to_numpy(dtype=float)
+    return float(np.mean(e**2))
 
 
 # -----------------------------
-# LaTeX: "식 형태"를 보여주기
+# MSE LaTeX(식 형태: 대입된 형태를 보여줌)
 # -----------------------------
-def _latex_mse_substitution(df_calc: pd.DataFrame) -> str:
+def _latex_mse_substitution(df: pd.DataFrame) -> str:
     """
-    MSE = 1/3{(y1-yhat1)^2 + (y2-yhat2)^2 + (y3-yhat3)^2}
-    형태로, 실제 숫자를 대입해 보여줌.
+    $$\\text{MSE}=\\frac{1}{3}\\{(y_1-\\hat y_1)^2+(y_2-\\hat y_2)^2+(y_3-\\hat y_3)^2\\}$$
+    에 숫자를 대입한 형태로 출력.
     """
-    n = len(df_calc)
-
+    n = len(df)
     terms = []
-    for _, r in df_calc.iterrows():
+    for _, r in df.iterrows():
         y = r["출력값 y"]
         yhat = r["예측값 f(x)"]
         terms.append(rf"\left({_fmt_num(y)} - {_latex_paren(yhat)}\right)^2")
-
     joined = " + ".join(terms) if terms else r"\text{(데이터 없음)}"
     return rf"""
 $$
-\text{{MSE}}=\frac{{1}}{{{n}}}\left\{{ {joined} \right\}}
-$$
-"""
-
-
-def _latex_mse_numbers(df_calc: pd.DataFrame) -> str:
-    """
-    제곱오차 값까지 대입된 형태:
-    MSE = 1/3{a + b + c}
-    를 보여줌(계산값은 보여주되, '형태' 유지).
-    """
-    n = len(df_calc)
-    vals = [r["제곱오차 (y-f(x))^2"] for _, r in df_calc.iterrows()]
-    joined = " + ".join(_latex_paren(v) for v in vals) if vals else r"\text{(데이터 없음)}"
-    return rf"""
-$$
-\text{{MSE}}=\frac{{1}}{{{n}}}\left\{{ {joined} \right\}}
+\text{{MSE}}
+=
+\frac{{1}}{{{n}}}
+\left\{{ {joined} \right\}}
 $$
 """
 
@@ -141,108 +130,146 @@ def render(show_title: bool = True, key_prefix: str = "ai_mse") -> None:
     if show_title:
         st.subheader(TITLE)
 
-    # 세션 초기화
-    ss_key = f"{key_prefix}_df"
-    if ss_key not in st.session_state:
-        st.session_state[ss_key] = _default_input_df()
+    # 세션(표 2개: f1용 / f2용)
+    ss_f1 = f"{key_prefix}_df_f1"
+    ss_f2 = f"{key_prefix}_df_f2"
+    if ss_f1 not in st.session_state:
+        st.session_state[ss_f1] = _default_table_blank()
+    if ss_f2 not in st.session_state:
+        st.session_state[ss_f2] = _default_table_blank()
 
     with st.expander("문제", expanded=True):
         st.markdown(
             r"""
-어느 대나무 세 그루가 각각 \(x\)일 동안 자라는 길이 \(y\) m를 조사한 결과의 순서쌍 \((x, y)\)가 각각
-\(P(1,1),\;Q(2,2),\;R(3,2)\) 라 하자.
+$$
+P(1,1),\; Q(2,2),\; R(3,2)
+$$
 
-이 대나무가 어떤 기간 \(x\)에 대하여 자란 길이 \(y\)를 예측하는 두 함수가 각각
-\[
+$$
 f_1(x)=x-0.5,\qquad f_2(x)=0.5x+0.5
-\]
-라 하자.
+$$
 
-(1) \(f_1\)에 대한 평균제곱오차 \(E(1,-0.5)\)의 값을 구하시오.  
-(2) \(f_2\)에 대한 평균제곱오차 \(E(0.5,0.5)\)의 값을 구하시오.  
-(3) 두 예측함수 \(f_1, f_2\) 중 자료의 경향성을 더 잘 나타내는 것을 고르시오.
+$$
+(1)\;\; f_1 \text{에 대한 평균제곱오차 } E(1,-0.5)\text{의 값을 구하시오.}
+$$
+$$
+(2)\;\; f_2 \text{에 대한 평균제곱오차 } E(0.5,0.5)\text{의 값을 구하시오.}
+$$
+$$
+(3)\;\; f_1,\;f_2 \text{ 중 자료의 경향성을 더 잘 나타내는 것을 고르시오.}
+$$
 """
         )
 
-    # 입력
-    left, right = st.columns([1, 1], gap="large")
-
     with st.sidebar:
-        if st.button("기본값으로 초기화", key=f"{key_prefix}_reset"):
-            st.session_state[ss_key] = _default_input_df()
+        if st.button("두 표 모두 초기화", key=f"{key_prefix}_reset_all"):
+            st.session_state[ss_f1] = _default_table_blank()
+            st.session_state[ss_f2] = _default_table_blank()
             st.rerun()
 
-    st.markdown("### 1) 데이터 입력 (P, Q, R의 x, y)")
-    df_edit = st.data_editor(
-        st.session_state[ss_key],
-        use_container_width=True,
-        hide_index=True,
-        num_rows="fixed",
-        column_config={
-            "사례": st.column_config.TextColumn(disabled=True),
-            "입력값 x": st.column_config.NumberColumn(step=1.0),
-            "출력값 y": st.column_config.NumberColumn(step=1.0),
-        },
-        key=f"{key_prefix}_editor",
-    )
-    st.session_state[ss_key] = df_edit
+        st.markdown(
+            r"""
+- 각 표에서 **입력값 \(x\)**, **출력값 \(y\)** 를 직접 입력하세요.  
+- **예측값**, **오차**는 자동으로 갱신됩니다.
+"""
+        )
 
-    # 계산
-    df1 = _compute(df_edit, f1)
-    df2 = _compute(df_edit, f2)
+    left, right = st.columns([1, 1], gap="large")
 
-    # 표시
+    # -----------------------------
+    # f1 테이블
+    # -----------------------------
     with left:
-        st.markdown(r"## \(f_1(x)=x-0.5\)")
-        st.dataframe(df1, use_container_width=True, hide_index=True)
+        st.markdown(r"## $$f_1(x)=x-0.5$$")
 
-        st.markdown("### (1) MSE 식 (예측값 대입 형태)")
-        st.markdown(_latex_mse_substitution(df1))
+        # 현재 편집값을 기반으로 (예측값/오차) 갱신된 df를 에디터에 공급
+        df1_current = _recompute_table(st.session_state[ss_f1], f1)
 
-        st.markdown("### 제곱오차까지 계산해 대입한 형태")
-        st.markdown(_latex_mse_numbers(df1))
+        df1_edit = st.data_editor(
+            df1_current,
+            use_container_width=True,
+            hide_index=True,
+            num_rows="fixed",
+            column_config={
+                "사례": st.column_config.TextColumn(disabled=True),
+                "입력값 x": st.column_config.NumberColumn(step=1.0),
+                "출력값 y": st.column_config.NumberColumn(step=1.0),
+                "예측값 f(x)": st.column_config.NumberColumn(disabled=True),
+                "오차 y-f(x)": st.column_config.NumberColumn(disabled=True),
+            },
+            key=f"{key_prefix}_editor_f1",
+        )
 
-        if _is_valid(df1):
-            mse1 = _mse_value(df1)
-            st.markdown(rf"$$E(1,-0.5) = \text{{MSE}}_1 = {_fmt_num(mse1)}$$")
+        # 학생 편집 결과를 세션에 저장 후, 다시 자동 계산값으로 덮어씀(예측/오차는 항상 최신)
+        st.session_state[ss_f1] = _recompute_table(df1_edit, f1)
+
+        st.markdown(r"### $$\text{MSE 식(숫자 대입 형태)}$$")
+        st.markdown(_latex_mse_substitution(st.session_state[ss_f1]))
+
+        if _is_valid_for_mse(st.session_state[ss_f1]):
+            mse1 = _mse_value(st.session_state[ss_f1])
+            st.markdown(rf"$$E(1,-0.5)=\text{{MSE}}_1={_fmt_num(mse1)}$$")
         else:
-            st.info("x, y에 빈칸(또는 숫자가 아닌 값)이 있으면 계산할 수 없습니다.")
+            st.info(r"$$x,\;y \text{ 를 모두 입력하면 } E(1,-0.5)\text{ 를 계산할 수 있습니다.}$$")
 
+    # -----------------------------
+    # f2 테이블
+    # -----------------------------
     with right:
-        st.markdown(r"## \(f_2(x)=0.5x+0.5\)")
-        st.dataframe(df2, use_container_width=True, hide_index=True)
+        st.markdown(r"## $$f_2(x)=0.5x+0.5$$")
 
-        st.markdown("### (2) MSE 식 (예측값 대입 형태)")
-        st.markdown(_latex_mse_substitution(df2))
+        df2_current = _recompute_table(st.session_state[ss_f2], f2)
 
-        st.markdown("### 제곱오차까지 계산해 대입한 형태")
-        st.markdown(_latex_mse_numbers(df2))
+        df2_edit = st.data_editor(
+            df2_current,
+            use_container_width=True,
+            hide_index=True,
+            num_rows="fixed",
+            column_config={
+                "사례": st.column_config.TextColumn(disabled=True),
+                "입력값 x": st.column_config.NumberColumn(step=1.0),
+                "출력값 y": st.column_config.NumberColumn(step=1.0),
+                "예측값 f(x)": st.column_config.NumberColumn(disabled=True),
+                "오차 y-f(x)": st.column_config.NumberColumn(disabled=True),
+            },
+            key=f"{key_prefix}_editor_f2",
+        )
 
-        if _is_valid(df2):
-            mse2 = _mse_value(df2)
-            st.markdown(rf"$$E(0.5,0.5) = \text{{MSE}}_2 = {_fmt_num(mse2)}$$")
+        st.session_state[ss_f2] = _recompute_table(df2_edit, f2)
+
+        st.markdown(r"### $$\text{MSE 식(숫자 대입 형태)}$$")
+        st.markdown(_latex_mse_substitution(st.session_state[ss_f2]))
+
+        if _is_valid_for_mse(st.session_state[ss_f2]):
+            mse2 = _mse_value(st.session_state[ss_f2])
+            st.markdown(rf"$$E(0.5,0.5)=\text{{MSE}}_2={_fmt_num(mse2)}$$")
         else:
-            st.info("x, y에 빈칸(또는 숫자가 아닌 값)이 있으면 계산할 수 없습니다.")
+            st.info(r"$$x,\;y \text{ 를 모두 입력하면 } E(0.5,0.5)\text{ 를 계산할 수 있습니다.}$$")
 
+    # -----------------------------
+    # 비교 결론
+    # -----------------------------
     st.divider()
-    st.markdown("### (3) 어떤 함수가 자료의 경향성을 더 잘 나타내는가?")
+    st.markdown(r"## $$(3)\;\;\text{어떤 함수가 더 적절한가?}$$")
 
-    if _is_valid(df1) and _is_valid(df2):
+    df1 = st.session_state[ss_f1]
+    df2 = st.session_state[ss_f2]
+
+    if _is_valid_for_mse(df1) and _is_valid_for_mse(df2):
         mse1 = _mse_value(df1)
         mse2 = _mse_value(df2)
 
         if abs(mse1 - mse2) < 1e-12:
-            st.success(r"두 예측함수의 평균제곱오차가 같습니다. (동일한 적합도)")
+            st.success(r"$$\text{두 예측함수의 평균제곱오차가 같습니다.}$$")
         elif mse1 < mse2:
-            st.success(rf"\(\text{{MSE}}_1 < \text{{MSE}}_2\) 이므로 \(f_1\)이 더 적절합니다.")
+            st.success(r"$$\text{MSE}_1<\text{MSE}_2 \;\Rightarrow\; f_1 \text{ 이 더 적절합니다.}$$")
         else:
-            st.success(rf"\(\text{{MSE}}_2 < \text{{MSE}}_1\) 이므로 \(f_2\)가 더 적절합니다.")
+            st.success(r"$$\text{MSE}_2<\text{MSE}_1 \;\Rightarrow\; f_2 \text{ 가 더 적절합니다.}$$")
     else:
-        st.warning("먼저 P, Q, R의 x와 y를 모두 숫자로 입력해 주세요.")
+        st.warning(r"$$f_1,\;f_2 \text{ 표의 } x,\;y \text{ 를 모두 입력하면 비교가 가능합니다.}$$")
 
 
 if __name__ == "__main__":
-    # 단독 실행(디버그)용
     try:
         st.set_page_config(page_title=TITLE, layout="wide")
     except Exception:
