@@ -114,24 +114,24 @@ def render(show_title: bool = True, key_prefix: str = "ai_ce") -> None:
 """
         )
 
-    with st.expander("상황", expanded=True):
+    with st.expander("문제", expanded=True):
         st.markdown(
             rf"""
-어린이 보호 구역 표지판을 인식하는 인공지능은
-각 장면(번호: $i$)에서 표지판의 형태, 색상, 주변 환경 등을 수치화하여 하나의 입력값($x_i$)으로 변환한다.
-그리고 다음 **예측함수**를 사용하여 각 장면이 “어린이 보호 구역일 확률"을 0과 1 사이의 값으로 제시한다.
+어린이 보호 구역 표지판을 인식하는 인공지능은\n\n
+각 장면(번호: $i$)에서 표지판의 형태, 색상, 주변 환경 등을 수치화하여 하나의 입력값($x_i$)으로 변환한다.\n\n
+그리고 다음 **예측함수**를 사용하여 각 장면이 “어린이 보호 구역일 확률"을 0과 1 사이의 값으로 제시한다.\n\n
 예측함수(시그모이드): 
 
 $$
 f(x)=\frac{{1}}{{1+e^{{-(ax+b)}}}} (a={A}, b={B})
 $$
-여기서 $y=1$는 어린이 보호 구역, $y=0$은 일반 도로를 의미한다.
-다음 5개의 장면에 대해 실제 정답($y_i$)과 입력값($x_i$)은 아래 표와 같다.
+여기서 $y=1$는 어린이 보호 구역, $y=0$은 일반 도로를 의미한다.\n\n
+다음 5개 장면에 대해 입력값($x_i$)과 실제 정답($y_i$)은 아래 표와 같다.
 """
         )
 
-    # 데이터(정답) 제시 표
-    st.markdown("### 주어진 데이터")
+    # 인공지능의 장면 분석 데이터
+    st.markdown("### 인공지능의 장면 분석 데이터")
     st.dataframe(_true_df(), use_container_width=True, hide_index=True)
 
     # 손실함수 제시
@@ -139,13 +139,16 @@ $$
         r"""
 교차 엔트로피 손실함수는 다음과 같이 계산한다.
 
+st.markdown(r"""
 $$
-L_i = -\left[y_i\ln(f(x_i))+(1-y_i)\ln(1-f(x_i))\right]
+E(a,b)=-\frac{1}{n}\sum_{i=1}^{n}\left[y_i \ln f(x_i)+(1-y_i)\ln\left(1-f(x_i)\right)\right]
 $$
 
 $$
-E(a,b)=\frac{1}{n}\sum_{i=1}^{n} L_i
+=-\frac{1}{n}\sum_{i=1}^{n}\ln\left(1-|e_i|\right)
 $$
+
+""")
 """
     )
 
@@ -163,7 +166,7 @@ $$
         hide_index=True,
         num_rows="fixed",
         column_config={
-            "장면(i)": st.column_config.NumberColumn(disabled=True),
+            "장면(번호:i)": st.column_config.NumberColumn(disabled=True),
             "입력값 x_i": st.column_config.NumberColumn(disabled=True),
             "실제 정답 y_i": st.column_config.NumberColumn(disabled=True),
             "AI 예측값 f(x_i)": st.column_config.NumberColumn(disabled=True),
