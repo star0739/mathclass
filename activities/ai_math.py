@@ -14,17 +14,12 @@ except Exception:
     pass
 
 # --------------------------------------------------
-# 1. 현재 폴더 기준으로 활동 모듈을 "파일 경로로" 로드
-#    (sys.path / 패키지 import 이슈를 회피하는 가장 안전한 방식)
+# 1. 현재 폴더 기준으로 활동 모듈 로드
 # --------------------------------------------------
 CURRENT_DIR = Path(__file__).resolve().parent
 
 
 def load_activity_module(py_filename: str, module_name: str):
-    """
-    CURRENT_DIR/py_filename 을 module_name 으로 로드해 반환.
-    예: load_activity_module("ai_mse.py", "ai_mse")
-    """
     path = CURRENT_DIR / py_filename
     if not path.exists():
         raise FileNotFoundError(f"활동 파일을 찾을 수 없습니다: {path}")
@@ -38,14 +33,38 @@ def load_activity_module(py_filename: str, module_name: str):
     return mod
 
 
-# ai_mse.py가 activities 폴더에 있다고 가정
-mse_activity = load_activity_module("ai_mse.py", "ai_mse")
+# --------------------------------------------------
+# 2. 활동 모듈 로드
+# --------------------------------------------------
 
-ACTIVITIES = [
-    mse_activity,
-]
+# 기존 활동 (있다면)
+try:
+    mse_activity = load_activity_module("ai_mse.py", "ai_mse")
+except Exception:
+    mse_activity = None
+
+# 새 활동
+try:
+    ce_activity = load_activity_module("ai_cross_entropy.py", "ai_cross_entropy")
+except Exception:
+    ce_activity = None
 
 
+# --------------------------------------------------
+# 3. 활동 등록
+# --------------------------------------------------
+ACTIVITIES = []
+
+if mse_activity is not None:
+    ACTIVITIES.append(mse_activity)
+
+if ce_activity is not None:
+    ACTIVITIES.append(ce_activity)
+
+
+# --------------------------------------------------
+# 4. 렌더링
+# --------------------------------------------------
 def _render_activity(module) -> None:
     key_prefix = getattr(module, "__name__", "activity")
     try:
@@ -58,7 +77,7 @@ def main() -> None:
     st.title("인공지능 수학 탐구활동")
 
     if not ACTIVITIES:
-        st.info("연결된 탐구활동이 아직 없습니다.")
+        st.warning("연결된 탐구활동이 없습니다.")
         return
 
     tab_labels = [getattr(m, "TITLE", getattr(m, "__name__", "activity")) for m in ACTIVITIES]
