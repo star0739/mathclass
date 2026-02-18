@@ -1,7 +1,7 @@
 # activities/ai_mse.py
 from __future__ import annotations
-from fractions import Fraction
 
+from fractions import Fraction
 import numpy as np
 import pandas as pd
 import streamlit as st
@@ -10,7 +10,19 @@ TITLE = "평균제곱오차(MSE)로 예측함수 비교"
 
 
 # -----------------------------
-# 예측함수
+# 데이터(고정)
+# -----------------------------
+CASES = ["P", "Q", "R"]
+X_TRUE = [1, 2, 3]
+Y_TRUE = [1, 2, 2]
+
+
+def _true_df() -> pd.DataFrame:
+    return pd.DataFrame({"사례": CASES, "입력값 x": X_TRUE, "출력값 y": Y_TRUE})
+
+
+# -----------------------------
+# 예측함수(정답용)
 # -----------------------------
 def f1(x: float) -> float:
     return x - 0.5
@@ -21,106 +33,103 @@ def f2(x: float) -> float:
 
 
 # -----------------------------
-# 유틸
+# 파싱/표현 유틸
 # -----------------------------
-def _to_float(v) -> float:
-    try:
-        if v is None or v == "":
-            return np.nan
-        return float(v)
-    except Exception:
-        return np.nan
+def _parse_fraction(s) -> Fraction | None:
+    """
+    학생 입력을 Fraction으로 파싱.
+    - 1/4, -3/2 같은 분수
+    - 0.25 같은 소수도 허용
+    - 빈칸/파싱 실패는 None
+    """
+    if s is None:
+        return None
+    if isinstance(s, (int, np.integer)):
+        return Fraction(int(s), 1)
+    if isinstance(s, (float, np.floating)):
+        if np.isnan(s):
+            return None
+        return Fraction(str(float(s)))
+    if isinstance(s, str):
+        t = s.strip()
+        if t == "":
+            return None
+        try:
+            return Fraction(t)
+        except Exception:
+            try:
+                return Fraction(str(float(t)))
+            except Exception:
+                return None
+    return None
 
 
-def _fmt_num(v: float) -> str:
-    """LaTeX에 넣기 좋은 숫자 문자열."""
-    if v is None or (isinstance(v, float) and np.isnan(v)):
-        return r"\text{?}"
-    v2 = float(np.round(float(v), 10))
-    if abs(v2 - int(v2)) < 1e-10:
-        return str(int(v2))
-    s = f"{v2:.6f}".rstrip("0").rstrip(".")
-    return "0" if s in ("-0", "-0.0") else s
+def _frac_latex(fr: Fraction) -> str:
+    if fr.denominator == 1:
+        return str(fr.numerator)
+    return rf"\frac{{{fr.numerator}}}{{{fr.denominator}}}"
 
 
-def _latex_paren(v: float) -> str:
-    """음수일 때 ( -0.5 )처럼 괄호로 감싸기."""
-    s = _fmt_num(v)
-    if s.startswith("-"):
-        return rf"\left({s}\right)"
-    return s
+def _num_to_frac_exact(x: float) -> Fraction:
+    """0.5 같은 값을 정확 분수로(정답용)."""
+    return Fraction(str(float(x)))
+
+
+def _mse_from_errors(errors: list[Fraction]) -> Fraction:
+    n = len(errors)
+    s = Fraction(0, 1)
+    for e in errors:
+        s += e * e
+    return s / n
 
 
 # -----------------------------
-# 기본 입력(빈칸)
+# 정답 계산(분수)
 # -----------------------------
-def _default_inputs_blank() -> pd.DataFrame:
-    # 학생이 문제를 보고 스스로 채우도록 빈칸(np.nan)
+def _answer_for_model(f) -> dict:
+    # 예측값(분수)
+    yhat = [_num_to_frac_exact(f(x)) for x in X_TRUE]
+    # 오차(분수) = y - yhat
+    err = [Fraction(y, 1) - yh for y, yh in zip(Y_TRUE, yhat)]
+    # mse
+    mse = _mse_from_errors(err)
+    return {"yhat": yhat, "err": err, "mse": mse}
+
+
+ANS1 = _answer_for_model(f1)
+ANS2 = _answer_for_model(f2)
+
+
+# -----------------------------
+# 학생 입력 표(모델별)
+# -----------------------------
+def _blank_student_table() -> pd.DataFrame:
     return pd.DataFrame(
         {
-            "사례": ["P", "Q", "R"],
-            "입력값 x": [np.nan, np.nan, np.nan],
-            "출력값 y": [np.nan, np.nan, np.nan],
+            "사례": CASES,
+            "입력값 x": X_TRUE,
+            "출력값 y": Y_TRUE,
+            "예측값 f(x)": ["", "", ""],   # 학생 입력(문자열/분수)
+            "오차 y-f(x)": ["", "", ""],   # 학생 입력(문자열/분수)
         }
     )
 
 
-# -----------------------------
-# 계산/검증
-# -----------------------------
-def _compute_view(df_in: pd.DataFrame, f) -> pd.DataFrame:
-    df = df_in.copy()
-
-    # 컬럼 보정(혹시 깨졌을 때)
-    for col in ["사례", "입력값 x", "출력값 y"]:
-        if col not in df.columns:
-            df[col] = np.nan
-
-    df["입력값 x"] = df["입력값 x"].map(_to_float)
-    df["출력값 y"] = df["출력값 y"].map(_to_float)
-
-    df["예측값 f(x)"] = df["입력값 x"].map(lambda x: f(x) if not np.isnan(x) else np.nan)
-    df["오차 y-f(x)"] = df["출력값 y"] - df["예측값 f(x)"]
-
-    return df[["사례", "입력값 x", "출력값 y", "예측값 f(x)", "오차 y-f(x)"]]
+def _table_to_student_fracs(df: pd.DataFrame) -> tuple[list[Fraction | None], list[Fraction | None]]:
+    """표에서 예측값/오차를 Fraction 리스트로 변환."""
+    yhat_s = [_parse_fraction(v) for v in df["예측값 f(x)"].tolist()]
+    err_s = [_parse_fraction(v) for v in df["오차 y-f(x)"].tolist()]
+    return yhat_s, err_s
 
 
-def _valid_for_mse(df_view: pd.DataFrame) -> bool:
-    need = ["입력값 x", "출력값 y", "예측값 f(x)", "오차 y-f(x)"]
-    return not df_view[need].isna().any().any()
+def _all_filled(vals: list[Fraction | None]) -> bool:
+    return all(v is not None for v in vals)
 
 
-def _mse_fraction(df_view: pd.DataFrame) -> Fraction:
-    """
-    MSE를 분수 형태(Fraction)로 계산.
-    """
-    errors = df_view["오차 y-f(x)"].to_numpy()
-
-    # 오차^2를 분수로 계산
-    sq_sum = Fraction(0, 1)
-    for e in errors:
-        if np.isnan(e):
-            return None
-        fe = Fraction(str(e))  # 소수 -> 분수 변환
-        sq_sum += fe * fe
-
-    n = len(errors)
-    return sq_sum / n
-
-
-
-# -----------------------------
-# MSE 식(숫자 대입 형태)
-# -----------------------------
-def _latex_mse_substitution(df_view: pd.DataFrame) -> str:
-    n = len(df_view)
-    terms = []
-    for _, r in df_view.iterrows():
-        y = r["출력값 y"]
-        yhat = r["예측값 f(x)"]
-        terms.append(rf"\left({_fmt_num(y)} - {_latex_paren(yhat)}\right)^2")
-    joined = " + ".join(terms)
-    return rf"\text{{MSE}}=\frac{{1}}{{{n}}}\left\{{{joined}\right\}}"
+def _check_list_eq(student: list[Fraction | None], answer: list[Fraction]) -> bool:
+    if not _all_filled(student):
+        return False
+    return all(s == a for s, a in zip(student, answer))
 
 
 # -----------------------------
@@ -130,68 +139,72 @@ def render(show_title: bool = True, key_prefix: str = "ai_mse") -> None:
     if show_title:
         st.subheader(TITLE)
 
-    # 공통 입력표(한 번 입력)
-    ss_in = f"{key_prefix}_inputs_shared"
-    if ss_in not in st.session_state:
-        st.session_state[ss_in] = _default_inputs_blank()
+    # 세션 상태
+    ss_t1 = f"{key_prefix}_tbl_f1"
+    ss_t2 = f"{key_prefix}_tbl_f2"
+    ss_mse1 = f"{key_prefix}_mse1"
+    ss_mse2 = f"{key_prefix}_mse2"
+    ss_choice = f"{key_prefix}_choice"
 
-    # -----------------------------
-    # 문제(글+수식 혼합: calculus 스타일)
-    # -----------------------------
+    if ss_t1 not in st.session_state:
+        st.session_state[ss_t1] = _blank_student_table()
+    if ss_t2 not in st.session_state:
+        st.session_state[ss_t2] = _blank_student_table()
+    if ss_mse1 not in st.session_state:
+        st.session_state[ss_mse1] = ""
+    if ss_mse2 not in st.session_state:
+        st.session_state[ss_mse2] = ""
+    if ss_choice not in st.session_state:
+        st.session_state[ss_choice] = "f_1"
+
+    with st.sidebar:
+        if st.button("전체 초기화", key=f"{key_prefix}_reset_all"):
+            st.session_state[ss_t1] = _blank_student_table()
+            st.session_state[ss_t2] = _blank_student_table()
+            st.session_state[ss_mse1] = ""
+            st.session_state[ss_mse2] = ""
+            st.session_state[ss_choice] = "f_1"
+            st.rerun()
+
+        st.markdown(
+            r"""
+- 데이터는 이미 주어져 있습니다: $P(1,1),Q(2,2),R(3,2)$  
+- 각 모델에서 **예측값**과 **오차**를 직접 계산해 입력하세요.  
+- 분수 입력 예: `1/2`, `-3/2`  (소수 입력도 가능)
+"""
+        )
+
     with st.expander("문제", expanded=True):
         st.markdown(
             r"""
-어느 대나무 세 그루가 각각 $x$일 동안 자라는 길이 $y\text{m}$를 조사한 결과의 순서쌍 $(x,y)$가 각각 다음과 같다.
+관측 데이터는 다음과 같다.
 
 $$
 P(1,1),\quad Q(2,2),\quad R(3,2)
 $$
 
-이 대나무가 어떤 기간 $x$에 대하여 자란 길이 $y$를 예측하는 두 함수가 각각 다음과 같다고 하자.
+두 예측함수는 다음과 같다.
 
 $$
 f_1(x)=x-0.5,\qquad f_2(x)=0.5x+0.5
 $$
 
-1) 예측함수 $f_1(x)$에 대한 평균제곱오차 $E(1,-0.5)$의 값을 구하시오.  
-2) 예측함수 $f_2(x)$에 대한 평균제곱오차 $E(0.5,0.5)$의 값을 구하시오.  
-3) 두 예측함수 $f_1, f_2$ 중에서 자료의 경향성을 더 잘 나타내는 것을 고르시오.
+(1) $f_1$에 대한 평균제곱오차 $E(1,-0.5)$를 구하시오.  
+(2) $f_2$에 대한 평균제곱오차 $E(0.5,0.5)$를 구하시오.  
+(3) $f_1, f_2$ 중 자료의 경향성을 더 잘 나타내는 것을 고르시오.
 """
         )
 
-    with st.sidebar:
-        if st.button("입력표 초기화", key=f"{key_prefix}_reset_shared"):
-            st.session_state[ss_in] = _default_inputs_blank()
-            st.rerun()
+    # 공통 안내: MSE 형태(빈칸 형태)
+    st.markdown(
+        r"""
+평균제곱오차는 다음과 같이 계산한다.
 
-        st.markdown(
-            r"""
-- 아래 표에서 **입력값 $x$**, **출력값 $y$**를 한 번만 입력하세요.  
-- 입력값을 바꾸면 $f_1, f_2$의 예측값/오차, MSE가 자동으로 갱신됩니다.
+$$
+\text{MSE}=\frac{1}{3}\left\{(y_1-\hat y_1)^2+(y_2-\hat y_2)^2+(y_3-\hat y_3)^2\right\}
+$$
 """
-        )
-
-    # -----------------------------
-    # 1) 공통 입력
-    # -----------------------------
-    st.markdown("### 1) 데이터 입력")
-    df_in = st.data_editor(
-        st.session_state[ss_in],
-        use_container_width=True,
-        hide_index=True,
-        num_rows="fixed",
-        column_config={
-            "사례": st.column_config.TextColumn(disabled=True),
-            "입력값 x": st.column_config.NumberColumn(step=1.0),
-            "출력값 y": st.column_config.NumberColumn(step=1.0),
-        },
-        key=f"{key_prefix}_editor_shared",
     )
-    st.session_state[ss_in] = df_in
-
-    # 공통 입력 -> 두 모델 계산
-    df_view1 = _compute_view(df_in, f1)
-    df_view2 = _compute_view(df_in, f2)
 
     left, right = st.columns([1, 1], gap="large")
 
@@ -199,80 +212,137 @@ $$
     # f1
     # -----------------------------
     with left:
-        st.markdown(r"### $f_1(x)=x-0.5$")
-        st.dataframe(df_view1, use_container_width=True, hide_index=True)
+        st.markdown(r"## $f_1(x)=x-0.5$")
 
-        st.markdown("### $f_1$의 평균제곱오차(MSE)")
-        st.markdown(f"$$\n{_latex_mse_substitution(df_view1)}\n$$")
+        st.markdown("### 표를 완성하시오 (예측값과 오차를 직접 계산)")
+        df1 = st.data_editor(
+            st.session_state[ss_t1],
+            use_container_width=True,
+            hide_index=True,
+            num_rows="fixed",
+            column_config={
+                "사례": st.column_config.TextColumn(disabled=True),
+                "입력값 x": st.column_config.NumberColumn(disabled=True),
+                "출력값 y": st.column_config.NumberColumn(disabled=True),
+                "예측값 f(x)": st.column_config.TextColumn(),
+                "오차 y-f(x)": st.column_config.TextColumn(),
+            },
+            key=f"{key_prefix}_editor_f1",
+        )
+        st.session_state[ss_t1] = df1
 
-        if _valid_for_mse(df_view1):
-            mse1 = _mse_fraction(df_view1)
-            if mse1 is not None:
-                st.markdown(f"$$E(1,-0.5)=\\frac{{{mse1.numerator}}}{{{mse1.denominator}}}$$")
-        else:
-            st.info("P, Q, R의 $x$와 $y$를 모두 입력하면 $E(1,-0.5)$를 계산할 수 있습니다.")
+        # 학생 입력 -> 분수
+        yhat_s, err_s = _table_to_student_fracs(df1)
+
+        # 학생이 입력한 오차로 "식 형태"를 보여줌(완성 느낌)
+        eP, eQ, eR = [(_frac_latex(v) if v is not None else r"\square") for v in err_s]
+        st.markdown("학생이 입력한 오차로 MSE 식을 채우면:")
+        st.markdown(
+            rf"""
+$$
+\text{{MSE}}=\frac{{1}}{{3}}\left\{\left({eP}\right)^2+\left({eQ}\right)^2+\left({eR}\right)^2\right\}
+$$
+"""
+        )
+
+        st.markdown("### 최종 MSE를 입력하시오")
+        st.text_input("E(1,-0.5) =", key=ss_mse1, placeholder="예: 1/4 또는 0.25")
+
+        if st.button("f₁ 정답 확인", key=f"{key_prefix}_check_f1"):
+            ok_yhat = _check_list_eq(yhat_s, ANS1["yhat"])
+            ok_err = _check_list_eq(err_s, ANS1["err"])
+            mse_in = _parse_fraction(st.session_state[ss_mse1])
+            ok_mse = (mse_in is not None) and (mse_in == ANS1["mse"])
+
+            if ok_yhat and ok_err and ok_mse:
+                st.success("정답입니다!")
+            else:
+                st.error("오답입니다. 다시 생각해보세요.")
 
     # -----------------------------
     # f2
     # -----------------------------
     with right:
-        st.markdown(r"### $f_2(x)=0.5x+0.5$")
-        st.dataframe(df_view2, use_container_width=True, hide_index=True)
+        st.markdown(r"## $f_2(x)=0.5x+0.5$")
 
-        st.markdown("### $f_2$의 평균제곱오차(MSE)")
-        st.markdown(f"$$\n{_latex_mse_substitution(df_view2)}\n$$")
-
-        if _valid_for_mse(df_view2):
-            mse2 = _mse_fraction(df_view2)
-            st.markdown(f"$$E(0.5,0.5)=\\frac{{{mse2.numerator}}}{{{mse2.denominator}}}$$")
-        else:
-            st.info("P, Q, R의 $x$와 $y$를 모두 입력하면 $E(0.5,0.5)$를 계산할 수 있습니다.")
-
-    # -----------------------------
-    # 3) 비교
-    # -----------------------------
-        st.divider()
-        st.markdown("## 2) 어떤 함수가 더 적절한가?")
-
-        mse1_fr = _mse_fraction(df_view1)
-        mse2_fr = _mse_fraction(df_view2)
-
-        if mse1_fr is None or mse2_fr is None:
-            st.warning("P, Q, R의 $x$와 $y$를 모두 입력하면 선택 문제를 풀 수 있습니다.")
-        else:
-            # 정답 결정(더 작은 MSE)
-            if mse1_fr < mse2_fr:
-                correct = "f_1"
-                correct_label = r"$f_1$"
-            elif mse2_fr < mse1_fr:
-                correct = "f_2"
-                correct_label = r"$f_2$"
-            else:
-                correct = "same"
-                correct_label = r"$f_1, f_2$ (동일)"
-
-            st.markdown("다음 중 평균제곱오차(MSE)가 더 작아 자료의 경향성을 더 잘 나타내는 함수를 고르시오.")
-        
-            choice = st.radio(
-                "선택",
-                options=["f_1", "f_2"],
-                format_func=lambda v: r"$f_1$" if v == "f_1" else r"$f_2$",
-                key=f"{key_prefix}_choice",
-                horizontal=True,
-            )
-        
-            # 제출 버튼(즉시 채점)
-            if st.button("정답 확인", key=f"{key_prefix}_check"):
-                if correct == "same":
-                    st.info("두 함수의 MSE가 같아서 어느 쪽을 골라도 동일한 적합도입니다.")
-                elif choice == correct:
-                    st.success("정답입니다!")
-                else:
-                    st.error("오답입니다.")
-
-        # 근거(분수 형태)도 함께 제시
-        st.markdown("근거(MSE):")
-        st.markdown(
-            rf"$$E(1,-0.5) = {_latex_frac(mse1_fr)},\qquad E(0.5,0.5) = {_latex_frac(mse2_fr)}$$"
+        st.markdown("### 표를 완성하시오 (예측값과 오차를 직접 계산)")
+        df2 = st.data_editor(
+            st.session_state[ss_t2],
+            use_container_width=True,
+            hide_index=True,
+            num_rows="fixed",
+            column_config={
+                "사례": st.column_config.TextColumn(disabled=True),
+                "입력값 x": st.column_config.NumberColumn(disabled=True),
+                "출력값 y": st.column_config.NumberColumn(disabled=True),
+                "예측값 f(x)": st.column_config.TextColumn(),
+                "오차 y-f(x)": st.column_config.TextColumn(),
+            },
+            key=f"{key_prefix}_editor_f2",
         )
-        st.markdown(rf"따라서 정답은 {correct_label} 입니다.")
+        st.session_state[ss_t2] = df2
+
+        yhat_s, err_s = _table_to_student_fracs(df2)
+
+        eP, eQ, eR = [(_frac_latex(v) if v is not None else r"\square") for v in err_s]
+        st.markdown("학생이 입력한 오차로 MSE 식을 채우면:")
+        st.markdown(
+            rf"""
+$$
+\text{{MSE}}=\frac{{1}}{{3}}\left\{\left({eP}\right)^2+\left({eQ}\right)^2+\left({eR}\right)^2\right\}
+$$
+"""
+        )
+
+        st.markdown("### 최종 MSE를 입력하시오")
+        st.text_input("E(0.5,0.5) =", key=ss_mse2, placeholder="예: 5/6 또는 0.8333")
+
+        if st.button("f₂ 정답 확인", key=f"{key_prefix}_check_f2"):
+            ok_yhat = _check_list_eq(yhat_s, ANS2["yhat"])
+            ok_err = _check_list_eq(err_s, ANS2["err"])
+            mse_in = _parse_fraction(st.session_state[ss_mse2])
+            ok_mse = (mse_in is not None) and (mse_in == ANS2["mse"])
+
+            if ok_yhat and ok_err and ok_mse:
+                st.success("정답입니다!")
+            else:
+                st.error("오답입니다. 다시 생각해보세요.")
+
+    # -----------------------------
+    # (3) 선택형
+    # -----------------------------
+    st.divider()
+    st.markdown("## (3) 더 적절한 함수를 고르시오")
+
+    # 정답(더 작은 MSE)
+    if ANS1["mse"] < ANS2["mse"]:
+        correct = "f_1"
+    elif ANS2["mse"] < ANS1["mse"]:
+        correct = "f_2"
+    else:
+        correct = "same"
+
+    st.radio(
+        "선택",
+        options=["f_1", "f_2"],
+        format_func=lambda v: r"$f_1$" if v == "f_1" else r"$f_2$",
+        key=ss_choice,
+        horizontal=True,
+    )
+
+    if st.button("선택 정답 확인", key=f"{key_prefix}_check_choice"):
+        if correct == "same":
+            st.info("두 함수의 평균제곱오차가 같습니다.")
+        else:
+            if st.session_state[ss_choice] == correct:
+                st.success("정답입니다!")
+            else:
+                st.error("오답입니다. 다시 생각해보세요.")
+
+
+if __name__ == "__main__":
+    try:
+        st.set_page_config(page_title=TITLE, layout="wide")
+    except Exception:
+        pass
+    render(show_title=True, key_prefix="ai_mse_debug")
