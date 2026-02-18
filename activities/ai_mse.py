@@ -1,5 +1,6 @@
 # activities/ai_mse.py
 from __future__ import annotations
+from fractions import Fraction
 
 import numpy as np
 import pandas as pd
@@ -89,9 +90,23 @@ def _valid_for_mse(df_view: pd.DataFrame) -> bool:
     return not df_view[need].isna().any().any()
 
 
-def _mse_value(df_view: pd.DataFrame) -> float:
-    e = df_view["오차 y-f(x)"].to_numpy(dtype=float)
-    return float(np.mean(e**2))
+def _mse_fraction(df_view: pd.DataFrame) -> Fraction:
+    """
+    MSE를 분수 형태(Fraction)로 계산.
+    """
+    errors = df_view["오차 y-f(x)"].to_numpy()
+
+    # 오차^2를 분수로 계산
+    sq_sum = Fraction(0, 1)
+    for e in errors:
+        if np.isnan(e):
+            return None
+        fe = Fraction(str(e))  # 소수 -> 분수 변환
+        sq_sum += fe * fe
+
+    n = len(errors)
+    return sq_sum / n
+
 
 
 # -----------------------------
@@ -126,7 +141,7 @@ def render(show_title: bool = True, key_prefix: str = "ai_mse") -> None:
     with st.expander("문제", expanded=True):
         st.markdown(
             r"""
-어느 대나무 세 그루가 각각 $x$일 동안 자라는 길이 $y\text{ m}$를 조사한 결과의 순서쌍 $(x,y)$가 각각 다음과 같다.
+어느 대나무 세 그루가 각각 $x$일 동안 자라는 길이 $y\text{m}$를 조사한 결과의 순서쌍 $(x,y)$가 각각 다음과 같다.
 
 $$
 P(1,1),\quad Q(2,2),\quad R(3,2)
@@ -159,7 +174,7 @@ $$
     # -----------------------------
     # 1) 공통 입력
     # -----------------------------
-    st.markdown("### 1) 데이터 입력(공통)")
+    st.markdown("### 1) 데이터 입력")
     df_in = st.data_editor(
         st.session_state[ss_in],
         use_container_width=True,
@@ -184,15 +199,16 @@ $$
     # f1
     # -----------------------------
     with left:
-        st.markdown(r"## $f_1(x)=x-0.5$")
+        st.markdown(r"### $f_1(x)=x-0.5$")
         st.dataframe(df_view1, use_container_width=True, hide_index=True)
 
-        st.markdown("### 평균제곱오차(MSE) 식: 숫자 대입 형태")
+        st.markdown("### $f_1$의 평균제곱오차(MSE)")
         st.markdown(f"$$\n{_latex_mse_substitution(df_view1)}\n$$")
 
         if _valid_for_mse(df_view1):
-            mse1 = _mse_value(df_view1)
-            st.markdown(f"$$E(1,-0.5)=\\text{{MSE}}_1={_fmt_num(mse1)}$$")
+            mse1 = _mse_fraction(df_view1)
+            if mse1 is not None:
+                st.markdown(f"$$E(1,-0.5)=\\frac{{{mse1.numerator}}}{{{mse1.denominator}}}$$")
         else:
             st.info("P, Q, R의 $x$와 $y$를 모두 입력하면 $E(1,-0.5)$를 계산할 수 있습니다.")
 
@@ -200,15 +216,15 @@ $$
     # f2
     # -----------------------------
     with right:
-        st.markdown(r"## $f_2(x)=0.5x+0.5$")
+        st.markdown(r"### $f_2(x)=0.5x+0.5$")
         st.dataframe(df_view2, use_container_width=True, hide_index=True)
 
-        st.markdown("### 평균제곱오차(MSE) 식: 숫자 대입 형태")
+        st.markdown("### $f_2$의 평균제곱오차(MSE)")
         st.markdown(f"$$\n{_latex_mse_substitution(df_view2)}\n$$")
 
         if _valid_for_mse(df_view2):
-            mse2 = _mse_value(df_view2)
-            st.markdown(f"$$E(0.5,0.5)=\\text{{MSE}}_2={_fmt_num(mse2)}$$")
+            mse2 = _mse_fraction(df_view2)
+            st.markdown(f"$$E(0.5,0.5)=\\frac{{{mse2.numerator}}}{{{mse2.denominator}}}$$")
         else:
             st.info("P, Q, R의 $x$와 $y$를 모두 입력하면 $E(0.5,0.5)$를 계산할 수 있습니다.")
 
@@ -216,11 +232,11 @@ $$
     # 3) 비교
     # -----------------------------
     st.divider()
-    st.markdown("## 2) 어떤 함수가 더 적절한가?")
+    st.markdown("### 2) 어떤 함수가 더 적절한가?")
 
     if _valid_for_mse(df_view1) and _valid_for_mse(df_view2):
-        mse1 = _mse_value(df_view1)
-        mse2 = _mse_value(df_view2)
+        mse1 = _mse_fraction(df_view1)
+        mse2 = _mse_fraction(df_view2)
 
         if abs(mse1 - mse2) < 1e-12:
             st.success("두 함수의 평균제곱오차가 같습니다.")
