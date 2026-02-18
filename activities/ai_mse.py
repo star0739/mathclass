@@ -184,7 +184,7 @@ $$
 """
     )
 
-    st.markdown()
+    st.markdown("")
     
     left, right = st.columns([1, 1], gap="large")
 
