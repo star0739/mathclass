@@ -137,18 +137,17 @@ $$
     # 손실함수 제시
     st.markdown(
         r"""
-교차 엔트로피 손실함수는 다음과 같이 계산한다.
+    교차 엔트로피 손실함수는 다음과 같이 계산한다.
 
-$$
-E(a,b)=-\frac{1}{n}\sum_{i=1}^{n}\left[y_i \ln f(x_i)+(1-y_i)\ln\left(1-f(x_i)\right)\right]
-$$
+    $$
+    E(a,b)=-\frac{1}{n}\sum_{i=1}^{n}\left[y_i \ln f(x_i)+(1-y_i)\ln\left(1-f(x_i)\right)\right]
+    $$
 
-$$
-=-\frac{1}{n}\sum_{i=1}^{n}\ln\left(1-|e_i|\right)
-$$
+    $$
+    =-\frac{1}{n}\sum_{i=1}^{n}\ln\left(1-|e_i|\right)
+    $$
 
-""")
-"""
+    """
     )
 
     st.markdown("### 활동 1: 표를 완성하시오")
