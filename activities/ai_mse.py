@@ -117,7 +117,7 @@ def render(show_title: bool = True, key_prefix: str = "ai_mse") -> None:
     with st.expander("문제", expanded=True):
         st.markdown(
             r"""
-어느 대나무 세 그루가 각각 $x$일 동안 자라는 길이 $y\text{ m}$를 조사한 결과의 순서쌍 $(x,y)$가 각각 다음과 같다.
+어느 대나무 세 그루가 각각 $$x$$일 동안 자라는 길이 $$y\text{ m}$$를 조사한 결과의 순서쌍 $(x,y)$가 각각 다음과 같다.
 
 $$
 P(1,1),\quad Q(2,2),\quad R(3,2)
