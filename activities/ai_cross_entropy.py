@@ -288,7 +288,7 @@ $$
     )
 
     st.radio(
-        "",
+        "집중 학습 데이터 선택",
         options=["boundary", "easy"],
         format_func=lambda v: "판단이 모호하거나 오답을 냈던 데이터에 집중하기" if v == "boundary" else "이미 정답을 잘 맞히고 있는 데이터에 집중하기",
         key=ss_choice_focus,
