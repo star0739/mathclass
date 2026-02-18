@@ -156,30 +156,30 @@ def render(show_title: bool = True, key_prefix: str = "ai_mse") -> None:
     with st.expander("문제", expanded=True):
         st.markdown(
             r"""
-관측 데이터는 다음과 같다.
+어느 대나무 세 그루가 각각 $x$일 동안 자라는 길이 $y\text{ m}$를 조사한 결과의 순서쌍 $(x,y)$가 각각 다음과 같다.
 
 $$
 P(1,1),\quad Q(2,2),\quad R(3,2)
 $$
 
-두 예측함수는 다음과 같다.
+이 대나무가 어떤 기간 $x$에 대하여 자란 길이 $y$를 예측하는 두 함수가 각각 다음과 같다고 하자.
 
 $$
 f_1(x)=x-0.5,\qquad f_2(x)=0.5x+0.5
 $$
 
-(1) $f_1$에 대한 평균제곱오차 $E(1,-0.5)$를 구하시오.  
-(2) $f_2$에 대한 평균제곱오차 $E(0.5,0.5)$를 구하시오.  
-(3) $f_1, f_2$ 중 자료의 경향성을 더 잘 나타내는 것을 고르시오.
+1) 예측함수 $f_1(x)$에 대한 평균제곱오차 $E(1,-0.5)$의 값을 구하시오.  
+2) 예측함수 $f_2(x)$에 대한 평균제곱오차 $E(0.5,0.5)$의 값을 구하시오.  
+3) 두 예측함수 $f_1, f_2$ 중에서 자료의 경향성을 더 잘 나타내는 것을 고르시오.
 """
         )
 
     st.markdown(
         r"""
-평균제곱오차는 다음과 같이 계산한다.
+예측함수 $f(x)=ax+b$에 대한 평균제곱오차 $E(a,b)$는 다음과 같이 계산한다.
 
 $$
-\text{MSE}=\frac{1}{3}\left\{(y_1-\hat y_1)^2+(y_2-\hat y_2)^2+(y_3-\hat y_3)^2\right\}
+\text{MSE}=\frac{1}{n}\left\{(y_1-\hat{f}(x_1))^2+(y_2-\hat{f}(x_2))^2+\cdots+(y_n-\hat{f}(x_n))^2\right\}
 $$
 """
     )
@@ -188,8 +188,7 @@ $$
 
     # -------- f1 --------
     with left:
-        st.markdown(r"## $f_1(x)=x-0.5$")
-        st.markdown("### 표를 완성하시오 (예측값과 오차를 직접 계산)")
+        st.markdown(r"### $f_1(x)=x-0.5$")
 
         df1 = st.data_editor(
             st.session_state[ss_t1],
@@ -212,7 +211,7 @@ $$
         for v in err_s:
             boxes.append(_frac_latex(v) if v is not None else r"\square")
 
-        st.markdown("학생이 입력한 오차로 MSE 식을 채우면:")
+        st.markdown("입력한 오차로 MSE 식을 채우면:")
         st.markdown(
             r"$$\text{MSE}=\frac{1}{3}\left\{\left("
             + boxes[0]
@@ -223,7 +222,6 @@ $$
             + r"\right)^2\right\}$$"
         )
 
-        st.markdown("### 최종 MSE를 입력하시오")
         st.text_input("E(1,-0.5) =", key=ss_mse1, placeholder="예: 1/4 또는 0.25")
 
         if st.button("f₁ 정답 확인", key=f"{key_prefix}_check_f1"):
