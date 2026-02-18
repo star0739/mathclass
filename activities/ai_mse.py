@@ -202,23 +202,6 @@ with right:
     st.divider()
     st.markdown("## 3) 어떤 함수가 더 적절한가?")
 
-    df_view1 = _compute_view(st.session_state[ss_in1], f1)
-    df_view2 = _compute_view(st.session_state[ss_in2], f2)
-
-    if _valid_for_mse(df_view1) and _valid_for_mse(df_view2):
-        mse1 = _mse_value(df_view1)
-        mse2 = _mse_value(df_view2)
-
-        if abs(mse1 - mse2) < 1e-12:
-            st.success("두 함수의 평균제곱오차가 같습니다.")
-        elif mse1 < mse2:
-            st.success("평균제곱오차가 더 작은 $f_1$이 자료의 경향성을 더 잘 나타냅니다.")
-        else:
-            st.success("평균제곱오차가 더 작은 $f_2$가 자료의 경향성을 더 잘 나타냅니다.")
-    else:
-        st.warning("두 표 모두에서 P, Q, R의 $x$와 $y$를 입력하면 비교할 수 있습니다.")
-
-
 if __name__ == "__main__":
     try:
         st.set_page_config(page_title=TITLE, layout="wide")
