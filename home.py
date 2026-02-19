@@ -98,11 +98,27 @@ assessment_final = st.Page(
     icon="⭐",
 )
 
+
+ai_assessment_step1 = st.Page(
+    "assessment/ai_step1_structure.py",
+    title="1차시: 구조 관찰",
+    icon="1️⃣",
+)
+
+ai_assessment_step2 = st.Page(
+    "assessment/ai_step2_path.py",
+    title="2차시: 경로 탐구",
+    icon="2️⃣",
+)
+
+
+
 pages = {
     "Home": [home_page],
     "📖 교과 학습": [calculus_page, ai_math_page],
     "🪑 좌석 관리": [seat_page, finalseat_page],
     "✏️ 공공데이터 분석 수행": [assessment_step1, assessment_step2, assessment_step3, assessment_final],
+    "🤖 인공지능 수학 수행평가": [ai_assessment_step1, ai_assessment_step2],
     
 }
 
@@ -150,6 +166,16 @@ with st.sidebar:
     if st.button("최종: 보고서 작성", use_container_width=True, key="sb_final_report"):
         st.switch_page("assessment/final_report.py")
 
+
+    st.markdown("---")
+    st.subheader("📝 인공지능 수학: 경사하강법 수행")
+
+    if st.button("1차시: 구조 관찰", use_container_width=True, key="sb_ai_assess_1"):
+        st.switch_page("assessment/ai_step1_structure.py")
+
+    if st.button("2차시: 경로 탐구", use_container_width=True, key="sb_ai_assess_2"):
+        st.switch_page("assessment/ai_step2_path.py")
+    
 
     st.markdown("---")
     st.subheader("🪑 좌석 관리")
