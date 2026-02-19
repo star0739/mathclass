@@ -291,7 +291,7 @@ def append_step3_row(
 # ------------------------------------------------------------
 
 # --- AI 1차시 저장용 ---
-SHEET_NAME_AI_STEP1 = "인공지능_수행평가_1차시"
+SHEET_NAME_AI_STEP1 = "인공지능수학_수행평가_1차시"
 
 DEFAULT_AI_STEP1_HEADER: List[str] = [
     "timestamp",
@@ -359,7 +359,7 @@ def append_ai_step1_row(
 
 
 # --- AI 2차시 저장용 ---
-SHEET_NAME_AI_STEP2 = "인공지능_수행평가_2차시"
+SHEET_NAME_AI_STEP2 = "인공지능수학_수행평가_2차시"
 
 DEFAULT_AI_STEP2_HEADER: List[str] = [
     "timestamp",
