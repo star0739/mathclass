@@ -100,19 +100,6 @@ def render(show_title: bool = True, key_prefix: str = "ai_ce") -> None:
         ss_choice_focus = f"{key_prefix}_focus_choice"
         st.session_state[ss_choice_focus] = "boundary"
 
-    with st.sidebar:
-        if st.button("초기화", key=f"{key_prefix}_reset"):
-            st.session_state[ss_tbl] = _default_student_table()
-            st.session_state[ss_choice_focus] = "boundary"
-            st.rerun()
-
-        st.markdown(
-            r"""
-- **계산기 사용 가능** (자연로그 \(\ln\) 사용)
-- 입력은 소수로 해도 됩니다. (예: 0.73)
-- 정답 확인은 “맞/틀”만 표시됩니다.
-"""
-        )
 
     with st.expander("문제", expanded=True):
         st.markdown(
