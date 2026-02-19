@@ -284,3 +284,163 @@ def append_step3_row(
     ]
 
     ws.append_row(row, value_input_option="USER_ENTERED")
+
+
+# ------------------------------------------------------------
+# 인공지능수학 수행평가 저장용 (추가)
+# ------------------------------------------------------------
+
+# --- AI 1차시 저장용 ---
+SHEET_NAME_AI_STEP1 = "인공지능_수행평가_1차시"
+
+DEFAULT_AI_STEP1_HEADER: List[str] = [
+    "timestamp",
+    "student_id",
+    "alpha",
+    "beta",
+    "a0",
+    "b0",
+    "obs_shape",
+    "obs_sensitivity",
+    "obs_zigzag",
+]
+
+
+def ensure_ai_step1_header(ws) -> None:
+    values = ws.get_all_values()
+    if not values:
+        ws.append_row(DEFAULT_AI_STEP1_HEADER, value_input_option="USER_ENTERED")
+        return
+
+    first_row = values[0]
+    if len(first_row) == 0 or all((c.strip() == "" for c in first_row)):
+        ws.update("A1", [DEFAULT_AI_STEP1_HEADER])
+        return
+
+
+def append_ai_step1_row(
+    *,
+    student_id: str,
+    alpha: float,
+    beta: float,
+    a0: float,
+    b0: float,
+    obs_shape: str = "",
+    obs_sensitivity: str = "",
+    obs_zigzag: str = "",
+    sheet_name: str = SHEET_NAME_AI_STEP1,
+) -> None:
+    if not str(student_id).strip():
+        raise ValueError("student_id는 비어 있을 수 없습니다.")
+
+    ws = get_worksheet(sheet_name=sheet_name, worksheet_index=0)
+    ensure_ai_step1_header(ws)
+
+    # '='로 시작하면 구글시트가 수식으로 오해할 수 있어 텍스트로 고정
+    def _as_text(v: str) -> str:
+        v = (v or "").strip()
+        if v.startswith("="):
+            return "'" + v
+        return v
+
+    row = [
+        datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+        str(student_id).strip(),
+        float(alpha),
+        float(beta),
+        float(a0),
+        float(b0),
+        _as_text(obs_shape),
+        _as_text(obs_sensitivity),
+        _as_text(obs_zigzag),
+    ]
+
+    ws.append_row(row, value_input_option="USER_ENTERED")
+
+
+# --- AI 2차시 저장용 ---
+SHEET_NAME_AI_STEP2 = "인공지능_수행평가_2차시"
+
+DEFAULT_AI_STEP2_HEADER: List[str] = [
+    "timestamp",
+    "student_id",
+    "alpha",
+    "beta",
+    "start_a",
+    "start_b",
+    "step_size",
+    "direction_desc",
+    "direction_reason",
+    "result_reflection",
+    "final_a",
+    "final_b",
+    "steps_used",
+    "final_E",
+]
+
+
+def ensure_ai_step2_header(ws) -> None:
+    values = ws.get_all_values()
+    if not values:
+        ws.append_row(DEFAULT_AI_STEP2_HEADER, value_input_option="USER_ENTERED")
+        return
+
+    first_row = values[0]
+    if len(first_row) == 0 or all((c.strip() == "" for c in first_row)):
+        ws.update("A1", [DEFAULT_AI_STEP2_HEADER])
+        return
+
+
+def append_ai_step2_row(
+    *,
+    student_id: str,
+    alpha: float,
+    beta: float,
+    start_a: float,
+    start_b: float,
+    step_size: float,
+    direction_desc: str = "",
+    direction_reason: str = "",
+    result_reflection: str = "",
+    final_a: float | None = None,
+    final_b: float | None = None,
+    steps_used: int | None = None,
+    final_E: float | None = None,
+    sheet_name: str = SHEET_NAME_AI_STEP2,
+) -> None:
+    if not str(student_id).strip():
+        raise ValueError("student_id는 비어 있을 수 없습니다.")
+
+    ws = get_worksheet(sheet_name=sheet_name, worksheet_index=0)
+    ensure_ai_step2_header(ws)
+
+    def _as_text(v: str) -> str:
+        v = (v or "").strip()
+        if v.startswith("="):
+            return "'" + v
+        return v
+
+    def _as_num(v):
+        if v is None or v == "":
+            return ""
+        return float(v)
+
+    row = [
+        datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+        str(student_id).strip(),
+        float(alpha),
+        float(beta),
+        float(start_a),
+        float(start_b),
+        float(step_size),
+        _as_text(direction_desc),
+        _as_text(direction_reason),
+        _as_text(result_reflection),
+        _as_num(final_a),
+        _as_num(final_b),
+        "" if steps_used is None else int(steps_used),
+        _as_num(final_E),
+    ]
+
+    ws.append_row(row, value_input_option="USER_ENTERED")
+
