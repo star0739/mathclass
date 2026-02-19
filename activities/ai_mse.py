@@ -136,22 +136,6 @@ def render(show_title: bool = True, key_prefix: str = "ai_mse") -> None:
     if ss_choice not in st.session_state:
         st.session_state[ss_choice] = "f_1"
 
-    with st.sidebar:
-        if st.button("전체 초기화", key=f"{key_prefix}_reset_all"):
-            st.session_state[ss_t1] = _blank_student_table()
-            st.session_state[ss_t2] = _blank_student_table()
-            st.session_state[ss_mse1] = ""
-            st.session_state[ss_mse2] = ""
-            st.session_state[ss_choice] = "f_1"
-            st.rerun()
-
-        st.markdown(
-            r"""
-- 데이터는 이미 주어져 있습니다: $P(1,1),Q(2,2),R(3,2)$  
-- 각 모델에서 **예측값**과 **오차**를 직접 계산해 입력하세요.  
-- 분수 입력 예: `1/2`, `-3/2`  (소수 입력도 가능)
-"""
-        )
 
     with st.expander("문제", expanded=True):
         st.markdown(
