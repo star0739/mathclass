@@ -159,9 +159,9 @@ def main():
 
     param_val = st.slider(
         f"계수 선택 ({param_key})",
-        min_value=float(lo),
-        max_value=float(hi),
-        value=float(np.clip(default_val, lo, hi)),
+        min_value=int(lo),
+        max_value=int(hi),
+        value=int(round(default_val)),
         step=1,
     )
 
