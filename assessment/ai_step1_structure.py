@@ -19,7 +19,7 @@ from assessment.common import (
     render_save_status,
 )
 
-TITLE = r"인공지능수학 수행평가 (1차시) — 구조(손실 지형) 관찰"
+TITLE = r"1차시: 구조(손실 지형) 관찰"
 
 ALPHA = 10.0
 BETA = 1.0
@@ -111,17 +111,24 @@ def main():
 
     st.markdown(
         rf"""
-이번 시간은 손실함수의 구조를 **지형(landscape)** 으로 관찰합니다.
+손실함수의 그래프 $z=E(a,b)$는 하나의 곡면이며,
+
+이를 직관적으로 **손실 지형(loss landscape)**이라고 부릅니다.
+
+다음 손실 지형을 관찰하며 손실함수 값이 최소가 되는 지점과 그 방향적 특징을 분석해 봅시다.
+$$
+E(a,b) = \alpha a^2 + \beta b^2
+$$
 
 $$
-E(a,b) = {ALPHA:g}a^2 + {BETA:g}b^2
+\alpha = {ALPHA:g}, \quad \beta = {BETA:g}
 $$
 
 관찰 포인트:
-- 최소점의 위치
-- 대칭성
-- 방향에 따른 가파름(민감도)
-- 한 변수만 줄이는 이동에서 나타나는 경로의 특징
+- 전역 최소점(global minimum)의 위치
+- 좌표축에 대한 대칭성
+- 방향에 따른 기울기 크기(가파름)
+- 한 변수만 줄이는 이동(좌표축 방향 이동)에서 나타나는 경로의 특징
 """
     )
 
@@ -165,7 +172,7 @@ $$
 
         path = coord_descent_path(a0, b0, steps=COORD_STEPS, step_size=STEP_SIZE) if run_coord else None
 
-        tab1, tab2 = st.tabs(["2D 등고선(핵심)", "3D 손실곡면(형태)"])
+        tab1, tab2 = st.tabs(["2D 등고선", "3D 손실곡면"])
 
         with tab1:
             if PLOTLY_AVAILABLE:
@@ -266,29 +273,31 @@ $$
     # 하단(전체 폭): ③ 서술 + 백업 + 저장/이동 + 저장상태
     # -------------------------
     st.divider()
-    st.subheader("③ 관찰 기록(서술)")
+    st.subheader("③ 관찰 기록 서술")
 
     obs_shape = st.text_area(
-        "1) 손실곡면의 전체 형태/대칭성/최소점 위치를 한 문장으로 설명",
+        "1) 전역 최소점의 위치와 손실 지형의 전체적인 형태를 함께 설명하시오.",
         height=90,
-        placeholder="예: (0,0) 부근이 가장 낮고, a방향으로 더 가파르게 증가한다.",
+        placeholder="예: 전역 최소점의 좌표, 그 주변에서 함숫값이 어떻게 변하는지, 손실 지형의 전체적인 형태 서",
         key="ai_step1_obs_shape",
     )
 
     obs_sensitivity = st.text_area(
-        "2) 더 가파른(민감도 큰) 방향은 어느 쪽인가? 근거(등고선 간격 등) 포함",
+        "2) 같은 거리만큼 이동했을 때 손실이 더 크게 변하는 방향은 어느 쪽인가? 등고선의 모양 또는 간격을 근거로 설명하시오.",
         height=110,
-        placeholder="예: 등고선이 a방향으로 더 촘촘하므로 a가 변할 때 손실 변화가 더 크다.",
+        placeholder="예: 어느 방향이 더 가파른지, 등고선 간격이나 모양이 어떤지 서술",
         key="ai_step1_obs_sensitivity",
     )
 
     obs_zigzag = st.text_area(
-        "3) '한 변수만' 줄이는 경로의 특징과, 그렇게 되는 이유",
+        "3) a와 b를 한 번에 하나씩만 줄이는 방식으로 이동했을 때 경로는 어떤 특징을 보이는가? 그 이유를 설명하시오.",
         height=120,
-        placeholder="예: a와 b를 번갈아 바꾸면 경로가 계속 꺾이며 지그재그가 된다. 두 변수를 동시에 고려하지 않기 때문이다.",
+        placeholder="예: 경로의 모양 설명, 그렇게 되는 수학적 이유 서",
         key="ai_step1_obs_zigzag",
     )
 
+    st.caption("※ 구체적인 좌표, 방향, 등고선 근거를 포함하여 작성하세요.")
+    
     payload_for_backup = {
         "student_id": student_id,
         "obs_shape": obs_shape,
