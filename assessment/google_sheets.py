@@ -293,11 +293,11 @@ def append_step3_row(
 # --- AI 1차시 저장용 ---
 SHEET_NAME_AI_STEP1 = "인공지능수학_수행평가_1차시"
 
-DEFAULT_AI_STEP1_HEADER: List[str] = [
+DEFAULT_AI_STEP1_HEADER = [
     "timestamp",
     "student_id",
-    "alpha",
-    "beta",
+    "loss_type",
+    "loss_params",
     "a0",
     "b0",
     "obs_shape",
@@ -319,15 +319,14 @@ def ensure_ai_step1_header(ws) -> None:
 
 
 def append_ai_step1_row(
-    *,
     student_id: str,
-    alpha: float,
-    beta: float,
+    loss_type: str,
+    loss_params: str,
     a0: float,
     b0: float,
-    obs_shape: str = "",
-    obs_sensitivity: str = "",
-    obs_zigzag: str = "",
+    obs_shape: str,
+    obs_sensitivity: str,
+    obs_zigzag: str,
     sheet_name: str = SHEET_NAME_AI_STEP1,
 ) -> None:
     if not str(student_id).strip():
@@ -336,25 +335,21 @@ def append_ai_step1_row(
     ws = get_worksheet(sheet_name=sheet_name, worksheet_index=0)
     ensure_ai_step1_header(ws)
 
-    # '='로 시작하면 구글시트가 수식으로 오해할 수 있어 텍스트로 고정
     def _as_text(v: str) -> str:
         v = (v or "").strip()
-        if v.startswith("="):
-            return "'" + v
-        return v
+        return ("'" + v) if v.startswith("=") else v
 
     row = [
         datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
         str(student_id).strip(),
-        float(alpha),
-        float(beta),
+        _as_text(loss_type),
+        _as_text(loss_params),
         float(a0),
         float(b0),
         _as_text(obs_shape),
         _as_text(obs_sensitivity),
         _as_text(obs_zigzag),
     ]
-
     ws.append_row(row, value_input_option="USER_ENTERED")
 
 
@@ -364,13 +359,13 @@ SHEET_NAME_AI_STEP2 = "인공지능수학_수행평가_2차시"
 DEFAULT_AI_STEP2_HEADER = [
     "timestamp",
     "student_id",
-    "alpha",
-    "beta",
+    "loss_type",
+    "loss_params",
     "start_a",
     "start_b",
-    "step_size",
-    "dE_da",          # ✅ 추가
-    "dE_db",          # ✅ 추가
+    "learning_rate",
+    "dE_da",
+    "dE_db",
     "direction_desc",
     "result_reflection",
     "final_a",
@@ -393,21 +388,20 @@ def ensure_ai_step2_header(ws) -> None:
 
 
 def append_ai_step2_row(
-    *,
     student_id: str,
-    alpha: float,
-    beta: float,
+    loss_type: str,
+    loss_params: str,
     start_a: float,
     start_b: float,
-    step_size: float,
-    dE_da: str = "",      # ✅ 추가
-    dE_db: str = "",      # ✅ 추가
-    direction_desc: str = "",
-    result_reflection: str = "",
-    final_a: float | None = None,
-    final_b: float | None = None,
-    steps_used: int | None = None,
-    final_E: float | None = None,
+    learning_rate: float,
+    dE_da: str,
+    dE_db: str,
+    direction_desc: str,
+    result_reflection: str,
+    final_a: float,
+    final_b: float,
+    steps_used: int,
+    final_E: float,
     sheet_name: str = SHEET_NAME_AI_STEP2,
 ) -> None:
     if not str(student_id).strip():
@@ -418,31 +412,23 @@ def append_ai_step2_row(
 
     def _as_text(v: str) -> str:
         v = (v or "").strip()
-        if v.startswith("="):
-            return "'" + v
-        return v
-
-    def _as_num(v):
-        if v is None or v == "":
-            return ""
-        return float(v)
+        return ("'" + v) if v.startswith("=") else v
 
     row = [
         datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
         str(student_id).strip(),
-        float(alpha),
-        float(beta),
+        _as_text(loss_type),
+        _as_text(loss_params),
         float(start_a),
         float(start_b),
-        float(step_size),
+        float(learning_rate),
         _as_text(dE_da),
         _as_text(dE_db),
         _as_text(direction_desc),
         _as_text(result_reflection),
-        _as_num(final_a),
-        _as_num(final_b),
-        "" if steps_used is None else int(steps_used),
-        _as_num(final_E),
+        float(final_a),
+        float(final_b),
+        int(steps_used),
+        float(final_E),
     ]
-
     ws.append_row(row, value_input_option="USER_ENTERED")
