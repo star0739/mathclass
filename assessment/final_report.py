@@ -362,17 +362,16 @@ def build_report_pdf(
     # (1) 모델식
     model_tex = (latex_items.get("model") or "").strip()
     if model_tex:
+        story.append(Paragraph("모델식", caption))
+        story.append(Spacer(1, 2 * mm))
+
         png = latex_to_png_bytes(model_tex, fontsize=18)
         if png:
             story.append(RLImage(BytesIO(png), width=110 * mm, height=15 * mm, hAlign="LEFT"))
-            story.append(Spacer(1, 2 * mm))
-            story.append(Paragraph("모델식", caption))
-            story.append(Spacer(1, 4 * mm))
         else:
             story.append(Paragraph(model_tex, body))
-            story.append(Spacer(1, 2 * mm))
-            story.append(Paragraph("모델식", caption))
-            story.append(Spacer(1, 4 * mm))
+
+        story.append(Spacer(1, 4 * mm))
 
     # (2) 도함수, (3) 이계도함수  (둘 다 있으면 순서대로)
     for key, label in [("d1", "도함수"), ("d2", "이계도함수")]:
