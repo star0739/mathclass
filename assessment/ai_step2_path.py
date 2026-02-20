@@ -478,8 +478,8 @@ def main():
 
     # ✅ 고정식 제거 -> 선택된 함수 표시
     st.markdown(
-        rf"""
-1) 선택한 손실함수에 대해 시작점 $(a,b)$에서의 $\dfrac{\partial E}{\partial a}$, $\dfrac{\partial E}{\partial b}$를 구하시오. 
+        r"""
+1) 선택한 손실함수에 에 대해 시작점 $(a,b)$에서의 $\dfrac{\partial E}{\partial a}$, $\dfrac{\partial E}{\partial b}$를 구하시오.
     """
     )
 
