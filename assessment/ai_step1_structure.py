@@ -104,10 +104,11 @@ def build_backup_text(payload: dict) -> str:
 
 def main():
     st.set_page_config(page_title=TITLE, layout="wide")
-    st.title(TITLE)
-
+    
     init_assessment_session()
     student_id = require_student_id()
+
+    st.title(TITLE)
 
     st.markdown(
         rf"""
