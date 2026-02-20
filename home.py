@@ -173,7 +173,7 @@ with st.sidebar:
     if st.button("1차시: 구조 관찰", use_container_width=True, key="sb_ai_assess_1"):
         st.switch_page("assessment/ai_step1_structure.py")
 
-    if st.button("2차시: 경로 탐구", use_container_width=True, key="sb_ai_assess_2"):
+    if st.button("2차시: 경로 탐색", use_container_width=True, key="sb_ai_assess_2"):
         st.switch_page("assessment/ai_step2_path.py")
     
 
