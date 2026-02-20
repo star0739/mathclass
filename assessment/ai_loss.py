@@ -30,7 +30,7 @@ LOSS_CATALOG: Dict[LossType, Dict[str, Any]] = {
     "quad": {
         "label": "Lv1 | 가중 이차형",
         "level": 1,
-        "description": "축 정렬 타원 등고선. 계수에 따라 a/b 방향 민감도가 달라짐.",
+        "description": "위에서 보면 둥근 그릇처럼 생긴 매끈한 곡면이다.",
         "params": ["alpha"],  # keep 1-parameter by default
         "latex_template": r"E(a,b)=\alpha a^{2}+b^{2}",
         "param_ranges": {
@@ -42,7 +42,7 @@ LOSS_CATALOG: Dict[LossType, Dict[str, Any]] = {
     "double_well": {
         "label": "Lv2 | 이중 우물(다봉)",
         "level": 2,
-        "description": "a축 방향으로 두 최소점(±1,0). 시작점에 따라 다른 최소점으로 수렴 가능.",
+        "description": "그릇이 두 개 나란히 붙어 있는 듯한 모양의 곡면이다.",
         "params": ["lam"],
         "latex_template": r"E(a,b)=(a^{2}-1)^{2}+\lambda b^{2}",
         "param_ranges": {
@@ -54,7 +54,7 @@ LOSS_CATALOG: Dict[LossType, Dict[str, Any]] = {
     "banana": {
         "label": "Lv3 | 바나나 골짜기",
         "level": 3,
-        "description": "휘어진 골짜기(최소점 (1,1)). β가 클수록 골짜기가 좁고 수렴이 어려움.",
+        "description": "길게 휘어진 띠 모양의 골짜기가 이어진 형태이다.",
         "params": ["beta"],
         "latex_template": r"E(a,b)=(a-1)^{2}+\beta (b-a^{2})^{2}",
         "param_ranges": {
