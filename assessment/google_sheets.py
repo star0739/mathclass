@@ -361,7 +361,7 @@ def append_ai_step1_row(
 # --- AI 2차시 저장용 ---
 SHEET_NAME_AI_STEP2 = "인공지능수학_수행평가_2차시"
 
-DEFAULT_AI_STEP2_HEADER: List[str] = [
+DEFAULT_AI_STEP2_HEADER = [
     "timestamp",
     "student_id",
     "alpha",
@@ -369,6 +369,8 @@ DEFAULT_AI_STEP2_HEADER: List[str] = [
     "start_a",
     "start_b",
     "step_size",
+    "dE_da",          # ✅ 추가
+    "dE_db",          # ✅ 추가
     "direction_desc",
     "direction_reason",
     "result_reflection",
@@ -399,6 +401,8 @@ def append_ai_step2_row(
     start_a: float,
     start_b: float,
     step_size: float,
+    dE_da: str = "",      # ✅ 추가
+    dE_db: str = "",      # ✅ 추가
     direction_desc: str = "",
     direction_reason: str = "",
     result_reflection: str = "",
@@ -433,6 +437,8 @@ def append_ai_step2_row(
         float(start_a),
         float(start_b),
         float(step_size),
+        _as_text(dE_da),
+        _as_text(dE_db),
         _as_text(direction_desc),
         _as_text(direction_reason),
         _as_text(result_reflection),
