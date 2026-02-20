@@ -418,28 +418,27 @@ def main():
 
     st.markdown(
         r"""
-1) 손실함수 $E(a,b)=\alpha a^2+\beta b^2$에 대해 $\dfrac{\partial E}{\partial a}$, $\dfrac{\partial E}{\partial b}$를 구하시오.  
-예: 각 변수에 대해 미분하여 얻은 식을 간단히 정리하여 서술
+1) 손실함수 $E(a,b)=10 a^2+ b^2$에 대해 시작점 $(a,b)$에서의 $\dfrac{\partial E}{\partial a}$, $\dfrac{\partial E}{\partial b}$를 구하시오.  
 """
     )
 
     colp1, colp2 = st.columns(2, gap="large")
     with colp1:
         st.markdown(r"$$\frac{\partial E}{\partial a} = $$")
-        dE_da = st.text_input("", key="ai_step2_dE_da", label_visibility="collapsed")
+        dE_da = st.text_input("편미분 식에 시작점 a좌표 값 대입", key="ai_step2_dE_da", label_visibility="collapsed")
     with colp2:
         st.markdown(r"$$\frac{\partial E}{\partial b} = $$")
-        dE_db = st.text_input("", key="ai_step2_dE_db", label_visibility="collapsed")
+        dE_db = st.text_input("편미분 식에 시작점 a좌표 값 대입", key="ai_step2_dE_db", label_visibility="collapsed")
 
     direction_desc = st.text_area(
-        "2) 위의 결과를 바탕으로, 현재 위치에서 손실을 줄이기 위해 어떤 방향 성분이 더 필요한지 설명하고, 그에 따라 내가 선택한 이동 방향을 구체적으로 서술하시오.",
+        "2) 위에서 구한 두 값의 부호를 관찰하고, 손실을 줄이기 위해 각 변수를 어떤 방향(증가/감소)으로 변화시켜야 하는지 서술하시오.",
         height=100,
-        placeholder="예: 두 값의 부호와 크기를 비교하여 어느 변수의 감소가 더 중요하다고 판단했는지 밝히고, 그 판단에 따라 선택한 방향을 설명하는 내용을 서술",
+        placeholder="예: 각 값의 부호를 확인하여 $a$와 $b$를 키울지 줄일지 결정하고, 그에 따라 내가 선택한 이동 방향을 서술",
         key="ai_step2_direction_desc",
     )
 
     reflection = st.text_area(
-        "3) 실제로 1 step 이동한 결과 손실값은 어떻게 변하였는가? 나의 판단과 결과가 일치하였는지 그 이유를 설명하시오.",
+        "3) 1 step 이동 결과 손실값은 어떻게 변하였는가? 기울기의 부호를 이용한 나의 판단이 결과와 일치하였는지 그 이유를 설명하시오.",
         height=120,
         placeholder="예: 이동 후 손실의 변화와 그 원인을 자신의 판단과 연결하여 서술",
         key="ai_step2_reflection",
