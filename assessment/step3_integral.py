@@ -178,6 +178,10 @@ def _rect_y0y1(height: float) -> tuple[float, float]:
 # -----------------------------
 def _eval_model_expr(expr: str, t: np.ndarray) -> np.ndarray:
     expr = (expr or "").strip()
+
+    # 예: 거듭제곱을 ^로 쓰는 경우 -> 파이썬은 ** 이므로 변환
+    expr = expr.replace("^", "**")
+
     if not expr:
         raise ValueError("py_model이 비어 있습니다.")
     if expr.startswith("="):
@@ -653,7 +657,7 @@ with a2:
 with a3:
     save_clicked = st.button("💾 저장(구글시트)", use_container_width=True)
 with a4:
-    go_next = st.button("➡️ 최종 보고서 작", use_container_width=True)
+    go_next = st.button("➡️ 최종 보고서 작성", use_container_width=True)
 
 
 backup_bytes = build_step3_backup(payload)
