@@ -457,124 +457,93 @@ def main():
             return False, "3) 결과 해석을 입력하세요."
         return True, "OK"
 
-    # (저장/백업 패턴) 백업 만들기 → 다운로드
-    colA, colB = st.columns([1, 1], gap="large")
-    with colA:
+    # -----------------------------
+    # ④ 저장 / 백업 / 최종보고서 이동
+    # (step3_integral.py 패턴과 동일 UX)
+    # -----------------------------
+    st.markdown("---")
+    st.subheader("④ 저장 및 최종 보고서")
+
+    col1, col2, col3 = st.columns([1, 1, 1], gap="large")
+
+    with col1:
+        save_clicked = st.button("✅ 저장", use_container_width=True)
+
+    with col2:
         backup_make_clicked = st.button("⬇️ TXT 백업 만들기", use_container_width=True)
-        # 다운로드 데이터는 "확정된 payload" 우선
-        saved_payload = st.session_state.get(_BACKUP_STATE_KEY) or None
-        payload_for_download = saved_payload if isinstance(saved_payload, dict) and saved_payload.get("student_id") == student_id else None
 
-        # 현재 상태 기반 payload
-        path = s.get("path", [])
-        start_a = float(s.get("start_a", path[0][0] if path else 0.0))
-        start_b = float(s.get("start_b", path[0][1] if path else 0.0))
-        final_a, final_b, final_e = path[-1] if path else (start_a, start_b, float(E(np.array(start_a), np.array(start_b))))
-        steps_used = max(0, len(path) - 1)
+    with col3:
+        go_next = st.button("➡️ 최종 보고서 작성", use_container_width=True)
 
-        if payload_for_download is None:
-            payload_for_download = {
-                "student_id": student_id,
-                "start_a": f"{start_a:.4f}",
-                "start_b": f"{start_b:.4f}",
-                "step_size": STEP_SIZE,
-                "final_a": f"{float(final_a):.4f}",
-                "final_b": f"{float(final_b):.4f}",
-                "final_E": f"{float(final_e):.6f}",
-                "steps_used": int(steps_used),
-                "dE_da": str(dE_da).strip(),
-                "dE_db": str(dE_db).strip(),
-                "direction_desc": str(direction_desc).strip(),
-                "result_reflection": str(reflection).strip(),
-            }
-
-        backup_text = build_backup_text(payload_for_download)
-
-        st.download_button(
-            label="📄 (다운로드) 2차시 백업 TXT",
-            data=backup_text.encode("utf-8-sig"),
-            file_name=f"인공지능_수행평가_2차시_{student_id}.txt",
-            mime="text/plain; charset=utf-8",
-            use_container_width=True,
-        )
-
-    with colB:
-        save_clicked = st.button("✅ 제출/저장", use_container_width=True)
-
-    # ✅ 저장 상태 알림: 버튼 바로 아래
-    render_save_status()
-
-    if backup_make_clicked:
+    # 어떤 버튼이든 눌리면 동일한 흐름으로 처리
+    if save_clicked or backup_make_clicked or go_next:
         ok, msg = _validate_inputs()
         if not ok:
             st.error(msg)
             st.stop()
 
-        path = s.get("path", [])
-        start_a = float(s.get("start_a", path[0][0] if path else 0.0))
-        start_b = float(s.get("start_b", path[0][1] if path else 0.0))
-        final_a, final_b, final_e = path[-1] if path else (start_a, start_b, float(E(np.array(start_a), np.array(start_b))))
-        steps_used = max(0, len(path) - 1)
-
-        st.session_state[_BACKUP_STATE_KEY] = {
-            "student_id": student_id,
-            "start_a": f"{start_a:.4f}",
-            "start_b": f"{start_b:.4f}",
-            "step_size": STEP_SIZE,
-            "final_a": f"{float(final_a):.4f}",
-            "final_b": f"{float(final_b):.4f}",
-            "final_E": f"{float(final_e):.6f}",
-            "steps_used": int(steps_used),
-            "dE_da": str(dE_da).strip(),
-            "dE_db": str(dE_db).strip(),
-            "direction_desc": str(direction_desc).strip(),
-            "result_reflection": str(reflection).strip(),
-            "saved_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-        }
-        st.rerun()
-
-    if save_clicked:
-        ok, msg = _validate_inputs()
-        if not ok:
-            st.error(msg)
-            st.stop()
-
-        path = s.get("path", [])
-        start_a = float(s.get("start_a", path[0][0] if path else 0.0))
-        start_b = float(s.get("start_b", path[0][1] if path else 0.0))
-        final_a, final_b, final_e = path[-1] if path else (start_a, start_b, float(E(np.array(start_a), np.array(start_b))))
-        steps_used = max(0, len(path) - 1)
-
-        # 세션 저장(보고서/복구용)
-        st.session_state[_STATE_KEY] = s
-
-        # 구글시트 저장(인공지능수학 전용)
-        try:
-            from assessment.google_sheets import append_ai_step2_row  # late import
-
-
-            append_ai_step2_row(
+        # -----------------------------
+        # (A) 백업 텍스트 생성 (필요 시)
+        # -----------------------------
+        backup_text = ""
+        if backup_make_clicked or go_next:
+            backup_text = build_step2_backup_txt(
                 student_id=student_id,
-                alpha=ALPHA,
-                beta=BETA,
-                start_a=float(start_a),
-                start_b=float(start_b),
-                step_size=float(STEP_SIZE),
-                dE_da=str(dE_da).strip(),
-                dE_db=str(dE_db).strip(),
-                direction_desc=str(direction_desc).strip(),
-                result_reflection=str(reflection).strip(),
-                final_a=float(final_a),
-                final_b=float(final_b),
-                steps_used=int(steps_used),
-                final_E=float(final_e),
+                fn_str=fn_str,
+                a_min=a_min, a_max=a_max,
+                b_min=b_min, b_max=b_max,
+                step_size=step_size,
+                start_a=start_a, start_b=start_b,
+                t_all=t_all,
+                a_path=a_path,
+                b_path=b_path,
+                e_path=e_path,
+                narrative_q1=narrative_q1,
+                narrative_q2=narrative_q2,
+                narrative_q3=narrative_q3,
             )
-            set_save_status(True, "구글시트 저장 완료")
-        except Exception as e:
-            set_save_status(False, f"구글시트 저장 실패: {e}")
 
-        st.rerun()
+        # -----------------------------
+        # (B) 저장 처리
+        # -----------------------------
+        if save_clicked or go_next:
+            try:
+                append_step2_row(
+                    student_id=student_id,
+                    payload={
+                        "fn_str": fn_str,
+                        "a_min": a_min, "a_max": a_max,
+                        "b_min": b_min, "b_max": b_max,
+                        "step_size": step_size,
+                        "start_a": start_a, "start_b": start_b,
+                        "t_all": t_all,
+                        "a_path": a_path,
+                        "b_path": b_path,
+                        "e_path": e_path,
+                        "narrative_q1": narrative_q1,
+                        "narrative_q2": narrative_q2,
+                        "narrative_q3": narrative_q3,
+                    },
+                )
+                st.success("저장 완료!")
+            except Exception as e:
+                st.error(f"저장 중 오류가 발생했습니다: {e}")
+                st.stop()
 
+        # -----------------------------
+        # (C) 백업 다운로드 UI
+        # -----------------------------
+        if backup_make_clicked:
+            st.download_button(
+                label="📄 (다운로드) 2차시 백업 TXT",
+                data=backup_text.encode("utf-8-sig"),
+                file_name=f"인공지능_수행평가_2차시_{student_id}.txt",
+                mime="text/plain",
+                use_container_width=True,
+            )
 
-if __name__ == "__main__":
-    main()
+        # -----------------------------
+        # (D) 최종보고서 페이지로 이동
+        # -----------------------------
+        if go_next:
+            st.switch_page("assessment/ai_final_report.py")
