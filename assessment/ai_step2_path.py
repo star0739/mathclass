@@ -48,7 +48,7 @@
     st.divider()
 
     # (TXT/시트 저장용) 계산한 편미분 식도 함께 저장
-    direction_reason = f"∂E/∂a = {dE_da.strip()}\n∂E/∂b = {dE_db.strip()}"
+   direction_reason = f"∂E/∂a = {dE_da.strip()}\n∂E/∂b = {dE_db.strip()}"
 
     # 버튼 레이아웃(1차시와 동일한 감각)
     col1, col2, col3 = st.columns([1, 1, 1.2], gap="small")
