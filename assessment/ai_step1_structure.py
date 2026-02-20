@@ -134,7 +134,17 @@ def main():
     # -------------------------
     # ✅ 학번 확인 이후: 손실함수 선택 UI (NEW)
     # -------------------------
-    st.subheader("0) 손실함수 선택(난이도/계수)")
+    st.subheader("0) 손실함수 선택")
+
+    st.markdown(
+        r"""
+손실함수의 그래프 $z=E(a,b)$는 하나의 곡면이며, 이를 직관적으로 손실 지형(loss landscape)이라고 부릅니다.
+
+아래에서 선택한 손실함수 $E(a,b)$의 손실 지형을 관찰하며,
+손실함수 값이 최소가 되는 지점과 그 방향적 특징을 분석해 봅시다.
+"""
+    )
+
 
     prev = st.session_state.get("ai_loss_spec", {}) if isinstance(st.session_state.get("ai_loss_spec", {}), dict) else {}
     default_type = prev.get("type", "quad")
@@ -170,7 +180,7 @@ def main():
 
     st.markdown("**선택된 손실함수:**")
     st.latex(latex_E(loss_spec))
-    st.info(f"2차시 추천 step_size(참고): {recommended_step_size(loss_spec):.4f}")
+    st.info(f"추천 학습률: {recommended_step_size(loss_spec):.4f}")
 
     # 세션 저장(2차시에서 동일 함수로 진행)
     st.session_state["ai_loss_spec"] = {
@@ -186,11 +196,6 @@ def main():
     # -------------------------
     st.markdown(
         r"""
-손실함수의 그래프 $z=E(a,b)$는 하나의 곡면이며, 이를 직관적으로 손실 지형(loss landscape)이라고 부릅니다.
-
-위에서 선택한 손실함수 $E(a,b)$의 손실 지형을 관찰하며,
-손실함수 값이 최소가 되는 지점과 그 방향적 특징을 분석해 봅시다.
-
 관찰 포인트:
 - 전역 최소점(global minimum) 또는 최소점(들)의 위치
 - 좌표축에 대한 대칭성/비대칭성
