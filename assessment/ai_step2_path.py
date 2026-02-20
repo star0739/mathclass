@@ -8,7 +8,6 @@ import numpy as np
 import pandas as pd
 import streamlit as st
 import re
-from assessment.ai_loss import make_loss_spec, latex_E
 
 
 PLOTLY_AVAILABLE = True
@@ -88,8 +87,7 @@ def _load_loss_spec_from_step1() -> tuple[object, str]:
         spec = make_loss_spec(str(raw["type"]), raw.get("params", {}) or {})
         return spec, latex_E(spec)
 
-    st.error("1차시에서 손실함수를 먼저 선택/저장한 뒤 2차시로 이동하세요.")
-    st.stop()
+    return None, None
 
 def parse_step1_backup_txt(uploaded_file):
     content = uploaded_file.read().decode("utf-8-sig")
@@ -282,12 +280,6 @@ def main():
 
     st.title(TITLE)
 
-    st.markdown(
-        r"""
-이번 시간은 **등고선(2D)** 위에서, 시작점에서 **손실을 줄이는 방향**을 직접 선택하고
-1 step 이동을 반복하며 경로를 관찰합니다.
-"""
-    )
 
     # 초기 시작점: 프리셋 1
     a_init, b_init = _clip(PRESET_STARTS[0][0], PRESET_STARTS[0][1])
