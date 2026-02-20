@@ -278,7 +278,7 @@ with a2:
 with a3:
     save_clicked = st.button("💾 저장(구글시트)", use_container_width=True)
 with a4:
-    go_next = st.button("➡️ 다음", use_container_width=True)
+    go_next = st.button("➡️ 2차시로 이동", use_container_width=True)
 
 
 def _final_model(choice: str, custom: str) -> str:
