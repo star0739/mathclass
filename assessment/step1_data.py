@@ -345,9 +345,6 @@ if save_clicked or backup_make_clicked or go_next:
                 features=payload["features"],
                 model_primary=payload["model_primary"],
                 model_primary_reason=payload["model_primary_reason"],
-                model_secondary=payload["model_secondary"],
-                model_secondary_reason=payload["model_secondary_reason"],
-                student_interpretation=payload["student_interpretation"],
             )
             st.success("✅ 구글 시트에 성공적으로 저장되었습니다.")
         except Exception as e:
