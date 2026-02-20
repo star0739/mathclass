@@ -22,16 +22,22 @@ from assessment.common import (
     render_save_status,
 )
 
+# ✅ NEW: 선택형 손실함수
+from assessment.ai_loss import (
+    make_loss_spec,
+    E as E_loss,
+    grad as grad_loss,
+    latex_E,
+)
+
 TITLE = "2차시: 경로(손실을 줄이는 방향) 탐구"
 
-# (1차시와 동일한 함수/범위 설정)
-ALPHA = 10.0
-BETA = 1.0
+# (1차시와 동일한 범위 설정)
 A_MIN, A_MAX = -3.0, 3.0
 B_MIN, B_MAX = -3.0, 3.0
 
 GRID_N = 121  # 고정 해상도(학생 선택 X) — 안정성 우선
-STEP_SIZE = 0.18  # 1 step 이동 거리(고정)
+LEARNING_RATE = 0.18  # ✅ 기존 STEP_SIZE를 교과서 용어로 통일(학습률)
 MAX_PATH_POINTS = 250  # 렌더/메모리 안전 상한
 
 PRESET_STARTS = [
@@ -45,22 +51,65 @@ _STATE_KEY = "ai_step2_path_state"
 _BACKUP_STATE_KEY = "ai_step2_backup_payload"
 
 
-def E(a: np.ndarray, b: np.ndarray) -> np.ndarray:
-    return ALPHA * (a**2) + BETA * (b**2)
+# -----------------------------
+# 1차시 선택 손실함수 로더(호환 포함)
+# -----------------------------
+def _load_loss_spec_from_step1() -> tuple[object, str]:
+    """
+    returns:
+      (loss_spec: LossSpec, display_latex: str)
+    호환:
+      - 신형: st.session_state["ai_step1_structure"]["loss_spec"] = {type, params, ...}
+      - 구형: st.session_state["ai_step1_structure"] has alpha/beta -> quad(alpha=alpha, b^2 coefficient fixed in ai_loss)
+    """
+    step1 = st.session_state.get("ai_step1_structure", {}) or {}
+    loss_info = step1.get("loss_spec", None)
+
+    # 신형 구조
+    if isinstance(loss_info, dict) and loss_info.get("type"):
+        loss_type = str(loss_info.get("type"))
+        params = loss_info.get("params", {}) or {}
+        spec = make_loss_spec(loss_type, params)
+        return spec, latex_E(spec)
+
+    # 구형 구조(예: alpha/beta)
+    # -> quad(alpha=alpha)로 매핑 (ai_loss의 quad는 b^2 계수 1로 설계)
+    alpha = step1.get("alpha", None)
+    if alpha is not None:
+        spec = make_loss_spec("quad", {"alpha": float(alpha)})
+        return spec, latex_E(spec)
+
+    # 마지막 fallback: ai_loss_spec(1차시에서 별도로 저장했을 수도 있음)
+    raw = st.session_state.get("ai_loss_spec", None)
+    if isinstance(raw, dict) and raw.get("type"):
+        spec = make_loss_spec(str(raw["type"]), raw.get("params", {}) or {})
+        return spec, latex_E(spec)
+
+    st.error("1차시에서 손실함수를 먼저 선택/저장한 뒤 2차시로 이동하세요.")
+    st.stop()
 
 
-def _partials(a: float, b: float) -> tuple[float, float]:
-    # 편미분(용어는 활동에서 필요한 만큼만 노출)
-    return 2.0 * ALPHA * a, 2.0 * BETA * b
+def _get_state() -> dict:
+    return st.session_state.get(_STATE_KEY, {})
 
 
-@st.cache_data(show_spinner=False)
-def build_grid(a_min: float, a_max: float, b_min: float, b_max: float, n: int):
-    a = np.linspace(a_min, a_max, n)
-    b = np.linspace(b_min, b_max, n)
-    A, B = np.meshgrid(a, b)
-    Z = E(A, B)
-    return A, B, Z
+def _set_state(d: dict) -> None:
+    st.session_state[_STATE_KEY] = d
+
+
+def _init_state(student_id: str, start_a: float, start_b: float, start_e: float) -> dict:
+    s = _get_state()
+    if not isinstance(s, dict) or s.get("student_id") != student_id:
+        s = {
+            "student_id": student_id,
+            "theta_deg": 225.0,
+            "start_a": float(start_a),
+            "start_b": float(start_b),
+            "path": [(float(start_a), float(start_b), float(start_e))],
+            "last_delta": None,
+        }
+        _set_state(s)
+    return s
 
 
 def _clip(a: float, b: float) -> tuple[float, float]:
@@ -72,119 +121,85 @@ def _unit_from_angle_deg(theta_deg: float) -> tuple[float, float]:
     return math.cos(t), math.sin(t)
 
 
-def recommended_direction(a: float, b: float) -> tuple[float, float]:
+def recommended_direction(a: float, b: float, loss_spec) -> tuple[float, float]:
     """
     현재 점에서 손실을 줄이는(가장 빨리 줄이는) 방향(정규화)을 계산.
     - (∂E/∂a, ∂E/∂b)의 반대 방향을 사용.
     """
-    da, db = _partials(a, b)
-    vx, vy = -da, -db
+    da, db = grad_loss(a, b, loss_spec)
+    vx, vy = -float(da), -float(db)
     norm = math.hypot(vx, vy)
     if norm < 1e-12:
         return 0.0, 0.0
     return vx / norm, vy / norm
 
 
-def coord_axis_path(a0: float, b0: float, steps: int, step_size: float) -> list[tuple[float, float, float]]:
-    """
-    비교용(1차시 방식): 좌표축 방향 이동(번갈아) 경로
-    - k 짝수: a만 이동
-    - k 홀수: b만 이동
-    """
-    a, b = _clip(a0, b0)
-    pts: list[tuple[float, float, float]] = [(a, b, float(E(np.array(a), np.array(b))))]
+def _append_point(path: list[tuple[float, float, float]], a: float, b: float, loss_spec) -> list[tuple[float, float, float]]:
+    a, b = _clip(a, b)
+    e = float(E_loss(np.array(a), np.array(b), loss_spec))
+    new_path = path + [(a, b, e)]
+    if len(new_path) > MAX_PATH_POINTS:
+        new_path = new_path[-MAX_PATH_POINTS:]
+    return new_path
 
+
+@st.cache_data(show_spinner=False)
+def build_grid(a_min: float, a_max: float, b_min: float, b_max: float, n: int, loss_type: str, params_items: tuple):
+    """
+    cache key에 loss_type/params가 반영되도록 params_items(정렬된 튜플)로 받음
+    """
+    params = dict(params_items)
+    spec = make_loss_spec(loss_type, params)
+
+    a = np.linspace(a_min, a_max, n)
+    b = np.linspace(b_min, b_max, n)
+    A, B = np.meshgrid(a, b)
+    Z = E_loss(A, B, spec)
+    return A, B, Z
+
+
+def coord_axis_path(a0: float, b0: float, steps: int, learning_rate: float, loss_spec) -> list[tuple[float, float]]:
+    """
+    1차시처럼 'a만, b만 번갈아' 움직이는 경로(점선 표시용)
+    """
+    a, b = float(a0), float(b0)
+    pts = [(a, b)]
     for k in range(steps):
-        da, db = _partials(a, b)
+        da, db = grad_loss(a, b, loss_spec)
         if k % 2 == 0:
-            a = a - step_size * da
+            a = a - learning_rate * float(da)
         else:
-            b = b - step_size * db
+            b = b - learning_rate * float(db)
         a, b = _clip(a, b)
-        pts.append((a, b, float(E(np.array(a), np.array(b)))))
-
+        pts.append((a, b))
     return pts
 
 
-def _get_state() -> dict:
-    return st.session_state.get(_STATE_KEY, {})
-
-
-def _set_state(d: dict) -> None:
-    st.session_state[_STATE_KEY] = d
-
-
-def _init_state(student_id: str) -> dict:
-    s = _get_state()
-    if isinstance(s, dict) and s.get("student_id") == student_id and "path" in s:
-        return s
-
-    # 1차시에서 시작점 저장된 경우 그걸 우선 사용
-    step1 = st.session_state.get("ai_step1_structure", {})
-    if isinstance(step1, dict) and step1.get("student_id") == student_id:
-        a0 = float(step1.get("start_point", {}).get("a", PRESET_STARTS[0][0]))
-        b0 = float(step1.get("start_point", {}).get("b", PRESET_STARTS[0][1]))
-    else:
-        a0, b0 = PRESET_STARTS[0]
-
-    a0, b0 = _clip(a0, b0)
-    e0 = float(E(np.array(a0), np.array(b0)))
-
-    s = {
-        "student_id": student_id,
-        "start_a": a0,
-        "start_b": b0,
-        "theta_deg": 225.0,
-        "last_delta": None,
-        "path": [(a0, b0, e0)],
-    }
-    _set_state(s)
-    return s
-
-
-def _append_point(s: dict, a: float, b: float) -> None:
-    a, b = _clip(a, b)
-    e = float(E(np.array(a), np.array(b)))
-    path = list(s.get("path", []))
-    path.append((a, b, e))
-    if len(path) > MAX_PATH_POINTS:
-        path = path[-MAX_PATH_POINTS:]
-    s["path"] = path
-
-
 def build_backup_text(payload: dict) -> str:
-    """
-    payload 기대 키:
-    - student_id
-    - start_a, start_b
-    - step_size
-    - theta_deg
-    - path_final_a, path_final_b, path_final_e, steps_used
-    - dE_da, dE_db
-    - direction_desc
-    - result_reflection
-    """
     lines: list[str] = []
     lines.append("인공지능수학 수행평가 (2차시) 백업")
     lines.append("=" * 46)
-    lines.append(f"저장시각: {pd.Timestamp.now().strftime('%Y-%m-%d %H:%M:%S')}")
+    lines.append(f"저장시각: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
     lines.append(f"학번: {payload.get('student_id','')}")
     lines.append("")
-    lines.append("[함수/조건]")
-    lines.append(f"- E(a,b) = {ALPHA:g} a^2 + {BETA:g} b^2")
-    lines.append(f"- 관찰 범위: a∈[{A_MIN:g},{A_MAX:g}], b∈[{B_MIN:g},{B_MAX:g}]")
-    lines.append(f"- step_size = {payload.get('step_size', STEP_SIZE)}")
+
+    lines.append("[함수 설정]")
+    lines.append(f"- loss_type: {payload.get('loss_type','')}")
+    lines.append(f"- params: {payload.get('loss_params',{})}")
+    lines.append(f"- {payload.get('loss_latex','')}")
     lines.append("")
-    lines.append("[시작점/결과]")
-    lines.append(f"- 시작점: ({payload.get('start_a', '')}, {payload.get('start_b', '')})")
-    lines.append(f"- 최종점: ({payload.get('final_a', '')}, {payload.get('final_b', '')})")
-    lines.append(f"- 사용 step 수: {payload.get('steps_used', '')}")
-    lines.append(f"- 최종 손실 E: {payload.get('final_E', '')}")
+
+    lines.append("[이동 설정]")
+    lines.append(f"- 시작점: ({payload.get('start_a','')}, {payload.get('start_b','')})")
+    lines.append(f"- 학습률(learning rate): {payload.get('learning_rate','')}")
+    lines.append(f"- 사용 step 수: {payload.get('steps_used','')}")
+    lines.append(f"- 최종점: ({payload.get('final_a','')}, {payload.get('final_b','')})")
+    lines.append(f"- 최종 손실: {payload.get('final_E','')}")
     lines.append("")
+
     lines.append("[학생 입력(서술)]")
-    lines.append("1) 편미분 계산:")
-    lines.append(f"∂E/∂a = {payload.get('dE_da','')}".strip())
-    lines.append(f"∂E/∂b = {payload.get('dE_db','')}".strip())
+    lines.append("1) 편미분 값 계산:")
+    lines.append((payload.get("partials_input", "") or "").strip())
     lines.append("")
     lines.append("2) 방향 성분 판단 + 선택한 이동 방향:")
     lines.append((payload.get("direction_desc", "") or "").strip())
@@ -201,9 +216,16 @@ def main():
     init_assessment_session()
     student_id = require_student_id()
 
+    # ✅ 1차시에서 선택한 손실함수 불러오기
+    loss_spec, loss_latex = _load_loss_spec_from_step1()
+
     st.title(TITLE)
 
-    s = _init_state(student_id)
+    # 초기 시작점: 프리셋 1
+    a_init, b_init = _clip(PRESET_STARTS[0][0], PRESET_STARTS[0][1])
+    e_init = float(E_loss(np.array(a_init), np.array(b_init), loss_spec))
+
+    s = _init_state(student_id, a_init, b_init, e_init)
 
     st.markdown(
         r"""
@@ -237,7 +259,7 @@ def main():
             a0, b0 = PRESET_STARTS[int(preset_idx)]
             a0, b0 = _clip(a0, b0)
             s["start_a"], s["start_b"] = a0, b0
-            s["path"] = [(a0, b0, float(E(np.array(a0), np.array(b0))))]
+            s["path"] = [(a0, b0, float(E_loss(np.array(a0), np.array(b0), loss_spec)))]
             s["last_delta"] = None
             _set_state(s)
             st.rerun()
@@ -245,7 +267,7 @@ def main():
         if reset_path:
             a0, b0 = float(s.get("start_a", PRESET_STARTS[0][0])), float(s.get("start_b", PRESET_STARTS[0][1]))
             a0, b0 = _clip(a0, b0)
-            s["path"] = [(a0, b0, float(E(np.array(a0), np.array(b0))))]
+            s["path"] = [(a0, b0, float(E_loss(np.array(a0), np.array(b0), loss_spec)))]
             s["last_delta"] = None
             _set_state(s)
             st.rerun()
@@ -265,62 +287,52 @@ def main():
 
         path = s.get("path", [])
         cur_a, cur_b, cur_e = path[-1]
-        st.metric("현재 위치", f"({cur_a:.3f}, {cur_b:.3f})")
-        st.metric("현재 손실 E", f"{cur_e:.6f}")
+        st.metric("현재 손실", f"{cur_e:.6f}")
 
-        b1, b2 = st.columns(2, gap="small")
-        with b1:
-            step_move = st.button("▶ 내가 고른 방향으로 1 step", type="primary", use_container_width=True)
-        with b2:
-            step_reco = st.button("★ 추천 방향으로 1 step", use_container_width=True)
+        # ✅ 교과서 용어로 표시(학습률)
+        st.markdown(f"- 학습률(learning rate): **{LEARNING_RATE:g}** (고정)")
+        st.caption("※ 학습률은 한 번 이동할 때 기울기 방향으로 얼마나 움직일지 결정합니다.")
 
-        if step_move or step_reco:
-            if step_reco:
-                ux, uy = recommended_direction(cur_a, cur_b)
-            else:
-                ux, uy = _unit_from_angle_deg(theta)
+        # 추천 방향 벡터
+        reco_vx, reco_vy = recommended_direction(cur_a, cur_b, loss_spec)
 
-            na = cur_a + STEP_SIZE * ux
-            nb = cur_b + STEP_SIZE * uy
+        # 학생이 선택한 방향
+        ux, uy = _unit_from_angle_deg(theta)
 
-            prev_e = float(cur_e)
-            _append_point(s, na, nb)
-            new_e = float(s["path"][-1][2])
-            s["last_delta"] = float(new_e - prev_e)
+        move = st.button("➡️ 1 step 이동", type="primary", use_container_width=True)
+
+        if move:
+            # 1 step 이동: 학생이 고른 방향으로 이동
+            na = cur_a + LEARNING_RATE * ux
+            nb = cur_b + LEARNING_RATE * uy
+            new_path = _append_point(path, na, nb, loss_spec)
+            s["path"] = new_path
+            s["last_delta"] = (float(new_path[-1][0] - cur_a), float(new_path[-1][1] - cur_b))
             _set_state(s)
             st.rerun()
 
-        if s.get("last_delta") is not None:
-            dE = float(s["last_delta"])
-            if dE < 0:
-                st.success(f"손실이 감소했습니다.  ΔE = {dE:.6f}")
-            elif dE > 0:
-                st.warning(f"손실이 증가했습니다.  ΔE = +{dE:.6f}")
-            else:
-                st.info("손실 변화가 거의 없습니다. (ΔE ≈ 0)")
-
     # -------------------------
-    # 우측: 시각화
+    # 우측: 시각화(등고선 + 경로 + 방향 화살표)
     # -------------------------
     with right:
-        st.subheader("등고선 위 경로 관찰(핵심)")
+        st.subheader("시각화(등고선 + 경로)")
 
-        A, B, Z = build_grid(A_MIN, A_MAX, B_MIN, B_MAX, GRID_N)
+        # cache key 안정화를 위해 params를 정렬 튜플로
+        params_items = tuple(sorted(dict(loss_spec.params).items()))
+        A, B, Z = build_grid(A_MIN, A_MAX, B_MIN, B_MAX, GRID_N, loss_spec.type, params_items)
 
         path = s.get("path", [])
         xs = [p[0] for p in path]
         ys = [p[1] for p in path]
 
-        cur_a, cur_b, _ = path[-1]
-        reco_vx, reco_vy = recommended_direction(cur_a, cur_b)
-        ux, uy = _unit_from_angle_deg(float(s.get("theta_deg", 0.0)))
-        arrow_len = 0.55
+        cur_a, cur_b, cur_e = path[-1]
+        ux, uy = _unit_from_angle_deg(float(s.get("theta_deg", 225.0)))
+        reco_vx, reco_vy = recommended_direction(cur_a, cur_b, loss_spec)
 
-        show_axis_compare = st.checkbox("좌표축 방향 이동(지그재그) 경로도 함께 보기", value=False, key="ai_step2_show_axis_compare")
-        axis_path = None
-        if show_axis_compare:
-            steps_for_compare = max(0, len(path) - 1)
-            axis_path = coord_axis_path(float(s.get("start_a", cur_a)), float(s.get("start_b", cur_b)), steps_for_compare, STEP_SIZE)
+        # 1차시식 축-번갈아 경로(점선)
+        axis_path = coord_axis_path(cur_a, cur_b, steps=8, learning_rate=LEARNING_RATE, loss_spec=loss_spec)
+
+        arrow_len = 0.6
 
         if PLOTLY_AVAILABLE:
             fig = go.Figure()
@@ -335,46 +347,35 @@ def main():
                 )
             )
 
-            # 내 경로
+            # 경로
             if len(xs) >= 2:
-                fig.add_trace(go.Scatter(x=xs, y=ys, mode="lines+markers", marker=dict(size=6), name="내 경로"))
+                fig.add_trace(go.Scatter(x=xs, y=ys, mode="lines+markers", name="이동 경로"))
             else:
-                fig.add_trace(
-                    go.Scatter(
-                        x=xs,
-                        y=ys,
-                        mode="markers+text",
-                        text=["시작"],
-                        textposition="top center",
-                        marker=dict(size=10),
-                        name="시작점",
-                    )
-                )
+                fig.add_trace(go.Scatter(x=xs, y=ys, mode="markers", name="현재"))
 
-            # 비교 경로
+            # 축-번갈아 경로(점선)
             if axis_path is not None and len(axis_path) >= 2:
                 ax_x = [p[0] for p in axis_path]
                 ax_y = [p[1] for p in axis_path]
-                fig.add_trace(go.Scatter(x=ax_x, y=ax_y, mode="lines", line=dict(dash="dot", width=2), name="좌표축 이동(비교)"))
+                fig.add_trace(go.Scatter(x=ax_x, y=ax_y, mode="lines", line=dict(dash="dot"), name="축만 번갈아(참고)"))
 
-            # 현재점
+            # 화살표(학생 선택)
             fig.add_trace(
                 go.Scatter(
-                    x=[cur_a],
-                    y=[cur_b],
-                    mode="markers+text",
-                    text=["현재"],
-                    textposition="top center",
-                    marker=dict(size=10),
-                    name="현재",
+                    x=[cur_a, cur_a + arrow_len * ux],
+                    y=[cur_b, cur_b + arrow_len * uy],
+                    mode="lines",
+                    name="내가 고른 방향",
                 )
             )
-
-            # 내 방향(화살표 대신 선)
-            fig.add_trace(go.Scatter(x=[cur_a, cur_a + arrow_len * ux], y=[cur_b, cur_b + arrow_len * uy], mode="lines", name="내 방향"))
-            # 추천 방향
+            # 화살표(추천)
             fig.add_trace(
-                go.Scatter(x=[cur_a, cur_a + arrow_len * reco_vx], y=[cur_b, cur_b + arrow_len * reco_vy], mode="lines", name="추천 방향")
+                go.Scatter(
+                    x=[cur_a, cur_a + arrow_len * reco_vx],
+                    y=[cur_b, cur_b + arrow_len * reco_vy],
+                    mode="lines",
+                    name="추천 방향",
+                )
             )
 
             fig.update_layout(
@@ -416,9 +417,15 @@ def main():
     st.divider()
     st.subheader("③ 관찰 기록 서술")
 
+    # ✅ 고정식 제거 -> 선택된 함수 표시
     st.markdown(
-        r"""
-1) 손실함수 $E(a,b)=10 a^2+ b^2$에 대해 시작점 $(a,b)$에서의 $\dfrac{\partial E}{\partial a}$, $\dfrac{\partial E}{\partial b}$를 구하시오.  
+        rf"""
+1) 선택한 손실함수 $E(a,b)$에 대해 시작점 $(a,b)$에서의 $\dfrac{{\partial E}}{{\partial a}}$, $\dfrac{{\partial E}}{{\partial b}}$를 구하시오.  
+
+현재 선택된 함수:
+$$
+{loss_latex}
+$$
 """
     )
 
@@ -428,81 +435,57 @@ def main():
         dE_da = st.text_input("편미분 식에 시작점 a좌표 값 대입", key="ai_step2_dE_da", label_visibility="collapsed")
     with colp2:
         st.markdown(r"$$\frac{\partial E}{\partial b} = $$")
-        dE_db = st.text_input("편미분 식에 시작점 a좌표 값 대입", key="ai_step2_dE_db", label_visibility="collapsed")
+        dE_db = st.text_input("편미분 식에 시작점 b좌표 값 대입", key="ai_step2_dE_db", label_visibility="collapsed")
 
     direction_desc = st.text_area(
         "2) 위에서 구한 두 값의 부호를 관찰하고, 손실을 줄이기 위해 각 변수를 어떤 방향(증가/감소)으로 변화시켜야 하는지 서술하시오.",
-        height=100,
-        placeholder="예: 각 값의 부호를 확인하여 a와 b의 값을 키울지 줄일지 결정하고, 그에 따라 내가 선택한 이동 방향을 서술",
+        height=120,
+        placeholder="예: ∂E/∂a의 부호가 +이면 a를 감소시키면 E가 줄어든다. ∂E/∂b의 부호가 -이면 b를 증가시키면 E가 줄어든다. ...",
         key="ai_step2_direction_desc",
     )
 
     reflection = st.text_area(
-        "3) 1 step 이동 결과 손실값은 어떻게 변하였는가? 기울기의 부호를 이용한 나의 판단이 결과와 일치하였는지 그 이유를 설명하시오.",
+        "3) 내가 선택한 방향으로 1 step씩 이동한 결과(경로)를 해석하시오.",
         height=120,
-        placeholder="예: 이동 후 손실의 변화와 그 원인을 자신의 판단과 연결하여 서술",
+        placeholder="예: 처음에는 손실이 빠르게 감소했지만, 이후에는 감소 폭이 줄었다. 추천 방향과 비교했을 때... 등",
         key="ai_step2_reflection",
     )
 
-    st.divider()
-
+    # ---- 유효성 검사 ----
     def _validate_inputs() -> tuple[bool, str]:
-        if not str(dE_da).strip():
-            return False, "1) ∂E/∂a 값을 입력하세요."
-        if not str(dE_db).strip():
-            return False, "1) ∂E/∂b 값을 입력하세요."
-        if not str(direction_desc).strip():
-            return False, "2) 방향 성분/이동 방향 서술을 입력하세요."
-        if not str(reflection).strip():
-            return False, "3) 결과 해석을 입력하세요."
+        if not (dE_da or "").strip():
+            return False, "1) ∂E/∂a 입력이 비어 있습니다."
+        if not (dE_db or "").strip():
+            return False, "1) ∂E/∂b 입력이 비어 있습니다."
+        if not (direction_desc or "").strip():
+            return False, "2) 방향 성분 판단 서술이 비어 있습니다."
+        if not (reflection or "").strip():
+            return False, "3) 이동 결과 해석이 비어 있습니다."
         return True, "OK"
 
-    # -----------------------------
-    # ④ 저장 / 백업 / 최종보고서 이동
-    # (step3_integral.py 패턴과 동일 UX)
-    # -----------------------------
-    st.markdown("---")
-    st.subheader("④ 저장 및 최종 보고서")
-
-    col1, col2, col3 = st.columns([1, 1, 1], gap="large")
-    with col1:
-        save_clicked = st.button("✅ 저장", use_container_width=True)
-    with col2:
-        backup_make_clicked = st.button("⬇️ TXT 백업 만들기", use_container_width=True)
-    with col3:
-        go_next = st.button("➡️ 최종 보고서 작성", use_container_width=True)
-
-    # 저장 상태 표시(assessment.common)
-    render_save_status()
-
-    # ---- 현재 경로 요약(항상 계산) ----
+    # 현재 경로 결과 요약
     path = s.get("path", [])
-    start_a = float(s.get("start_a", PRESET_STARTS[0][0]))
-    start_b = float(s.get("start_b", PRESET_STARTS[0][1]))
+    start_a = float(s.get("start_a", path[0][0]))
+    start_b = float(s.get("start_b", path[0][1]))
+    final_a, final_b, final_e = path[-1]
+    steps_used = max(0, len(path) - 1)
 
-    if path:
-        final_a, final_b, final_e = path[-1]
-        steps_used = max(0, len(path) - 1)
-    else:
-        final_a, final_b = start_a, start_b
-        final_e = float(E(np.array(final_a), np.array(final_b)))
-        steps_used = 0
-
-    # ---- 백업 payload 구성(다운로드/저장/이동 공통) ----
     payload = {
         "student_id": student_id,
-        "start_a": f"{start_a:.4f}",
-        "start_b": f"{start_b:.4f}",
-        "step_size": STEP_SIZE,
-        "final_a": f"{float(final_a):.4f}",
-        "final_b": f"{float(final_b):.4f}",
-        "final_E": f"{float(final_e):.6f}",
+        "loss_type": loss_spec.type,
+        "loss_params": dict(loss_spec.params),
+        "loss_latex": loss_latex,
+        "learning_rate": float(LEARNING_RATE),
+        "start_a": float(start_a),
+        "start_b": float(start_b),
+        "final_a": float(final_a),
+        "final_b": float(final_b),
+        "final_E": float(final_e),
         "steps_used": int(steps_used),
-        "dE_da": str(dE_da).strip(),
-        "dE_db": str(dE_db).strip(),
-        "direction_desc": str(direction_desc).strip(),
-        "result_reflection": str(reflection).strip(),
-        "saved_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+        "partials_input": f"∂E/∂a: {dE_da} / ∂E/∂b: {dE_db}",
+        "direction_desc": direction_desc,
+        "result_reflection": reflection,
+        "saved_at": pd.Timestamp.now().isoformat(timespec="seconds"),
     }
 
     backup_text = build_backup_text(payload)
@@ -515,6 +498,15 @@ def main():
         mime="text/plain; charset=utf-8",
         use_container_width=True,
     )
+
+    # 버튼 3개(기존 UX 유지)
+    cA, cB, cC = st.columns([1, 1, 1], gap="small")
+    with cA:
+        backup_make_clicked = st.button("⬇️ TXT 백업 만들기", use_container_width=True)
+    with cB:
+        save_clicked = st.button("✅ 제출/저장", use_container_width=True)
+    with cC:
+        go_next = st.button("➡️ 최종 보고서로 이동", use_container_width=True)
 
     # ---- 공통 검증(세 버튼 모두) ----
     if save_clicked or backup_make_clicked or go_next:
@@ -534,22 +526,44 @@ def main():
             # late import: 페이지 로딩 안정
             from assessment.google_sheets import append_ai_step2_row
 
-            append_ai_step2_row(
-                student_id=student_id,
-                alpha=float(ALPHA),
-                beta=float(BETA),
-                start_a=float(start_a),
-                start_b=float(start_b),
-                step_size=float(STEP_SIZE),
-                dE_da=str(dE_da).strip(),
-                dE_db=str(dE_db).strip(),
-                direction_desc=str(direction_desc).strip(),
-                result_reflection=str(reflection).strip(),
-                final_a=float(final_a),
-                final_b=float(final_b),
-                steps_used=int(steps_used),
-                final_E=float(final_e),
-            )
+            # ✅ 신형 컬럼이 있으면 신형으로
+            try:
+                append_ai_step2_row(
+                    student_id=student_id,
+                    loss_type=loss_spec.type,
+                    loss_params=str(dict(loss_spec.params)),
+                    start_a=float(start_a),
+                    start_b=float(start_b),
+                    learning_rate=float(LEARNING_RATE),
+                    dE_da=str(dE_da).strip(),
+                    dE_db=str(dE_db).strip(),
+                    direction_desc=str(direction_desc).strip(),
+                    result_reflection=str(reflection).strip(),
+                    final_a=float(final_a),
+                    final_b=float(final_b),
+                    steps_used=int(steps_used),
+                    final_E=float(final_e),
+                )
+            except TypeError:
+                # ✅ 구형 시트(alpha/beta)만 받는 경우: quad(alpha=...)일 때만 의미 있게 저장
+                alpha_fallback = float(loss_spec.params.get("alpha", 10.0)) if loss_spec.type == "quad" else 10.0
+                append_ai_step2_row(
+                    student_id=student_id,
+                    alpha=float(alpha_fallback),
+                    beta=float(1.0),
+                    start_a=float(start_a),
+                    start_b=float(start_b),
+                    step_size=float(LEARNING_RATE),
+                    dE_da=str(dE_da).strip(),
+                    dE_db=str(dE_db).strip(),
+                    direction_desc=str(direction_desc).strip(),
+                    result_reflection=str(reflection).strip(),
+                    final_a=float(final_a),
+                    final_b=float(final_b),
+                    steps_used=int(steps_used),
+                    final_E=float(final_e),
+                )
+
             set_save_status(True, "구글시트 저장 완료")
         except Exception as e:
             set_save_status(False, f"구글시트 저장 실패: {e}")
@@ -563,6 +577,9 @@ def main():
         # (선택) 보고서 페이지에서 자동 채움에 활용 가능
         st.session_state[_BACKUP_STATE_KEY] = payload
         st.switch_page("assessment/ai_final_report.py")
-        
+
+    render_save_status()
+
+
 if __name__ == "__main__":
     main()
