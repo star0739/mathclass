@@ -210,7 +210,7 @@ def main():
     left, right = st.columns([1, 2], gap="large")
 
     with left:
-        st.subheader("① 현재 위치 선택")
+        st.subheader("1) 현재 위치 선택")
 
         a0 = st.slider("$a$ 값", min_value=A_MIN, max_value=A_MAX, value=DEFAULT_START_A, step=0.05)
         b0 = st.slider("$b$ 값", min_value=B_MIN, max_value=B_MAX, value=DEFAULT_START_B, step=0.05)
@@ -225,7 +225,7 @@ def main():
         )
 
         st.divider()
-        st.subheader("② 한 변수만 줄이는 이동")
+        st.subheader("2) 한 변수만 줄이는 이동")
 
         st.markdown(
             r"""
@@ -345,7 +345,7 @@ $$
     # 하단(전체 폭): ③ 서술 + 백업 + 저장/이동 + 저장상태
     # -------------------------
     st.divider()
-    st.subheader("③ 관찰 기록 서술")
+    st.subheader("3) 관찰 기록 서술")
 
     obs_shape = st.text_area(
         "1) 전역 최소점의 위치와 손실 지형의 전체적인 형태를 함께 설명하시오.",
