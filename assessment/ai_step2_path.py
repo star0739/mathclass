@@ -552,8 +552,6 @@ def main():
         try:
             from assessment.google_sheets import append_ai_step2_row  # late import
 
-            # direction_reason은 "편미분 계산식"을 함께 남기기 위해 사용(컬럼 의미는 내부 운영 기준)
-            direction_reason = f"∂E/∂a = {str(dE_da).strip()}\n∂E/∂b = {str(dE_db).strip()}"
 
             append_ai_step2_row(
                 student_id=student_id,
@@ -565,7 +563,6 @@ def main():
                 dE_da=str(dE_da).strip(),
                 dE_db=str(dE_db).strip(),
                 direction_desc=str(direction_desc).strip(),
-                direction_reason=direction_reason.strip(),
                 result_reflection=str(reflection).strip(),
                 final_a=float(final_a),
                 final_b=float(final_b),
