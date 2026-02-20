@@ -1,13 +1,3 @@
-# assessment/ai_final_report.py
-# ------------------------------------------------------------
-# 인공지능수학 수행평가 최종 보고서(1~2차시) + PDF 출력 페이지
-# - UX/UI: assessment/final_report.py 스타일에 맞춤
-# - 입력: 제목(필수), 학번(필수), 이름(필수)
-# - 업로드: 1~2차시 TXT(필수) + 그래프 이미지 2종(필수)
-# - 본문: 1. 서론 / 2. 본론 / 3. 결론 (본론은 소문항 없이 자연스럽게 연결)
-# - 수식: LaTeX를 이미지로 렌더링하여 깨짐 방지
-# - 한글 폰트: assets 폴더의 TTF 등록 후 전체 적용
-# ------------------------------------------------------------
 
 from __future__ import annotations
 
@@ -94,13 +84,19 @@ def _parse_function_expr(text: str) -> str:
 
 
 def _parse_range(text: str) -> Tuple[str, str]:
-    # "- 관찰 범위: a∈[-3,3], b∈[-3,3]" 형태
+    """
+    예: "- 관찰 범위: a∈[-3,3], b∈[-3,3]" 에서
+        a_range="[-3,3]", b_range="[-3,3]" 를 정확히 추출
+    """
     m = re.search(r"관찰 범위\s*:\s*(.+)$", text, flags=re.MULTILINE)
     if not m:
         return "", ""
     s = m.group(1)
-    ma = re.search(r"a\s*[∈=]\s*([^\s,]+)", s)
-    mb = re.search(r"b\s*[∈=]\s*([^\s,]+)", s)
+
+    # 괄호로 둘러싸인 구간 전체를 캡처: [ ... ] 또는 ( ... )
+    ma = re.search(r"a\s*[∈=]\s*([\[\(].*?[\]\)])", s)
+    mb = re.search(r"b\s*[∈=]\s*([\[\(].*?[\]\)])", s)
+
     a_rng = ma.group(1).strip() if ma else ""
     b_rng = mb.group(1).strip() if mb else ""
     return a_rng, b_rng
@@ -459,7 +455,7 @@ def _maybe_init_drafts(s1: Dict[str, str], s2: Dict[str, str]) -> Dict[str, str]
 
     if K_BODY_MAIN not in st.session_state:
         s1_hint = (s1.get("q3") or s1.get("narrative_all") or "").strip()
-        extra = f"\n\n(1차시 서술 초안/메모)\n{s1_hint}" if s1_hint else ""
+        extra = f"\n\n(구조 관찰 서술)\n{s1_hint}" if s1_hint else ""
         st.session_state[K_BODY_MAIN] = (
             "등고선을 관찰한 결과 전역 최소점은 원점 부근에서 나타나며, 지형은 원점을 향해 내려가는 형태로 해석할 수 있었다. "
             "또한 등고선 간격을 보면 a방향의 변화가 더 민감하게 나타난다고 판단했다.\n\n"
@@ -471,11 +467,10 @@ def _maybe_init_drafts(s1: Dict[str, str], s2: Dict[str, str]) -> Dict[str, str]
 
     if K_BODY_RESULT not in st.session_state:
         s2_hint = (s2.get("q2") or s2.get("q3") or s2.get("narrative_all") or "").strip()
-        extra = f"\n\n(2차시 서술 초안/메모)\n{s2_hint}" if s2_hint else ""
+        extra = f"\n\n(경로 탐색 서술)\n{s2_hint}" if s2_hint else ""
         st.session_state[K_BODY_RESULT] = (
-            f"시작점 {start_pt}에서 편미분을 계산하면 $\\partial E/\\partial a={dE_da}$, "
-            f"$\\partial E/\\partial b={dE_db}$ 이므로, 손실을 줄이기 위한 이동 방향은 "
-            "‘기울기(편미분)의 부호와 반대’로 결정할 수 있다.\n\n"
+            f"시작점 {start_pt}에서 편미분을 계산하면 ∂E/∂a={dE_da}, "
+            f"∂E/∂b={dE_db} 이므로, 손실을 줄이기 위한 이동 방향은 '기울기(편미분)의 부호와 반대'로 결정할 수 있다.\n\n"
             "따라서 a는 (증가/감소) 방향, b는 (증가/감소) 방향으로 움직여야 한다고 판단했다.\n\n"
             f"step_size={step_size}로 이동을 반복한 결과 {steps} step 후 최종점 {end_pt}에 도달했고, "
             f"최종 손실은 $E\\approx {final_e}$ 이었다. 그림 2를 근거로 이동 방향의 타당성과 한계를 서술한다."
