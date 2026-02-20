@@ -162,7 +162,7 @@ def main():
         min_value=float(lo),
         max_value=float(hi),
         value=float(np.clip(default_val, lo, hi)),
-        step=1 if (hi - lo) >= 10 else 0.1,
+        step=1,
     )
 
     loss_spec = make_loss_spec(loss_type, {param_key: param_val})
