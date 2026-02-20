@@ -387,7 +387,7 @@ if step2_txt is not None:
             "valid_n": parsed2.get("valid_n") or step2.get("valid_n") or step1.get("valid_n", ""),
         }
         _set_step2_state(step2)
-        st.success("TXT에서 2차시 정보를(부분적으로) 불러왔습니다.")
+        st.success("TXT에서 2차시 정보를 불러왔습니다.")
     except Exception as e:
         st.error("2차시 TXT를 읽는 중 오류가 발생했습니다.")
         st.exception(e)
