@@ -254,11 +254,22 @@ def _img_scale_to_width(img_bytes: bytes, target_w_mm: float) -> RLImage:
 
 
 def _normalize_expr_for_latex(expr: str) -> str:
+    """
+    - 공백 정리
+    - 1a^2, 1b^2 → a^2, b^2
+    - LaTeX용 ^{ } 형태로 변환
+    """
     s = (expr or "").strip()
-    s = re.sub(r"\s+", " ", s)
-    s = s.replace(" 1 b^2", " b^2").replace("+ 1 b^2", "+ b^2").replace("1 b^2", "b^2")
-    s = s.replace(" 1 a^2", " a^2").replace("+ 1 a^2", "+ a^2").replace("1 a^2", "a^2")
-    s = s.replace(" a^2", "a^2").replace(" b^2", "b^2")
+
+    # 공백 정리
+    s = re.sub(r"\s+", "", s)
+
+    # 1a^2, 1b^2 같은 계수 1 제거
+    s = re.sub(r"\b1(?=[ab]\^)", "", s)
+
+    # ^2 → ^{2} 로 변환 (LaTeX 안정성)
+    s = re.sub(r"\^(\d+)", r"^{\1}", s)
+
     return s
 
 
@@ -369,9 +380,19 @@ def build_ai_report_pdf(
 
     fn_tex = sections.get("function_expr", "").strip()
     if fn_tex:
+        latex_str = r"E(a,b) = " + fn_tex
+        png = latex_to_png_bytes(latex_str, fontsize=20)
+
         story.append(Spacer(1, 4 * mm))
-        story.append(Paragraph(f"E(a,b) = {fn_tex}", body))
-        story.append(Spacer(1, 6 * mm))
+
+        if png:
+            img = RLImage(BytesIO(png))
+            img.hAlign = "CENTER"
+            story.append(img)
+        else:
+            story.append(Paragraph(latex_str, body))
+
+    story.append(Spacer(1, 8 * mm))
 
     # 1. 서론
     story.append(Paragraph("1. 서론", h1))
@@ -617,7 +638,9 @@ if st.button("📄 PDF 생성", use_container_width=True):
         st.stop()
 
     sections = {
-        "function_expr": s2.get("function_expr") or s1.get("function_expr") or "",
+        "function_expr": _normalize_expr_for_latex(
+            s2.get("function_expr") or s1.get("function_expr") or "",
+        ),
         "intro": sec_intro.strip(),
         "body_main": sec_body_main.strip(),
         "body_result": sec_body_result.strip(),
