@@ -291,6 +291,7 @@ def append_step3_row(
 # ------------------------------------------------------------
 
 # --- AI 1차시 저장용 ---
+# --- AI 1차시 저장용 ---
 SHEET_NAME_AI_STEP1 = "인공지능수학_수행평가_1차시"
 
 DEFAULT_AI_STEP1_HEADER = [
@@ -305,28 +306,26 @@ DEFAULT_AI_STEP1_HEADER = [
     "obs_zigzag",
 ]
 
-
 def ensure_ai_step1_header(ws) -> None:
     values = ws.get_all_values()
     if not values:
         ws.append_row(DEFAULT_AI_STEP1_HEADER, value_input_option="USER_ENTERED")
         return
-
     first_row = values[0]
     if len(first_row) == 0 or all((c.strip() == "" for c in first_row)):
         ws.update("A1", [DEFAULT_AI_STEP1_HEADER])
         return
 
-
 def append_ai_step1_row(
+    *,
     student_id: str,
     loss_type: str,
     loss_params: str,
     a0: float,
     b0: float,
-    obs_shape: str,
-    obs_sensitivity: str,
-    obs_zigzag: str,
+    obs_shape: str = "",
+    obs_sensitivity: str = "",
+    obs_zigzag: str = "",
     sheet_name: str = SHEET_NAME_AI_STEP1,
 ) -> None:
     if not str(student_id).strip():
@@ -337,7 +336,7 @@ def append_ai_step1_row(
 
     def _as_text(v: str) -> str:
         v = (v or "").strip()
-        return ("'" + v) if v.startswith("=") else v
+        return "'" + v if v.startswith("=") else v
 
     row = [
         datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
@@ -352,7 +351,7 @@ def append_ai_step1_row(
     ]
     ws.append_row(row, value_input_option="USER_ENTERED")
 
-
+# --- AI 2차시 저장용 ---
 # --- AI 2차시 저장용 ---
 SHEET_NAME_AI_STEP2 = "인공지능수학_수행평가_2차시"
 
@@ -374,30 +373,28 @@ DEFAULT_AI_STEP2_HEADER = [
     "final_E",
 ]
 
-
 def ensure_ai_step2_header(ws) -> None:
     values = ws.get_all_values()
     if not values:
         ws.append_row(DEFAULT_AI_STEP2_HEADER, value_input_option="USER_ENTERED")
         return
-
     first_row = values[0]
     if len(first_row) == 0 or all((c.strip() == "" for c in first_row)):
         ws.update("A1", [DEFAULT_AI_STEP2_HEADER])
         return
 
-
 def append_ai_step2_row(
+    *,
     student_id: str,
     loss_type: str,
     loss_params: str,
     start_a: float,
     start_b: float,
     learning_rate: float,
-    dE_da: str,
-    dE_db: str,
-    direction_desc: str,
-    result_reflection: str,
+    dE_da: str = "",
+    dE_db: str = "",
+    direction_desc: str = "",
+    result_reflection: str = "",
     final_a: float,
     final_b: float,
     steps_used: int,
@@ -412,7 +409,7 @@ def append_ai_step2_row(
 
     def _as_text(v: str) -> str:
         v = (v or "").strip()
-        return ("'" + v) if v.startswith("=") else v
+        return "'" + v if v.startswith("=") else v
 
     row = [
         datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
