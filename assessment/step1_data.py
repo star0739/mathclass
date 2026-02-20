@@ -266,10 +266,19 @@ model_primary_reason = st.text_area(
 )
 
 
-col1, col2, col3 = st.columns([1, 1, 1.2])
-save_clicked = col1.button("💾 저장(구글시트)", use_container_width=True)
-download_clicked = col2.button("⬇️ TXT 백업 만들기", use_container_width=True)
-go_next = col3.button("➡️ 2차시로 이동", use_container_width=True)
+st.divider()
+
+a1, a2, a3, a4 = st.columns([1, 1, 1, 1], gap="small")
+
+with a1:
+    backup_make_clicked = st.button("🧾 백업 준비", use_container_width=True)
+with a2:
+    # 다운로드 버튼은 아래(항상 렌더)에서 유지
+    pass
+with a3:
+    save_clicked = st.button("💾 저장(구글시트)", use_container_width=True)
+with a4:
+    go_next = st.button("➡️ 다음", use_container_width=True)
 
 
 def _final_model(choice: str, custom: str) -> str:
@@ -304,44 +313,47 @@ payload = {
     "model_primary_reason": model_primary_reason.strip(),
 }
 
-# TXT 백업 다운로드 버튼(즉시 다운로드 버튼을 표시하기 위해 항상 렌더)
 backup_text = build_backup_text(payload)
-backup_bytes = backup_text.encode("utf-8-sig")  # ✅ 한글 안전(윈도우 메모장 호환 ↑)
-st.download_button(
-    label="📄 (다운로드) 1차시 백업 TXT",
-    data=backup_bytes,
-    file_name=f"미적분_수행평가_1차시_{student_id}.txt",
-    mime="text/plain; charset=utf-8",
-)
+backup_bytes = backup_text.encode("utf-8-sig")
 
-if save_clicked or go_next:
+with a2:
+    st.download_button(
+        label="⬇️ TXT 다운로드",
+        data=backup_bytes,
+        file_name=f"미적분_수행평가_1차시_{student_id}.txt",
+        mime="text/plain; charset=utf-8",
+        use_container_width=True,
+    )
+
+if save_clicked or backup_make_clicked or go_next:
     if not _validate():
         st.stop()
 
-    # 세션 저장(다음 차시 연동)
+    # 세션에 저장(보고서 자동 채움용)
     set_step1_summary({**payload, "saved_at": pd.Timestamp.now().isoformat()})
 
-    # Google Sheet 저장
-    try:
-        append_step1_row(
-            student_id=payload["student_id"],
-            data_source=payload["data_source"],
-            x_col=payload["x_col"],
-            y_col=payload["y_col"],
-            x_mode=payload["x_mode"],
-            valid_n=payload["valid_n"],
-            features=payload["features"],
-            model_primary=payload["model_primary"],
-            model_primary_reason=payload["model_primary_reason"],
-        )
-        st.success("✅ 저장 완료! (Google Sheet에 기록되었습니다)")
-    except Exception as e:
-        st.error("⚠️ Google Sheet 저장 중 오류가 발생했습니다.")
-        st.exception(e)
-        st.stop()
+    # 1️⃣ 백업 준비
+    if backup_make_clicked:
+        st.success("✅ 백업 내용을 준비했습니다. TXT 다운로드 버튼을 눌러 저장하세요.")
 
-    if go_next:
-        if not quality_ok:
-            st.error(f"유효 데이터 점이 {MIN_VALID_POINTS}개 이상이어야 2차시로 이동할 수 있습니다.")
+    # 2️⃣ 구글시트 저장
+    if save_clicked or go_next:
+        try:
+            append_step1_row(
+                student_id=payload["student_id"],
+                data_source=payload["data_source"],
+                features=payload["features"],
+                model_primary=payload["model_primary"],
+                model_primary_reason=payload["model_primary_reason"],
+                model_secondary=payload["model_secondary"],
+                model_secondary_reason=payload["model_secondary_reason"],
+                student_interpretation=payload["student_interpretation"],
+            )
+            st.success("✅ 구글 시트에 성공적으로 저장되었습니다.")
+        except Exception as e:
+            st.error(f"⚠️ 구글 시트 저장 오류: {e}")
             st.stop()
+
+    # 3️⃣ 다음 차시 이동
+    if go_next:
         st.switch_page("assessment/step2_model.py")
