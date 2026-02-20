@@ -36,7 +36,7 @@ from assessment.common import (
 # -----------------------------
 # 기본 설정(고정)
 # -----------------------------
-TITLE = "인공지능수학 수행평가 (2차시) — 경로(Path) 탐구"
+TITLE = "2차시: 경로(Path) 탐색"
 
 DEFAULT_ALPHA = 10.0
 DEFAULT_BETA = 1.0
@@ -59,6 +59,8 @@ PRESET_STARTS = [
     (2.5, -1.8),
     (-2.4, -2.1),
 ]
+
+_BACKUP_STATE_KEY = "ai_step2_backup_payload"
 
 
 # -----------------------------
@@ -102,6 +104,30 @@ def recommended_direction(alpha: float, beta: float, a: float, b: float) -> tupl
     if norm < 1e-12:
         return 0.0, 0.0
     return vx / norm, vy / norm
+
+
+def coord_axis_path(alpha: float, beta: float, a0: float, b0: float, steps: int, step_size: float) -> list[tuple[float, float, float]]:
+    """
+    1차시의 '좌표축 방향 이동(지그재그)'과 같은 비교 경로
+    - k 짝수: a만 이동
+    - k 홀수: b만 이동
+    """
+    a, b = float(a0), float(b0)
+    a, b = _clip(a, b)
+    e0 = float(E(alpha, beta, np.array(a), np.array(b)))
+    pts: list[tuple[float, float, float]] = [(a, b, e0)]
+
+    for k in range(steps):
+        da, db = _partials(alpha, beta, a, b)
+        if k % 2 == 0:
+            a = a - step_size * da
+        else:
+            b = b - step_size * db
+        a, b = _clip(a, b)
+        e = float(E(alpha, beta, np.array(a), np.array(b)))
+        pts.append((a, b, e))
+
+    return pts
 
 
 # -----------------------------
@@ -197,7 +223,7 @@ def build_backup_text(s: dict, direction_desc: str, direction_reason: str, refle
     lines.append("1) 내가 선택한 방향(설명):")
     lines.append((direction_desc or "").strip())
     lines.append("")
-    lines.append("2) 그 방향을 선택한 근거(등고선 등):")
+    lines.append("2) 그 방향을 선택한 기준(내 규칙/판단):")
     lines.append((direction_reason or "").strip())
     lines.append("")
     lines.append("3) 실행 결과에 대한 해석(일치/불일치 + 이유):")
@@ -211,11 +237,11 @@ def build_backup_text(s: dict, direction_desc: str, direction_reason: str, refle
 # -----------------------------
 def main():
     st.set_page_config(page_title=TITLE, layout="wide")
-    st.title(TITLE)
 
     init_assessment_session()
     student_id = require_student_id()
-    render_save_status()
+
+    st.title(TITLE)
 
     s = _init_state_if_needed(student_id)
 
@@ -228,20 +254,25 @@ def main():
 
 - 먼저 **내가 생각한 방향**으로 한 번 이동해 보고,
 - 필요하면 **추천 방향(힌트)** 과 비교해 보세요.
-
-> 오늘도 용어(그래디언트)는 쓰지 않습니다. 대신 **등고선 간격/모양**을 근거로 설명합니다.
 """
     )
 
+    # -------------------------
+    # 상단: 좌(①②) / 우(시각화)
+    # -------------------------
     left, right = st.columns([1, 2], gap="large")
 
-    # ------------------ 좌측: 조작/서술/저장 ------------------
+    # ------------------ 좌측: ① 시작점 + ② 이동 ------------------
     with left:
         st.subheader("① 시작점 설정")
 
-        # 시작점 선택(프리셋/랜덤)
         preset_labels = [f"프리셋 {i+1}: ({a:g}, {b:g})" for i, (a, b) in enumerate(PRESET_STARTS)]
-        preset_idx = st.selectbox("시작점 선택", options=list(range(len(PRESET_STARTS))), format_func=lambda i: preset_labels[i])
+        preset_idx = st.selectbox(
+            "시작점 선택",
+            options=list(range(len(PRESET_STARTS))),
+            format_func=lambda i: preset_labels[i],
+            key="ai_step2_preset_idx",
+        )
 
         c1, c2 = st.columns(2)
         with c1:
@@ -253,36 +284,31 @@ def main():
             a0, b0 = PRESET_STARTS[int(preset_idx)]
             a0, b0 = _clip(a0, b0)
             s["start_a"], s["start_b"] = a0, b0
-            s["theta_deg"] = float(s.get("theta_deg", 225.0))
             s["path"] = [(a0, b0, float(E(alpha, beta, np.array(a0), np.array(b0))))]
             s["last_delta"] = None
             _set_state(s)
             st.rerun()
 
         if reset_path:
-            a0, b0 = float(s["start_a"]), float(s["start_b"])
+            a0, b0 = float(s.get("start_a", PRESET_STARTS[0][0])), float(s.get("start_b", PRESET_STARTS[0][1]))
+            a0, b0 = _clip(a0, b0)
             s["path"] = [(a0, b0, float(E(alpha, beta, np.array(a0), np.array(b0))))]
             s["last_delta"] = None
             _set_state(s)
             st.rerun()
 
         st.divider()
-        st.subheader("② 방향 선택 → 1 step 이동")
+        st.subheader("② 방향 선택 & 1 step 이동")
 
-        theta = st.slider("방향(각도, 도)", min_value=0.0, max_value=360.0, value=float(s.get("theta_deg", 225.0)), step=1.0)
+        theta = st.slider("내가 고른 방향(각도, 도)", min_value=0.0, max_value=360.0, value=float(s.get("theta_deg", 225.0)), step=1.0)
         s["theta_deg"] = float(theta)
+        _set_state(s)
 
-        # 힌트(추천 방향) 토글
-        hint_on = st.checkbox("힌트 보기(추천 방향 표시)", value=bool(s.get("hint_on", False)))
-        s["hint_on"] = bool(hint_on)
-
-        # 현재 위치/손실
         path = s.get("path", [])
         cur_a, cur_b, cur_e = path[-1]
-        st.metric("현재 위치 (a,b)", f"({cur_a:.3f}, {cur_b:.3f})")
+        st.metric("현재 위치", f"({cur_a:.3f}, {cur_b:.3f})")
         st.metric("현재 손실 E", f"{cur_e:.6f}")
 
-        # 이동 버튼
         c3, c4 = st.columns(2)
         with c3:
             step_move = st.button("▶ 내가 고른 방향으로 1 step", type="primary", use_container_width=True)
@@ -295,7 +321,6 @@ def main():
             else:
                 ux, uy = _unit_from_angle_deg(theta)
 
-            # 1 step 이동
             na = cur_a + STEP_SIZE * ux
             nb = cur_b + STEP_SIZE * uy
             na, nb = _clip(na, nb)
@@ -308,7 +333,6 @@ def main():
             _set_state(s)
             st.rerun()
 
-        # 전 step 피드백
         if s.get("last_delta") is not None:
             dE = float(s["last_delta"])
             if dE < 0:
@@ -317,94 +341,6 @@ def main():
                 st.warning(f"손실이 증가했습니다.  ΔE = +{dE:.6f}")
             else:
                 st.info("손실 변화가 거의 없습니다. (ΔE ≈ 0)")
-
-        st.divider()
-        st.subheader("③ 서술(최소)")
-
-        direction_desc = st.text_area(
-            "1) 내가 선택한 방향(설명)",
-            height=70,
-            placeholder="예: 등고선이 가장 촘촘한 쪽으로 향하도록 대략 남서쪽(↙) 방향을 선택했다.",
-            key="ai_step2_direction_desc",
-        )
-
-        direction_reason = st.text_area(
-            "2) 근거(등고선 모양/간격을 근거로)",
-            height=100,
-            placeholder="예: 현재 위치에서 등고선이 a방향으로 더 촘촘하므로, a를 빠르게 줄이는 성분이 큰 방향이 유리하다고 판단했다.",
-            key="ai_step2_direction_reason",
-        )
-
-        reflection = st.text_area(
-            "3) 실행 결과 해석(일치/불일치 + 이유)",
-            height=110,
-            placeholder="예: 예상대로 손실이 줄었지만, 경로가 직선이 되지 않고 조금씩 꺾인다. 이유는 …",
-            key="ai_step2_reflection",
-        )
-
-        st.divider()
-
-        # 백업 TXT
-        backup_text = build_backup_text(s, direction_desc, direction_reason, reflection)
-        st.download_button(
-            label="📄 (다운로드) 2차시 백업 TXT",
-            data=backup_text.encode("utf-8-sig"),
-            file_name=f"인공지능_수행평가_2차시_{student_id}.txt",
-            mime="text/plain; charset=utf-8",
-        )
-
-        st.divider()
-
-        # 저장/제출
-        save_clicked = st.button("✅ 제출/저장", use_container_width=True)
-
-        if save_clicked:
-            # 최소 검증(부담 최소화: 핵심 2개는 필수, 3개째도 필수로 두되 길이 제한은 안 둠)
-            if not direction_desc.strip():
-                st.error("서술 1) 방향(설명)을 입력하세요.")
-                st.stop()
-            if not direction_reason.strip():
-                st.error("서술 2) 근거를 입력하세요.")
-                st.stop()
-            if not reflection.strip():
-                st.error("서술 3) 결과 해석을 입력하세요.")
-                st.stop()
-
-            # 최종 상태 값
-            path = s.get("path", [])
-            start_a = float(s.get("start_a", path[0][0] if path else 0.0))
-            start_b = float(s.get("start_b", path[0][1] if path else 0.0))
-            final_a, final_b, final_e = path[-1] if path else (start_a, start_b, float(E(alpha, beta, np.array(start_a), np.array(start_b))))
-            steps_used = max(0, len(path) - 1)
-
-            # 세션 저장(추후 리포트/복구용)
-            s["saved_at"] = pd.Timestamp.now().isoformat(timespec="seconds")
-            _set_state(s)
-
-            # 구글시트 저장(인공지능수학 전용)
-            try:
-                from assessment.google_sheets import append_ai_step2_row  # late import
-
-                append_ai_step2_row(
-                    student_id=student_id,
-                    alpha=alpha,
-                    beta=beta,
-                    start_a=start_a,
-                    start_b=start_b,
-                    step_size=float(s.get("step_size", STEP_SIZE)),
-                    direction_desc=direction_desc.strip(),
-                    direction_reason=direction_reason.strip(),
-                    result_reflection=reflection.strip(),
-                    final_a=float(final_a),
-                    final_b=float(final_b),
-                    steps_used=int(steps_used),
-                    final_E=float(final_e),
-                )
-                set_save_status(True, "구글시트 저장 완료")
-            except Exception as e:
-                set_save_status(False, f"구글시트 저장 실패: {e}")
-
-            st.rerun()
 
     # ------------------ 우측: 시각화 ------------------
     with right:
@@ -416,15 +352,18 @@ def main():
         xs = [p[0] for p in path]
         ys = [p[1] for p in path]
 
-        # 현재점/추천 방향(힌트) 벡터
         cur_a, cur_b, cur_e = path[-1]
         reco_vx, reco_vy = recommended_direction(alpha, beta, cur_a, cur_b)
-
-        # 내가 고른 방향 벡터
         ux, uy = _unit_from_angle_deg(float(s.get("theta_deg", 0.0)))
 
-        # 화살표 길이(시각용)
         arrow_len = 0.55
+
+        show_axis_compare = st.checkbox("좌표축 방향 이동(지그재그) 경로도 함께 보기", value=False, key="ai_step2_show_axis_compare")
+
+        axis_path = None
+        if show_axis_compare:
+            steps_for_compare = max(0, len(path) - 1)
+            axis_path = coord_axis_path(alpha, beta, float(s.get("start_a", cur_a)), float(s.get("start_b", cur_b)), steps_for_compare, STEP_SIZE)
 
         if PLOTLY_AVAILABLE:
             fig = go.Figure()
@@ -440,19 +379,43 @@ def main():
                 )
             )
 
-            # 경로
             if len(xs) >= 2:
                 fig.add_trace(
                     go.Scatter(
                         x=xs,
                         y=ys,
                         mode="lines+markers",
-                        marker=dict(size=5),
-                        name="이동 경로",
+                        marker=dict(size=6),
+                        name="내 경로",
+                    )
+                )
+            else:
+                fig.add_trace(
+                    go.Scatter(
+                        x=xs,
+                        y=ys,
+                        mode="markers+text",
+                        text=["시작"],
+                        textposition="top center",
+                        marker=dict(size=10),
+                        name="시작점",
                     )
                 )
 
-            # 현재점
+            if axis_path is not None and len(axis_path) >= 2:
+                ax_x = [p[0] for p in axis_path]
+                ax_y = [p[1] for p in axis_path]
+                fig.add_trace(
+                    go.Scatter(
+                        x=ax_x,
+                        y=ax_y,
+                        mode="lines",
+                        line=dict(dash="dot", width=2),
+                        name="좌표축 이동(비교)",
+                    )
+                )
+
+            # 현재점 표시
             fig.add_trace(
                 go.Scatter(
                     x=[cur_a],
@@ -461,92 +424,196 @@ def main():
                     text=["현재"],
                     textposition="top center",
                     marker=dict(size=10),
-                    name="현재 위치",
+                    name="현재",
                 )
             )
 
-            # 내가 고른 방향(항상 표시)
-            fig.add_annotation(
-                x=cur_a + arrow_len * ux,
-                y=cur_b + arrow_len * uy,
-                ax=cur_a,
-                ay=cur_b,
-                xref="x",
-                yref="y",
-                axref="x",
-                ayref="y",
-                showarrow=True,
-                arrowhead=3,
-                arrowsize=1,
-                arrowwidth=2,
-                text="내 방향",
+            # 내가 고른 방향 화살표
+            fig.add_trace(
+                go.Scatter(
+                    x=[cur_a, cur_a + arrow_len * ux],
+                    y=[cur_b, cur_b + arrow_len * uy],
+                    mode="lines",
+                    name="내 방향",
+                )
             )
 
-            # 추천 방향(힌트)
-            if bool(s.get("hint_on", False)) and (abs(reco_vx) + abs(reco_vy) > 0):
-                fig.add_annotation(
-                    x=cur_a + arrow_len * reco_vx,
-                    y=cur_b + arrow_len * reco_vy,
-                    ax=cur_a,
-                    ay=cur_b,
-                    xref="x",
-                    yref="y",
-                    axref="x",
-                    ayref="y",
-                    showarrow=True,
-                    arrowhead=3,
-                    arrowsize=1,
-                    arrowwidth=2,
-                    text="추천",
+            # 추천 방향 화살표
+            fig.add_trace(
+                go.Scatter(
+                    x=[cur_a, cur_a + arrow_len * reco_vx],
+                    y=[cur_b, cur_b + arrow_len * reco_vy],
+                    mode="lines",
+                    name="추천 방향",
                 )
+            )
 
             fig.update_layout(
-                height=560,
+                height=520,
                 margin=dict(l=10, r=10, t=10, b=10),
                 xaxis_title="a",
                 yaxis_title="b",
-                xaxis=dict(range=[A_MIN, A_MAX]),
-                yaxis=dict(range=[B_MIN, B_MAX]),
             )
-
             st.plotly_chart(fig, use_container_width=True)
         else:
-            # matplotlib fallback
             fig, ax = plt.subplots()
             cs = ax.contour(A, B, Z, levels=18)
             ax.clabel(cs, inline=True, fontsize=8)
 
             if len(xs) >= 2:
                 ax.plot(xs, ys, marker="o")
+            else:
+                ax.scatter(xs, ys, s=60)
 
-            ax.scatter([cur_a], [cur_b], s=60)
-            ax.text(cur_a, cur_b, "현재")
+            if axis_path is not None and len(axis_path) >= 2:
+                ax_x = [p[0] for p in axis_path]
+                ax_y = [p[1] for p in axis_path]
+                ax.plot(ax_x, ax_y, linestyle=":", linewidth=2)
 
-            # 내 방향 화살표
-            ax.annotate(
-                "내 방향",
-                xy=(cur_a + arrow_len * ux, cur_b + arrow_len * uy),
-                xytext=(cur_a, cur_b),
-                arrowprops=dict(arrowstyle="->", lw=2),
-            )
+            ax.scatter([cur_a], [cur_b], s=70)
+            ax.text(cur_a, cur_b, "현재", fontsize=10)
 
-            # 추천 방향 화살표
-            if bool(s.get("hint_on", False)) and (abs(reco_vx) + abs(reco_vy) > 0):
-                ax.annotate(
-                    "추천",
-                    xy=(cur_a + arrow_len * reco_vx, cur_b + arrow_len * reco_vy),
-                    xytext=(cur_a, cur_b),
-                    arrowprops=dict(arrowstyle="->", lw=2),
-                )
+            ax.arrow(cur_a, cur_b, arrow_len * ux, arrow_len * uy, head_width=0.08, length_includes_head=True)
+            ax.arrow(cur_a, cur_b, arrow_len * reco_vx, arrow_len * reco_vy, head_width=0.08, length_includes_head=True)
 
-            ax.set_xlim(A_MIN, A_MAX)
-            ax.set_ylim(B_MIN, B_MAX)
             ax.set_xlabel("a")
             ax.set_ylabel("b")
             ax.set_title("Contour + Path")
             st.pyplot(fig, clear_figure=True)
 
-        st.caption("팁: 등고선이 촘촘한 쪽으로 향하는 방향일수록, 손실이 더 빠르게 줄어드는 경향이 있습니다.")
+    # -------------------------
+    # 하단(전체 폭): ③ 서술 + 백업 + 저장 + 저장상태
+    # -------------------------
+    st.divider()
+    st.subheader("③ 서술(최소)")
+
+    direction_desc = st.text_area(
+        "1) 내가 선택한 방향(설명)",
+        height=70,
+        placeholder="예: b도 줄이되, a를 더 빨리 줄이는 성분이 큰 방향으로 이동하려고 대략 ↙ 방향을 선택했다.",
+        key="ai_step2_direction_desc",
+    )
+
+    direction_reason = st.text_area(
+        "2) 그 방향을 선택한 기준(내 규칙/판단)",
+        height=100,
+        placeholder="예: 현재 위치에서 a의 영향이 더 크다고 보고, a가 감소하는 성분이 큰 방향을 우선했다. (필요하면 등고선 근거도 함께)",
+        key="ai_step2_direction_reason",
+    )
+
+    reflection = st.text_area(
+        "3) 실행 결과 해석(일치/불일치 + 이유)",
+        height=110,
+        placeholder="예: 실제로 ΔE가 줄었다/늘었다. 내 판단과 결과가 일치/불일치한 이유는 …",
+        key="ai_step2_reflection",
+    )
+
+    st.divider()
+
+    # 버튼 레이아웃(1차시와 동일한 감각)
+    col1, col2, col3 = st.columns([1, 1, 1.2], gap="small")
+    with col1:
+        save_clicked = st.button("✅ 제출/저장", use_container_width=True)
+    with col2:
+        backup_make_clicked = st.button("⬇️ TXT 백업 만들기", use_container_width=True)
+    with col3:
+        pass  # (2차시는 다음 차시 이동 버튼을 강제하지 않음)
+
+    # 검증(기존 수준 유지)
+    def _validate_step2() -> bool:
+        if not direction_desc.strip():
+            st.error("서술 1) 방향(설명)을 입력하세요.")
+            return False
+        if not direction_reason.strip():
+            st.error("서술 2) 기준(내 규칙/판단)을 입력하세요.")
+            return False
+        if not reflection.strip():
+            st.error("서술 3) 결과 해석을 입력하세요.")
+            return False
+        return True
+
+    # 다운로드 버튼은 항상 렌더링(단, '백업 만들기'로 확정된 payload가 있으면 그걸 사용)
+    saved_payload = st.session_state.get(_BACKUP_STATE_KEY) or None
+    payload_for_download = saved_payload if isinstance(saved_payload, dict) and saved_payload.get("student_id") == student_id else None
+
+    if payload_for_download is None:
+        payload_for_download = {
+            "s": dict(s),
+            "direction_desc": direction_desc,
+            "direction_reason": direction_reason,
+            "reflection": reflection,
+        }
+
+    backup_text = build_backup_text(
+        payload_for_download["s"],
+        payload_for_download.get("direction_desc", ""),
+        payload_for_download.get("direction_reason", ""),
+        payload_for_download.get("reflection", ""),
+    )
+
+    st.download_button(
+        label="📄 (다운로드) 2차시 백업 TXT",
+        data=backup_text.encode("utf-8-sig"),
+        file_name=f"인공지능_수행평가_2차시_{student_id}.txt",
+        mime="text/plain; charset=utf-8",
+        use_container_width=True,
+    )
+
+    if backup_make_clicked:
+        if not _validate_step2():
+            st.stop()
+        st.session_state[_BACKUP_STATE_KEY] = {
+            "student_id": student_id,
+            "s": dict(s),
+            "direction_desc": direction_desc.strip(),
+            "direction_reason": direction_reason.strip(),
+            "reflection": reflection.strip(),
+            "saved_at": pd.Timestamp.now().isoformat(timespec="seconds"),
+        }
+        st.rerun()
+
+    if save_clicked:
+        if not _validate_step2():
+            st.stop()
+
+        # 최종 상태 값
+        path = s.get("path", [])
+        start_a = float(s.get("start_a", path[0][0] if path else 0.0))
+        start_b = float(s.get("start_b", path[0][1] if path else 0.0))
+        final_a, final_b, final_e = path[-1] if path else (start_a, start_b, float(E(alpha, beta, np.array(start_a), np.array(start_b))))
+        steps_used = max(0, len(path) - 1)
+
+        # 세션 저장(추후 리포트/복구용)
+        s["saved_at"] = pd.Timestamp.now().isoformat(timespec="seconds")
+        _set_state(s)
+
+        # 구글시트 저장(인공지능수학 전용)
+        try:
+            from assessment.google_sheets import append_ai_step2_row  # late import
+
+            append_ai_step2_row(
+                student_id=student_id,
+                alpha=alpha,
+                beta=beta,
+                start_a=start_a,
+                start_b=start_b,
+                step_size=float(s.get("step_size", STEP_SIZE)),
+                direction_desc=direction_desc.strip(),
+                direction_reason=direction_reason.strip(),
+                result_reflection=reflection.strip(),
+                final_a=float(final_a),
+                final_b=float(final_b),
+                steps_used=int(steps_used),
+                final_E=float(final_e),
+            )
+            set_save_status(True, "구글시트 저장 완료")
+        except Exception as e:
+            set_save_status(False, f"구글시트 저장 실패: {e}")
+
+        st.rerun()
+
+    # ✅ 저장 상태 알림: 버튼 아래(1차시와 같은 흐름)
+    render_save_status()
 
 
 if __name__ == "__main__":
