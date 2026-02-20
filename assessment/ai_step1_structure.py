@@ -1,12 +1,4 @@
 # assessment/ai_step1_structure.py
-# ------------------------------------------------------------
-# 인공지능수학 수행평가 - 1차시: 비등방 이차함수의 구조(지형) 관찰
-# 목표:
-# - E(a,b)=αa^2+βb^2 (α≠β) 손실곡면과 등고선을 연결해 해석
-# - 방향에 따른 민감도(가파름/완만함)를 관찰하고 근거를 서술
-# - "한 변수만" 줄이는 이동이 왜 비효율(지그재그)인지 관찰
-# ------------------------------------------------------------
-
 from __future__ import annotations
 
 import numpy as np
@@ -27,43 +19,28 @@ from assessment.common import (
     render_save_status,
 )
 
-# ✅ (추후) assessment/google_sheets.py에 추가 예정
-# from assessment.google_sheets import append_ai_step1_row
+TITLE = r"인공지능수학 수행평가 (1차시) — 구조(손실 지형) 관찰"
 
-
-# -----------------------------
-# 활동 설정(고정)
-# -----------------------------
-TITLE = "인공지능수학 수행평가 (1차시) — 구조(손실 지형) 관찰"
 ALPHA = 10.0
 BETA = 1.0
 
 A_MIN, A_MAX = -3.0, 3.0
 B_MIN, B_MAX = -3.0, 3.0
 
-GRID_N = 121  # 고정 해상도(학생 선택 X) — 메모리/렌더 안전
+GRID_N = 121  # 고정 해상도(학생 선택 X) — 안정성 우선
 DEFAULT_START_A = 2.2
 DEFAULT_START_B = 2.2
 
-# 좌표축 방향 이동(“한 변수만”) 실험 파라미터
 COORD_STEPS = 18
-STEP_SIZE = 0.15  # 너무 크면 튐, 너무 작으면 변화가 안 보임(고정)
+STEP_SIZE = 0.15
 
 
-# -----------------------------
-# 계산 유틸
-# -----------------------------
 def E(a: np.ndarray, b: np.ndarray) -> np.ndarray:
-    return ALPHA * (a ** 2) + BETA * (b ** 2)
+    return ALPHA * (a**2) + BETA * (b**2)
 
 
 def _partials(a: float, b: float) -> tuple[float, float]:
-    """
-    (용어는 피하고) 현재 위치에서 a만 변할 때, b만 변할 때의 변화율(기울기)을 계산.
-    E(a,b)=αa^2+βb^2 이므로:
-    a방향 변화율: 2αa
-    b방향 변화율: 2βb
-    """
+    # a방향 변화율, b방향 변화율 (용어는 페이지에서 언급하지 않음)
     da = 2.0 * ALPHA * a
     db = 2.0 * BETA * b
     return da, db
@@ -80,9 +57,9 @@ def build_grid(a_min: float, a_max: float, b_min: float, b_max: float, n: int):
 
 def coord_descent_path(a0: float, b0: float, steps: int, step_size: float) -> np.ndarray:
     """
-    '한 번에 한 변수만' 줄이는 이동을 번갈아 수행(지그재그 유도).
-    - 홀수 스텝: a만 이동
-    - 짝수 스텝: b만 이동
+    한 번에 한 변수만 줄이는 이동(번갈아): 지그재그 관찰용
+    - k 짝수: a만 이동
+    - k 홀수: b만 이동
     """
     a, b = float(a0), float(b0)
     pts = [(a, b, float(E(np.array(a), np.array(b))))]
@@ -90,13 +67,10 @@ def coord_descent_path(a0: float, b0: float, steps: int, step_size: float) -> np
     for k in range(steps):
         da, db = _partials(a, b)
         if k % 2 == 0:
-            # a만 이동
             a = a - step_size * da
         else:
-            # b만 이동
             b = b - step_size * db
 
-        # 범위를 너무 벗어나면 잘라서 시각화 안정
         a = float(np.clip(a, A_MIN, A_MAX))
         b = float(np.clip(b, B_MIN, B_MAX))
         pts.append((a, b, float(E(np.array(a), np.array(b)))))
@@ -104,9 +78,6 @@ def coord_descent_path(a0: float, b0: float, steps: int, step_size: float) -> np
     return np.array(pts, dtype=float)
 
 
-# -----------------------------
-# TXT 백업
-# -----------------------------
 def build_backup_text(payload: dict) -> str:
     lines: list[str] = []
     lines.append("인공지능수학 수행평가 (1차시) 백업")
@@ -131,9 +102,6 @@ def build_backup_text(payload: dict) -> str:
     return "\n".join(lines)
 
 
-# -----------------------------
-# 메인
-# -----------------------------
 def main():
     st.set_page_config(page_title=TITLE, layout="wide")
     st.title(TITLE)
@@ -141,24 +109,25 @@ def main():
     init_assessment_session()
     student_id = require_student_id()
 
-    # 상단 저장 상태(공통)
-    render_save_status()
-
     st.markdown(
-        """
-이번 시간은 **손실함수 \(E(a,b)\)** 를 하나의 **지형(landscape)** 으로 보고,
-- **최소점**
-- **대칭성**
-- **방향에 따른 가파름(민감도)**
-을 관찰·기록합니다.
+        rf"""
+이번 시간은 손실함수의 구조를 **지형(landscape)** 으로 관찰합니다.
 
-> 오늘은 용어(그래디언트)는 쓰지 않습니다. 대신 **등고선 간격**과 **한 변수만 움직였을 때 변화량**으로 근거를 제시합니다.
+$$
+E(a,b) = {ALPHA:g}a^2 + {BETA:g}b^2
+$$
+
+관찰 포인트:
+- 최소점의 위치
+- 대칭성
+- 방향에 따른 가파름(민감도)
+- 한 변수만 줄이는 이동에서 나타나는 경로의 특징
 """
     )
 
-    # ---------
-    # 좌측: 조작 / 우측: 시각화
-    # ---------
+    # -------------------------
+    # 상단: 좌(①②) / 우(시각화)
+    # -------------------------
     left, right = st.columns([1, 2], gap="large")
 
     with left:
@@ -168,78 +137,35 @@ def main():
         b0 = st.slider("b 값", min_value=B_MIN, max_value=B_MAX, value=DEFAULT_START_B, step=0.05)
 
         e0 = float(E(np.array(a0), np.array(b0)))
-        st.metric("현재 손실 E(a,b)", f"{e0:.4f}")
+        st.metric("현재 손실", f"{e0:.6f}")
+
+        st.markdown(
+            r"""
+참고(해석의 기준):
+- 등고선 간격이 **더 촘촘한 방향**일수록, 같은 거리 이동에서 손실 변화가 더 큽니다.
+"""
+        )
 
         st.divider()
-        st.subheader("② '한 변수만' 줄이는 이동 실험")
+        st.subheader("② 한 변수만 줄이는 이동 실험")
 
-        st.caption("버튼을 누르면 **a만, b만 번갈아** 이동한 경로가 등고선에 표시됩니다(지그재그 관찰).")
+        st.markdown(
+            r"""
+아래 버튼은 **a만, b만 번갈아** 이동하는 경로를 그립니다.  
+이 경로의 특징을 ③에서 서술하세요.
+"""
+        )
 
         run_coord = st.button("▶ 좌표축만 번갈아 이동(지그재그 관찰)", type="primary")
 
-        st.divider()
-        st.subheader("③ 관찰 기록(서술 3개)")
-
-        obs_shape = st.text_area(
-            "1) 손실곡면의 전체 형태/대칭성/최소점 위치를 한 문장으로 설명",
-            height=90,
-            placeholder="예: (0,0) 부근이 가장 낮고, a방향으로 더 가파르게 솟아오른다 …",
-            key="ai_step1_obs_shape",
-        )
-
-        obs_sensitivity = st.text_area(
-            "2) 더 가파른(민감도 큰) 방향은 어느 쪽인가? 근거(등고선 간격 등) 포함",
-            height=110,
-            placeholder="예: 등고선이 a방향으로 더 촘촘하므로 a가 변할 때 손실 변화가 더 크다 …",
-            key="ai_step1_obs_sensitivity",
-        )
-
-        obs_zigzag = st.text_area(
-            "3) '한 변수만' 줄이는 경로의 특징과, 그렇게 되는 이유",
-            height=120,
-            placeholder="예: a만 줄이다가 b만 줄이면 방향이 번갈아 꺾이며 지그재그가 나타난다 …",
-            key="ai_step1_obs_zigzag",
-        )
-
-        st.divider()
-
-        # 백업 TXT(항상 제공)
-        payload_for_backup = {
-            "student_id": student_id,
-            "obs_shape": obs_shape,
-            "obs_sensitivity": obs_sensitivity,
-            "obs_zigzag": obs_zigzag,
-        }
-        backup_text = build_backup_text(payload_for_backup)
-        st.download_button(
-            label="📄 (다운로드) 1차시 백업 TXT",
-            data=backup_text.encode("utf-8-sig"),
-            file_name=f"인공지능_수행평가_1차시_{student_id}.txt",
-            mime="text/plain; charset=utf-8",
-        )
-
-        st.divider()
-
-        c1, c2 = st.columns(2)
-        with c1:
-            save_clicked = st.button("✅ 제출/저장", use_container_width=True)
-        with c2:
-            go_next = st.button("➡️ 2차시로 이동", use_container_width=True)
-
-    # ---------
-    # 시각화 패널
-    # ---------
     with right:
         st.subheader("손실 지형 시각화")
 
         A, B, Z = build_grid(A_MIN, A_MAX, B_MIN, B_MAX, GRID_N)
 
-        # 경로 계산(버튼 트리거 시)
-        path = None
-        if run_coord:
-            path = coord_descent_path(a0, b0, steps=COORD_STEPS, step_size=STEP_SIZE)
+        path = coord_descent_path(a0, b0, steps=COORD_STEPS, step_size=STEP_SIZE) if run_coord else None
 
-        tab1, tab2 = st.tabs(["2D 등고선(핵심)", "3D 손실곡면(형태 보기)"])
+        tab1, tab2 = st.tabs(["2D 등고선(핵심)", "3D 손실곡면(형태)"])
 
         with tab1:
             if PLOTLY_AVAILABLE:
@@ -253,7 +179,6 @@ def main():
                         line=dict(width=1),
                     )
                 )
-                # 현재 위치
                 fig.add_trace(
                     go.Scatter(
                         x=[a0],
@@ -265,7 +190,6 @@ def main():
                         name="현재 위치",
                     )
                 )
-                # 경로(있으면)
                 if path is not None:
                     fig.add_trace(
                         go.Scatter(
@@ -285,7 +209,6 @@ def main():
                 )
                 st.plotly_chart(fig, use_container_width=True)
             else:
-                # matplotlib fallback
                 fig, ax = plt.subplots()
                 cs = ax.contour(A, B, Z, levels=18)
                 ax.clabel(cs, inline=True, fontsize=8)
@@ -295,14 +218,19 @@ def main():
                     ax.plot(path[:, 0], path[:, 1], marker="o")
                 ax.set_xlabel("a")
                 ax.set_ylabel("b")
-                ax.set_title("Contour (E(a,b))")
+                ax.set_title("Contour of E(a,b)")
                 st.pyplot(fig, clear_figure=True)
 
-            st.caption("등고선이 **더 촘촘한 방향**일수록, 같은 거리 이동에서 손실 변화가 더 큽니다.")
+            st.markdown(
+                r"""
+$$
+\text{등고선 간격이 촘촘한 방향 } \Rightarrow \text{ 더 가파른 방향}
+$$
+"""
+            )
 
         with tab2:
             if PLOTLY_AVAILABLE:
-                # 3D는 형태 파악용(과도한 상호작용/재계산 방지 위해 그리드 고정)
                 surf = go.Surface(x=A, y=B, z=Z, showscale=False, opacity=0.95)
                 fig3d = go.Figure(data=[surf])
                 fig3d.add_trace(
@@ -320,21 +248,79 @@ def main():
                 fig3d.update_layout(
                     height=520,
                     margin=dict(l=10, r=10, t=10, b=10),
-                    scene=dict(
-                        xaxis_title="a",
-                        yaxis_title="b",
-                        zaxis_title="E(a,b)",
-                    ),
+                    scene=dict(xaxis_title="a", yaxis_title="b", zaxis_title="E(a,b)"),
                 )
                 st.plotly_chart(fig3d, use_container_width=True)
             else:
                 st.info("3D 표면은 Plotly가 필요합니다. (현재 환경에서는 2D 등고선으로 충분합니다.)")
 
-            st.caption("3D는 ‘전체 형태’를 보는 용도입니다. 실제 방향 추론은 2D 등고선이 핵심입니다.")
+            st.markdown(
+                r"""
+$$
+E(a,b) \text{ 는 그릇(bowl) 모양의 손실 지형으로 해석할 수 있습니다.}
+$$
+"""
+            )
 
-    # ---------
+    # -------------------------
+    # 하단(전체 폭): ③ 서술 + 백업 + 저장/이동 + 저장상태
+    # -------------------------
+    st.divider()
+    st.subheader("③ 관찰 기록(서술)")
+
+    obs_shape = st.text_area(
+        "1) 손실곡면의 전체 형태/대칭성/최소점 위치를 한 문장으로 설명",
+        height=90,
+        placeholder="예: (0,0) 부근이 가장 낮고, a방향으로 더 가파르게 증가한다.",
+        key="ai_step1_obs_shape",
+    )
+
+    obs_sensitivity = st.text_area(
+        "2) 더 가파른(민감도 큰) 방향은 어느 쪽인가? 근거(등고선 간격 등) 포함",
+        height=110,
+        placeholder="예: 등고선이 a방향으로 더 촘촘하므로 a가 변할 때 손실 변화가 더 크다.",
+        key="ai_step1_obs_sensitivity",
+    )
+
+    obs_zigzag = st.text_area(
+        "3) '한 변수만' 줄이는 경로의 특징과, 그렇게 되는 이유",
+        height=120,
+        placeholder="예: a와 b를 번갈아 바꾸면 경로가 계속 꺾이며 지그재그가 된다. 두 변수를 동시에 고려하지 않기 때문이다.",
+        key="ai_step1_obs_zigzag",
+    )
+
+    payload_for_backup = {
+        "student_id": student_id,
+        "obs_shape": obs_shape,
+        "obs_sensitivity": obs_sensitivity,
+        "obs_zigzag": obs_zigzag,
+    }
+    backup_text = build_backup_text(payload_for_backup)
+
+    cA, cB = st.columns([1, 1], gap="large")
+    with cA:
+        st.download_button(
+            label="📄 (다운로드) 1차시 백업 TXT",
+            data=backup_text.encode("utf-8-sig"),
+            file_name=f"인공지능_수행평가_1차시_{student_id}.txt",
+            mime="text/plain; charset=utf-8",
+            use_container_width=True,
+        )
+
+    with cB:
+        # 저장 / 이동 버튼을 같은 줄에 (미적분 수행평가 UI와 유사한 느낌)
+        btn1, btn2 = st.columns(2, gap="small")
+        with btn1:
+            save_clicked = st.button("✅ 제출/저장", use_container_width=True)
+        with btn2:
+            go_next = st.button("➡️ 2차시로 이동", use_container_width=True)
+
+    # ✅ 저장 상태 알림: 버튼 바로 아래로 이동
+    render_save_status()
+
+    # -------------------------
     # 저장/이동 처리
-    # ---------
+    # -------------------------
     def _validate_inputs() -> tuple[bool, str]:
         if not obs_shape.strip():
             return False, "서술 1) 전체 형태/최소점 관찰을 입력하세요."
@@ -350,7 +336,7 @@ def main():
             st.error(msg)
             st.stop()
 
-        # 세션 저장(2차시에 필요하면 참조 가능)
+        # 세션 저장(2차시에 필요하면 참조)
         st.session_state["ai_step1_structure"] = {
             "student_id": student_id,
             "alpha": ALPHA,
@@ -379,7 +365,6 @@ def main():
             )
             set_save_status(True, "구글시트 저장 완료")
         except Exception as e:
-            # 시트 함수/권한 문제 등으로 실패해도 페이지는 동작하게
             set_save_status(False, f"구글시트 저장 실패: {e}")
 
         if go_next:
