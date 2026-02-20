@@ -111,9 +111,7 @@ def main():
 
     st.markdown(
         rf"""
-손실함수의 그래프 $z=E(a,b)$는 하나의 곡면이며,
-
-이를 직관적으로 **손실 지형(loss landscape)**이라고 부릅니다.
+손실함수의 그래프 $z=E(a,b)$는 하나의 곡면이며, 이를 직관적으로 손실 지형(loss landscape)이라고 부릅니다.
 
 다음 손실 지형을 관찰하며 손실함수 값이 최소가 되는 지점과 그 방향적 특징을 분석해 봅시다.
 $$
@@ -128,7 +126,7 @@ $$
 - 전역 최소점(global minimum)의 위치
 - 좌표축에 대한 대칭성
 - 방향에 따른 기울기 크기(가파름)
-- 한 변수만 줄이는 이동(좌표축 방향 이동)에서 나타나는 경로의 특징
+- 한 변수만 줄이는(좌표축 방향) 이동에서 나타나는 경로의 특징
 """
     )
 
@@ -140,16 +138,15 @@ $$
     with left:
         st.subheader("① 현재 위치 선택")
 
-        a0 = st.slider("a 값", min_value=A_MIN, max_value=A_MAX, value=DEFAULT_START_A, step=0.05)
-        b0 = st.slider("b 값", min_value=B_MIN, max_value=B_MAX, value=DEFAULT_START_B, step=0.05)
+        a0 = st.slider("$a$ 값", min_value=A_MIN, max_value=A_MAX, value=DEFAULT_START_A, step=0.05)
+        b0 = st.slider("$b$ 값", min_value=B_MIN, max_value=B_MAX, value=DEFAULT_START_B, step=0.05)
 
         e0 = float(E(np.array(a0), np.array(b0)))
         st.metric("현재 손실", f"{e0:.6f}")
 
         st.markdown(
             r"""
-참고(해석의 기준):
-- 등고선 간격이 **더 촘촘한 방향**일수록, 같은 거리 이동에서 손실 변화가 더 큽니다.
+- 해석의 기준: 등고선 간격이 **더 촘촘한 방향**일수록, 같은 거리 이동에서 손실 변화가 더 큽니다.
 """
         )
 
@@ -158,12 +155,12 @@ $$
 
         st.markdown(
             r"""
-아래 버튼은 **a만, b만 번갈아** 이동하는 경로를 그립니다.  
+아래 버튼은 **$a$만, $b$만 번갈아** 이동하는 경로를 그립니다.  
 이 경로의 특징을 ③에서 서술하세요.
 """
         )
 
-        run_coord = st.button("▶ 좌표축만 번갈아 이동(지그재그 관찰)", type="primary")
+        run_coord = st.button("▶ 좌표축 방향 이동(지그재그 관찰)", type="primary")
 
     with right:
         st.subheader("손실 지형 시각화")
@@ -278,7 +275,7 @@ $$
     obs_shape = st.text_area(
         "1) 전역 최소점의 위치와 손실 지형의 전체적인 형태를 함께 설명하시오.",
         height=90,
-        placeholder="예: 전역 최소점의 좌표, 그 주변에서 함숫값이 어떻게 변하는지, 손실 지형의 전체적인 형태 서",
+        placeholder="예: 전역 최소점의 좌표, 그 주변에서 함숫값이 어떻게 변하는지, 손실 지형의 전체적인 형태 서술",
         key="ai_step1_obs_shape",
     )
 
