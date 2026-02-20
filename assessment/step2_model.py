@@ -545,7 +545,7 @@ with a2:
 with a3:
     save_clicked = st.button("💾 저장(구글시트)", use_container_width=True)
 with a4:
-    go_next = st.button("➡️ 다음", use_container_width=True)
+    go_next = st.button("➡️ 3차시로 이동", use_container_width=True)
 # 3. 검증 함수 (ai_prompt 제외 로직 반영)
 def _validate_step2() -> bool:
     if hypothesis_decision == "가설 수정" and not revised_model_safe:
