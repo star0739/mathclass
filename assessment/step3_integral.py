@@ -641,18 +641,30 @@ payload = {
 rel_trap = float(err_trap / (abs(I_model) + 1e-12))
 payload["rel_trap"] = rel_trap
 
-col1, col2, col3 = st.columns([1, 1, 1.2])
-save_clicked = col1.button("💾 저장(구글시트)", use_container_width=True)
-download_clicked = col2.button("⬇️ TXT 백업 만들기", use_container_width=True)
-go_next = col3.button("➡️ 최종 보고서 작성", use_container_width=True)
+st.divider()
+
+a1, a2, a3, a4 = st.columns([1, 1, 1, 1], gap="small")
+
+with a1:
+    backup_make_clicked = st.button("🧾 백업 준비", use_container_width=True)
+with a2:
+    # 다운로드 버튼은 아래(항상 렌더)에서 유지
+    pass
+with a3:
+    save_clicked = st.button("💾 저장(구글시트)", use_container_width=True)
+with a4:
+    go_next = st.button("➡️ 최종 보고서 작", use_container_width=True)
+
 
 backup_bytes = build_step3_backup(payload)
-st.download_button(
-    label="📄 (다운로드) 3차시 백업 TXT",
-    data=backup_bytes,
-    file_name=f"미적분_수행평가_3차시_{student_id}.txt",
-    mime="text/plain; charset=utf-8",
-)
+with a2:
+    st.download_button(
+        label="⬇️ TXT 다운로드",
+        data=backup_bytes,
+        file_name=f"미적분_수행평가_3차시_{student_id}.txt",
+        mime="text/plain; charset=utf-8",
+        use_container_width=True,
+    )
 
 def _validate_step3() -> bool:
     if not payload["student_critical_review2"]:
@@ -663,14 +675,14 @@ def _validate_step3() -> bool:
         return False
     return True
 
-if save_clicked or download_clicked or go_next:
+if save_clicked or backup_make_clicked or go_next:
     if not _validate_step3():
         st.stop()
 
     _set_step3_state({**payload, "saved_at": pd.Timestamp.now().isoformat()})
 
-    if download_clicked:
-        st.success("✅ 백업 데이터가 준비되었습니다. 위 '다운로드' 버튼을 눌러주세요.")
+    if backup_make_clicked:
+        st.success("✅ 백업 내용을 준비했습니다. TXT 다운로드 버튼을 눌러 저장하세요.")
 
     if save_clicked or go_next:
         try:
@@ -697,5 +709,4 @@ if save_clicked or download_clicked or go_next:
             st.stop()
 
     if go_next:
-        st.success("최종 보고서 작성 페이지로 이동합니다.")
         st.switch_page("assessment/final_report.py")
