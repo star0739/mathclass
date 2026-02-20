@@ -250,7 +250,7 @@ def main():
 
     st.markdown(
         """
-이번 시간은 **등고선(2D)** 을 중심으로, 시작점에서 **손실을 줄이는 방향**을 스스로 추론해 봅니다.
+이번 시간은 **2D 등고선** 을 중심으로, 시작점에서 **손실을 줄이는 방향**을 스스로 추론해 봅니다.
 
 - 먼저 **내가 생각한 방향**으로 한 번 이동해 보고,
 - 필요하면 **추천 방향(힌트)** 과 비교해 보세요.
@@ -311,9 +311,9 @@ def main():
 
         c3, c4 = st.columns(2)
         with c3:
-            step_move = st.button("▶ 내가 고른 방향으로 1 step", type="primary", use_container_width=True)
+            step_move = st.button("▶ 내가 고른 방향으로 1step", type="primary", use_container_width=True)
         with c4:
-            step_reco = st.button("★ 추천 방향으로 1 step", use_container_width=True)
+            step_reco = st.button("★ 추천 방향으로 1step", use_container_width=True)
 
         if step_move or step_reco:
             if step_reco:
@@ -336,15 +336,15 @@ def main():
         if s.get("last_delta") is not None:
             dE = float(s["last_delta"])
             if dE < 0:
-                st.success(f"손실이 감소했습니다.  ΔE = {dE:.6f}")
+                st.success(f"손실이 감소했습니다.  $ΔE$ = {dE:.6f}")
             elif dE > 0:
-                st.warning(f"손실이 증가했습니다.  ΔE = +{dE:.6f}")
+                st.warning(f"손실이 증가했습니다.  $ΔE$ = +{dE:.6f}")
             else:
-                st.info("손실 변화가 거의 없습니다. (ΔE ≈ 0)")
+                st.info("손실 변화가 거의 없습니다. ($ΔE$ ≈ 0)")
 
     # ------------------ 우측: 시각화 ------------------
     with right:
-        st.subheader("등고선 위 경로 관찰(핵심)")
+        st.subheader("등고선 위 경로 관찰")
 
         A, B, Z = build_grid(alpha, beta, A_MIN, A_MAX, B_MIN, B_MAX, GRID_N)
 
@@ -485,30 +485,51 @@ def main():
     # 하단(전체 폭): ③ 서술 + 백업 + 저장 + 저장상태
     # -------------------------
     st.divider()
-    st.subheader("③ 서술(최소)")
+    st.subheader("③ 관찰 기록 서술")
+
+    st.markdown(
+        rf"""
+1) 손실함수 $E(a,b)=\alpha a^2+\beta b^2$에 대해  
+$\dfrac{{\partial E}}{{\partial a}}$, $\dfrac{{\partial E}}{{\partial b}}$를 구하고, 현재 위치에서 두 값의 부호와 크기를 비교하여 손실을 줄이기 위해 어떤 방향 성분이 더 필요한지 설명하시오.  
+
+예: $\dfrac{{\partial E}}{{\partial a}}=2\alpha a$, $\dfrac{{\partial E}}{{\partial b}}=2\beta b$로 계산하고, 현재 위치에서 $|\dfrac{{\partial E}}{{\partial a}}|$가 더 크므로 a를 줄이는 성분이 더 큰 방향으로 이동해야 한다고 서술
+"""
+    )
+
+    col1, col2 = st.columns(2)
+
+    with col1:
+        st.markdown(r"$$\frac{\partial E}{\partial a} = $$")
+        dE_da = st.text_input(
+            "",
+            key="ai_step2_dE_da",
+            label_visibility="collapsed",
+        )
+
+    with col2:
+        st.markdown(r"$$\frac{\partial E}{\partial b} = $$")
+        dE_db = st.text_input(
+            "",
+            key="ai_step2_dE_db",
+            label_visibility="collapsed",
+        )
 
     direction_desc = st.text_area(
-        "1) 내가 선택한 방향(설명)",
-        height=70,
-        placeholder="예: b도 줄이되, a를 더 빨리 줄이는 성분이 큰 방향으로 이동하려고 대략 ↙ 방향을 선택했다.",
+        "2) 위의 판단을 바탕으로, 내가 선택한 이동 방향을 구체적으로 설명하시오.",
+        height=90,
+        placeholder="예: a의 영향이 더 크다고 판단하여 a를 더 빠르게 줄이는 성분이 포함된 대각선 방향을 선택하였다고 서술",
         key="ai_step2_direction_desc",
     )
 
-    direction_reason = st.text_area(
-        "2) 그 방향을 선택한 기준(내 규칙/판단)",
-        height=100,
-        placeholder="예: 현재 위치에서 a의 영향이 더 크다고 보고, a가 감소하는 성분이 큰 방향을 우선했다. (필요하면 등고선 근거도 함께)",
-        key="ai_step2_direction_reason",
-    )
-
     reflection = st.text_area(
-        "3) 실행 결과 해석(일치/불일치 + 이유)",
-        height=110,
-        placeholder="예: 실제로 ΔE가 줄었다/늘었다. 내 판단과 결과가 일치/불일치한 이유는 …",
+        "3) 실제로 1 step 이동한 결과 손실값은 어떻게 변하였는가? 나의 판단과 결과가 일치하였는지 그 이유를 설명하시오.",
+        height=120,
+        placeholder="예: 손실이 감소하였으며, 변화율이 큰 방향을 줄이는 성분을 포함하였기 때문이라고 해석하였다고 서술",
         key="ai_step2_reflection",
     )
 
     st.divider()
+
 
     # 버튼 레이아웃(1차시와 동일한 감각)
     col1, col2, col3 = st.columns([1, 1, 1.2], gap="small")
