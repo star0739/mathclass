@@ -563,6 +563,6 @@ def main():
         # (선택) 보고서 페이지에서 자동 채움에 활용 가능
         st.session_state[_BACKUP_STATE_KEY] = payload
         st.switch_page("assessment/ai_final_report.py")
- 
-    if __name__ == "__main__":
-        main()
+        
+if __name__ == "__main__":
+    main()
