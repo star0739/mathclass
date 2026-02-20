@@ -1,6 +1,9 @@
     # -------------------------
     # 하단(전체 폭): ③ 서술 + 백업 + 저장 + 저장상태
     # -------------------------
+    # -------------------------
+    # 하단(전체 폭): ③ 서술 + 백업 + 저장 + 저장상태
+    # -------------------------
     st.divider()
     st.subheader("③ 관찰 기록 서술")
 
@@ -45,18 +48,19 @@
 
     st.divider()
 
-
     # (TXT/시트 저장용) 계산한 편미분 식도 함께 저장
     direction_reason = f"∂E/∂a = {dE_da.strip()}\n∂E/∂b = {dE_db.strip()}"
 
+    # 버튼 레이아웃(1차시와 동일한 감각)
     col1, col2, col3 = st.columns([1, 1, 1.2], gap="small")
     with col1:
         save_clicked = st.button("✅ 제출/저장", use_container_width=True)
     with col2:
         backup_make_clicked = st.button("⬇️ TXT 백업 만들기", use_container_width=True)
     with col3:
-        pass
+        pass  # (2차시는 다음 차시 이동 버튼을 강제하지 않음)
 
+    # 검증(항목 변경 반영)
     def _validate_step2() -> bool:
         if not dE_da.strip():
             st.error("1) ∂E/∂a 값을 입력하세요.")
@@ -71,6 +75,7 @@
             st.error("3) 결과 해석을 입력하세요.")
             return False
         return True
+
 
     saved_payload = st.session_state.get(_BACKUP_STATE_KEY) or None
     payload_for_download = saved_payload if isinstance(saved_payload, dict) and saved_payload.get("student_id") == student_id else None
