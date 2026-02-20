@@ -9,8 +9,9 @@
 
     st.markdown(
         r"""
-    1) 손실함수 $E(a,b)=\alpha a^2+\beta b^2$에 대해 $\dfrac{\partial E}{\partial a}$, $\dfrac{\partial E}{\partial b}$를 구하시오.  
-    """
+1) 손실함수 $E(a,b)=\alpha a^2+\beta b^2$에 대해 $\dfrac{\partial E}{\partial a}$, $\dfrac{\partial E}{\partial b}$를 구하시오.  
+예: 각 변수에 대해 미분하여 얻은 식을 간단히 정리하여 서술
+"""
     )
 
     col1, col2 = st.columns(2)
@@ -48,7 +49,7 @@
     st.divider()
 
     # (TXT/시트 저장용) 계산한 편미분 식도 함께 저장
-   direction_reason = f"∂E/∂a = {dE_da.strip()}\n∂E/∂b = {dE_db.strip()}"
+    direction_reason = f"∂E/∂a = {dE_da.strip()}\n∂E/∂b = {dE_db.strip()}"
 
     # 버튼 레이아웃(1차시와 동일한 감각)
     col1, col2, col3 = st.columns([1, 1, 1.2], gap="small")
