@@ -604,45 +604,25 @@ def main():
             # late import: 페이지 로딩 안정
             from assessment.google_sheets import append_ai_step2_row
 
-            # ✅ 신형 컬럼이 있으면 신형으로
-            try:
-                append_ai_step2_row(
-                    student_id=student_id,
-                    loss_type=loss_spec.type,
-                    loss_params=str(dict(loss_spec.params)),
-                    start_a=float(start_a),
-                    start_b=float(start_b),
-                    learning_rate=float(LEARNING_RATE),
-                    dE_da=str(dE_da).strip(),
-                    dE_db=str(dE_db).strip(),
-                    direction_desc=str(direction_desc).strip(),
-                    result_reflection=str(reflection).strip(),
-                    final_a=float(final_a),
-                    final_b=float(final_b),
-                    steps_used=int(steps_used),
-                    final_E=float(final_e),
-                )
-            except TypeError:
-                # ✅ 구형 시트(alpha/beta)만 받는 경우: quad(alpha=...)일 때만 의미 있게 저장
-                alpha_fallback = float(loss_spec.params.get("alpha", 10.0)) if loss_spec.type == "quad" else 10.0
-                append_ai_step2_row(
-                    student_id=student_id,
-                    alpha=float(alpha_fallback),
-                    beta=float(1.0),
-                    start_a=float(start_a),
-                    start_b=float(start_b),
-                    step_size=float(LEARNING_RATE),
-                    dE_da=str(dE_da).strip(),
-                    dE_db=str(dE_db).strip(),
-                    direction_desc=str(direction_desc).strip(),
-                    result_reflection=str(reflection).strip(),
-                    final_a=float(final_a),
-                    final_b=float(final_b),
-                    steps_used=int(steps_used),
-                    final_E=float(final_e),
-                )
+            append_ai_step2_row(
+                student_id=student_id,
+                loss_type=loss_spec.type,
+                loss_params=str(dict(loss_spec.params)),
+                start_a=float(start_a),
+                start_b=float(start_b),
+                learning_rate=float(LEARNING_RATE),
+                dE_da=str(dE_da).strip(),
+                dE_db=str(dE_db).strip(),
+                direction_desc=str(direction_desc).strip(),
+                result_reflection=str(reflection).strip(),
+                final_a=float(final_a),
+                final_b=float(final_b),
+                steps_used=int(steps_used),
+                final_E=float(final_e),
+            )
 
             set_save_status(True, "구글시트 저장 완료")
+
         except Exception as e:
             set_save_status(False, f"구글시트 저장 실패: {e}")
             st.stop()
@@ -650,6 +630,7 @@ def main():
         # 저장 상태가 바로 보이게
         st.rerun()
 
+    
     # ---- 최종보고서 이동 ----
     if go_next:
         # (선택) 보고서 페이지에서 자동 채움에 활용 가능
