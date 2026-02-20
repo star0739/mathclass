@@ -409,7 +409,7 @@ $$
     with cB:
         btn1, btn2 = st.columns(2, gap="small")
         with btn1:
-            save_clicked = st.button("✅ 제출/저장", use_container_width=True)
+            save_clicked = st.button("💾 저장(구글시트)", use_container_width=True)
         with btn2:
             go_next = st.button("➡️ 2차시로 이동", use_container_width=True)
 
