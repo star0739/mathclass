@@ -447,45 +447,28 @@ $$
             "saved_at": pd.Timestamp.now().isoformat(timespec="seconds"),
         }
 
-        # ✅ Google Sheet 저장(기존 함수명 유지하되, alpha/beta 대신 loss_type/param 저장)
-        #    (google_sheets.py 컬럼이 아직 alpha/beta로만 되어 있다면, 그쪽도 함께 수정 필요)
+        # ✅ Google Sheet 저장 (loss_type / loss_params만 사용)
         try:
-            from assessment.google_sheets import append_ai_step1_row  # late import
+                from assessment.google_sheets import append_ai_step1_row  # late import
 
-            append_ai_step1_row(
-                student_id=student_id,
-                loss_type=loss_spec.type,
-                loss_params=str(dict(loss_spec.params)),
-                a0=float(a0),
-                b0=float(b0),
-                obs_shape=obs_shape.strip(),
-                obs_sensitivity=obs_sensitivity.strip(),
-                obs_zigzag=obs_zigzag.strip(),
-            )
-            set_save_status(True, "구글시트 저장 완료")
-        except TypeError:
-            # 기존 시트 함수가 alpha/beta만 받는 경우를 대비(최소한 깨지지 않게)
-            try:
                 append_ai_step1_row(
-                    student_id=student_id,
-                    alpha=float(loss_spec.params.get("alpha", 0.0)),
-                    beta=1.0,
-                    a0=float(a0),
-                    b0=float(b0),
-                    obs_shape=obs_shape.strip(),
-                    obs_sensitivity=obs_sensitivity.strip(),
-                    obs_zigzag=obs_zigzag.strip(),
+                        student_id=student_id,
+                        loss_type=loss_spec.type,
+                        loss_params=str(dict(loss_spec.params)),
+                        a0=float(a0),
+                        b0=float(b0),
+                        obs_shape=obs_shape.strip(),
+                        obs_sensitivity=obs_sensitivity.strip(),
+                        obs_zigzag=obs_zigzag.strip(),
                 )
-                set_save_status(True, "구글시트 저장(구형 포맷) 완료")
-            except Exception as e:
-                set_save_status(False, f"구글시트 저장 실패: {e}")
+                set_save_status(True, "구글시트 저장 완료")
         except Exception as e:
-            set_save_status(False, f"구글시트 저장 실패: {e}")
+                set_save_status(False, f"구글시트 저장 실패: {e}")
 
         if go_next:
-            st.switch_page("assessment/ai_step2_path.py")
+                st.switch_page("assessment/ai_step2_path.py")
         else:
-            st.rerun()
+                st.rerun()
 
 
 if __name__ == "__main__":
