@@ -514,7 +514,7 @@ def _maybe_init_drafts(s1: Dict[str, str], s2: Dict[str, str]) -> Dict[str, str]
 # ============================================================
 # Streamlit UI (final_report.py 스타일)
 # ============================================================
-st.title("최종: 보고서 작성 & PDF 생성")
+st.title("최종: 인공지능 수학 보고서 작성 & PDF 생성")
 st.caption("1~2차시 TXT 백업 + 그래프 이미지를 업로드하고, 서술형으로 편집한 뒤 PDF로 저장합니다.")
 st.divider()
 
