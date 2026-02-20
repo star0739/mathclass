@@ -151,7 +151,7 @@ $$
         )
 
         st.divider()
-        st.subheader("② 한 변수만 줄이는 이동 실험")
+        st.subheader("② 한 변수만 줄이는 이동")
 
         st.markdown(
             r"""
@@ -287,7 +287,7 @@ $$
     )
 
     obs_zigzag = st.text_area(
-        "3) a와 b를 한 번에 하나씩만 줄이는 방식으로 이동했을 때 경로는 어떤 특징을 보이는가? 그 이유를 설명하시오.",
+        "3) 좌표축 방향 이동했을 때 경로는 어떤 특징을 보이는가? 그 이유를 설명하시오.",
         height=120,
         placeholder="예: 경로의 모양 설명, 그렇게 되는 수학적 이유 서",
         key="ai_step1_obs_zigzag",
