@@ -5,8 +5,9 @@
     st.subheader("③ 관찰 기록 서술")
 
     st.markdown(
-        rf"""
-1) 손실함수 $E(a,b)=\alpha a^2+\beta b^2$에 대해 $\dfrac{{\partial E}}{{\partial a}}$, $\dfrac{{\partial E}}{{\partial b}}$를 구하시오.  
+        r"""
+1) 손실함수 $E(a,b)=\alpha a^2+\beta b^2$에 대해 $\dfrac{\partial E}{\partial a}$, $\dfrac{\partial E}{\partial b}$를 구하시오.  
+예: 각 변수에 대해 미분하여 얻은 식을 간단히 정리하여 서술
 """
     )
 
@@ -29,14 +30,14 @@
         )
 
     direction_desc = st.text_area(
-        "2) 위의 결과를 바탕으로, 현재 위치에서 손실을 줄이기 위해 어떤 방향 성분이 더 필요한지, 그에 따라 내가 선택한 이동 방향을 설명하시오.",
-        height=90,
+        "2) 위의 결과를 바탕으로, 현재 위치에서 손실을 줄이기 위해 어떤 방향 성분이 더 필요한지 설명하고, 그에 따라 내가 선택한 이동 방향을 구체적으로 서술하시오.",
+        height=100,
         placeholder="예: 두 값의 부호와 크기를 비교하여 어느 변수의 감소가 더 중요하다고 판단했는지 밝히고, 그 판단에 따라 선택한 방향을 설명하는 내용을 서술",
         key="ai_step2_direction_desc",
     )
 
     reflection = st.text_area(
-        "3) 실제 1step 이동한 결과 손실값은 어떻게 변하였는가? 나의 판단과 결과가 일치하였는지 그 이유를 설명하시오.",
+        "3) 실제로 1 step 이동한 결과 손실값은 어떻게 변하였는가? 나의 판단과 결과가 일치하였는지 그 이유를 설명하시오.",
         height=120,
         placeholder="예: 이동 후 손실의 변화와 그 원인을 자신의 판단과 연결하여 서술",
         key="ai_step2_reflection",
@@ -44,35 +45,33 @@
 
     st.divider()
 
-    # (TXT/시트 저장용) 편미분 입력값은 별도 칸이 없으므로 문자열로 묶어서 저장
+
+    # (TXT/시트 저장용) 계산한 편미분 식도 함께 저장
     direction_reason = f"∂E/∂a = {dE_da.strip()}\n∂E/∂b = {dE_db.strip()}"
 
-    # 버튼 레이아웃(1차시와 동일한 감각)
     col1, col2, col3 = st.columns([1, 1, 1.2], gap="small")
     with col1:
         save_clicked = st.button("✅ 제출/저장", use_container_width=True)
     with col2:
         backup_make_clicked = st.button("⬇️ TXT 백업 만들기", use_container_width=True)
     with col3:
-        pass  # (2차시는 다음 차시 이동 버튼을 강제하지 않음)
+        pass
 
-    # 검증(항목 변경 반영)
     def _validate_step2() -> bool:
         if not dE_da.strip():
-            st.error("편미분 1) ∂E/∂a 값을 입력하세요.")
+            st.error("1) ∂E/∂a 값을 입력하세요.")
             return False
         if not dE_db.strip():
-            st.error("편미분 1) ∂E/∂b 값을 입력하세요.")
+            st.error("1) ∂E/∂b 값을 입력하세요.")
             return False
         if not direction_desc.strip():
-            st.error("서술 2) 방향 성분/이동 방향 설명을 입력하세요.")
+            st.error("2) 방향 성분/이동 방향 설명을 입력하세요.")
             return False
         if not reflection.strip():
-            st.error("서술 3) 결과 해석을 입력하세요.")
+            st.error("3) 결과 해석을 입력하세요.")
             return False
         return True
 
-    # 다운로드 버튼은 항상 렌더링(단, '백업 만들기'로 확정된 payload가 있으면 그걸 사용)
     saved_payload = st.session_state.get(_BACKUP_STATE_KEY) or None
     payload_for_download = saved_payload if isinstance(saved_payload, dict) and saved_payload.get("student_id") == student_id else None
 
@@ -120,18 +119,15 @@
         if not _validate_step2():
             st.stop()
 
-        # 최종 상태 값
         path = s.get("path", [])
         start_a = float(s.get("start_a", path[0][0] if path else 0.0))
         start_b = float(s.get("start_b", path[0][1] if path else 0.0))
         final_a, final_b, final_e = path[-1] if path else (start_a, start_b, float(E(alpha, beta, np.array(start_a), np.array(start_b))))
         steps_used = max(0, len(path) - 1)
 
-        # 세션 저장(추후 리포트/복구용)
         s["saved_at"] = pd.Timestamp.now().isoformat(timespec="seconds")
         _set_state(s)
 
-        # 구글시트 저장(인공지능수학 전용)
         try:
             from assessment.google_sheets import append_ai_step2_row  # late import
 
@@ -158,5 +154,4 @@
 
         st.rerun()
 
-    # ✅ 저장 상태 알림: 버튼 아래(1차시와 같은 흐름)
     render_save_status()
