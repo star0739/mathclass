@@ -372,7 +372,6 @@ DEFAULT_AI_STEP2_HEADER = [
     "dE_da",          # ✅ 추가
     "dE_db",          # ✅ 추가
     "direction_desc",
-    "direction_reason",
     "result_reflection",
     "final_a",
     "final_b",
@@ -404,7 +403,6 @@ def append_ai_step2_row(
     dE_da: str = "",      # ✅ 추가
     dE_db: str = "",      # ✅ 추가
     direction_desc: str = "",
-    direction_reason: str = "",
     result_reflection: str = "",
     final_a: float | None = None,
     final_b: float | None = None,
@@ -440,7 +438,6 @@ def append_ai_step2_row(
         _as_text(dE_da),
         _as_text(dE_db),
         _as_text(direction_desc),
-        _as_text(direction_reason),
         _as_text(result_reflection),
         _as_num(final_a),
         _as_num(final_b),
