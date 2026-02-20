@@ -489,10 +489,7 @@ def main():
 
     st.markdown(
         rf"""
-1) 손실함수 $E(a,b)=\alpha a^2+\beta b^2$에 대해  
-$\dfrac{{\partial E}}{{\partial a}}$, $\dfrac{{\partial E}}{{\partial b}}$를 구하고, 현재 위치에서 두 값의 부호와 크기를 비교하여 손실을 줄이기 위해 어떤 방향 성분이 더 필요한지 설명하시오.  
-
-예: $\dfrac{{\partial E}}{{\partial a}}=2\alpha a$, $\dfrac{{\partial E}}{{\partial b}}=2\beta b$로 계산하고, 현재 위치에서 $|\dfrac{{\partial E}}{{\partial a}}|$가 더 크므로 a를 줄이는 성분이 더 큰 방향으로 이동해야 한다고 서술
+1) 손실함수 $E(a,b)=\alpha a^2+\beta b^2$에 대해 $\dfrac{{\partial E}}{{\partial a}}$, $\dfrac{{\partial E}}{{\partial b}}$를 구하시오.  
 """
     )
 
@@ -515,16 +512,16 @@ $\dfrac{{\partial E}}{{\partial a}}$, $\dfrac{{\partial E}}{{\partial b}}$를 �
         )
 
     direction_desc = st.text_area(
-        "2) 위의 판단을 바탕으로, 내가 선택한 이동 방향을 구체적으로 설명하시오.",
+        "2) 위 결과를 바탕으로, 현재 위치에서 손실을 줄이기 위해 어떤 방향 성분이 더 필요한지, 그에 따라 내가 선택한 이동 방향을 설명하시오.",
         height=90,
-        placeholder="예: a의 영향이 더 크다고 판단하여 a를 더 빠르게 줄이는 성분이 포함된 대각선 방향을 선택하였다고 서술",
+        placeholder="예: 두 값의 부호와 크기를 비교하여 어느 변수의 감소가 더 중요하다고 판단했는지 밝히고, 그 판단에 따라 선택한 방향을 설명하는 내용을 서술",
         key="ai_step2_direction_desc",
     )
 
     reflection = st.text_area(
-        "3) 실제로 1 step 이동한 결과 손실값은 어떻게 변하였는가? 나의 판단과 결과가 일치하였는지 그 이유를 설명하시오.",
+        "3) 실제 1step 이동한 결과 손실값은 어떻게 변하였는가? 나의 판단과 결과가 일치하였는지 그 이유를 설명하시오.",
         height=120,
-        placeholder="예: 손실이 감소하였으며, 변화율이 큰 방향을 줄이는 성분을 포함하였기 때문이라고 해석하였다고 서술",
+        placeholder="예: 이동 후 손실의 변화와 그 원인을 자신의 판단과 연결하여 서술",
         key="ai_step2_reflection",
     )
 
