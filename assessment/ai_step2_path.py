@@ -30,7 +30,7 @@ from assessment.ai_loss import (
     latex_E,
 )
 
-TITLE = "2차시: 경로(손실을 줄이는 방향) 탐구"
+TITLE = "2차시: 경로(손실을 줄이는 방향) 탐색"
 
 # (1차시와 동일한 범위 설정)
 A_MIN, A_MAX = -3.0, 3.0
