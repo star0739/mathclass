@@ -236,6 +236,8 @@ def main():
     init_assessment_session()
     student_id = require_student_id()
 
+    st.title(TITLE)
+    
     # --------------------------------------------
     # 0) 1차시 손실함수 불러오기 (세션 우선 → TXT 업로드 대안)
     # --------------------------------------------
@@ -251,7 +253,7 @@ def main():
 
     # (2) 세션에 없으면: 1차시 백업 TXT 업로드로 복원
     if loss_spec is None:
-        st.subheader("① 1차시 백업 파일 업로드")
+        st.subheader("0) 1차시 백업 파일 업로드")
 
         uploaded_file = st.file_uploader(
             "1차시 백업 TXT 파일을 업로드하세요",
@@ -277,7 +279,7 @@ def main():
         st.caption("현재 적용된 손실함수")
         st.latex(loss_latex)
 
-    st.title(TITLE)
+
 
 
     # 초기 시작점: 프리셋 1
@@ -298,7 +300,7 @@ def main():
     # 좌측: ① 시작점 / ② 이동
     # -------------------------
     with left:
-        st.subheader("① 시작점 선택")
+        st.subheader("1) 시작점 선택")
 
         preset_labels = [f"({a:g}, {b:g})" for (a, b) in PRESET_STARTS]
         preset_idx = st.selectbox(
@@ -332,7 +334,7 @@ def main():
             st.rerun()
 
         st.divider()
-        st.subheader("② 방향 선택 & 1 step 이동")
+        st.subheader("2) 방향 선택 & 1 step 이동")
 
         theta = st.slider(
             "내가 고른 방향(각도, 도)",
@@ -474,34 +476,57 @@ def main():
     # 하단(전체 폭): ③ 서술 + 백업 + 저장/상태
     # -------------------------
     st.divider()
-    st.subheader("③ 관찰 기록 서술")
+    st.subheader("3) 관찰 기록 서술")
 
     # ✅ 고정식 제거 -> 선택된 함수 표시
-    st.markdown(
-        r"""
-1) 선택한 손실함수에 에 대해 시작점 $(a,b)$에서의 $\dfrac{\partial E}{\partial a}$, $\dfrac{\partial E}{\partial b}$를 구하시오.
-    """
-    )
+    # 선택된 손실함수 표시(정보성, 입력 아님)
+    if loss_latex:
+        st.caption("현재 선택된 손실함수")
+        st.latex(loss_latex)
+
+    # 1) 편미분 값 입력(필수)
+    st.markdown("#### 1) 시작점에서의 편미분 값(필수)")
 
     colp1, colp2 = st.columns(2, gap="large")
     with colp1:
-        st.markdown(r"$$\frac{\partial E}{\partial a} = $$")
-        dE_da = st.text_input("편미분 식에 시작점 a좌표 값 대입", key="ai_step2_dE_da", label_visibility="collapsed")
+        st.markdown(r"$$\frac{\partial E}{\partial a}(a,b) = $$")
+        dE_da = st.text_input(
+            "∂E/∂a 값 (필수)",
+            key="ai_step2_dE_da",
+            label_visibility="collapsed",
+            placeholder="예: -44, 0.5, -3/2",
+        )
     with colp2:
-        st.markdown(r"$$\frac{\partial E}{\partial b} = $$")
-        dE_db = st.text_input("편미분 식에 시작점 b좌표 값 대입", key="ai_step2_dE_db", label_visibility="collapsed")
+        st.markdown(r"$$\frac{\partial E}{\partial b}(a,b) = $$")
+        dE_db = st.text_input(
+            "∂E/∂b 값 (필수)",
+            key="ai_step2_dE_db",
+            label_visibility="collapsed",
+            placeholder="예: 4, -0.2, 7/3",
+        )
 
+    # 2) 방향 판단 서술(필수)
     direction_desc = st.text_area(
-        "2) 위에서 구한 두 값의 부호를 관찰하고, 손실을 줄이기 위해 각 변수를 어떤 방향(증가/감소)으로 변화시켜야 하는지 서술하시오.(필수)",
-        height=120,
-        placeholder="예: 각 값의 부호를 확인하여 a와 b의 값을 키울지 줄일지 결정하고, 그에 따라 내가 선택한 이동 방향을 서술",
+        "2) 편미분의 부호를 보고, 손실을 줄이기 위해 a와 b를 어떤 방향(증가/감소)으로 바꿔야 하는지 서술하시오.(필수)",
+        height=140,
+        placeholder=(
+            "예:\n"
+            "- ∂E/∂a > 0 이므로 a를 감소시키면 E가 줄어든다.\n"
+            "- ∂E/∂b < 0 이므로 b를 증가시키면 E가 줄어든다.\n"
+            "- 따라서 (a ↓, b ↑) 방향이 손실 감소에 유리하다."
+        ),
         key="ai_step2_direction_desc",
     )
 
+    # 3) 성찰
     reflection = st.text_area(
-        "3) 추천 방향으로 이동할때 항상 전역 최소점에 도달할 수 있는가? 손실 지형의 형태와 연결하여 설명하시오.",
-        height=120,
-        placeholder="예: 만약 손실 지형에 여러 개의 골짜기가 있다면..?",
+        "3) 추천 방향으로 이동하면 항상 전역 최소점에 도달하는가? 손실 지형의 형태와 연결하여 설명하시오.(선택)",
+        height=140,
+        placeholder=(
+            "예:\n"
+            "- 손실함수가 볼록(convex)이면 기울기 하강이 전역 최소점으로 수렴하기 쉽다.\n"
+            "- 하지만 비볼록이면 국소 최소/안장점 때문에 시작점에 따라 다른 지점으로 갈 수 있다."
+        ),
         key="ai_step2_reflection",
     )
 
