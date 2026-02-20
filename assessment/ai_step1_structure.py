@@ -34,6 +34,8 @@ DEFAULT_START_B = 2.2
 COORD_STEPS = 18
 STEP_SIZE = 0.15
 
+_BACKUP_STATE_KEY = "ai_step1_backup_payload"
+
 
 def E(a: np.ndarray, b: np.ndarray) -> np.ndarray:
     return ALPHA * (a**2) + BETA * (b**2)
@@ -105,6 +107,7 @@ def build_backup_text(payload: dict) -> str:
 def main():
     st.set_page_config(page_title=TITLE, layout="wide")
     
+
     init_assessment_session()
     student_id = require_student_id()
 
@@ -295,17 +298,33 @@ $$
     )
 
     st.caption("※ 구체적인 좌표, 방향, 등고선 근거를 포함하여 작성하세요.")
-    
+
+    # -------------------------
+    # 저장/이동 처리
+    # -------------------------
+    def _validate_inputs() -> tuple[bool, str]:
+        if not obs_shape.strip():
+            return False, "서술 1) 전체 형태/최소점 관찰을 입력하세요."
+        if not obs_sensitivity.strip():
+            return False, "서술 2) 민감도 방향과 근거를 입력하세요."
+        if not obs_zigzag.strip():
+            return False, "서술 3) 지그재그 관찰과 이유를 입력하세요."
+        return True, "OK"
+
     payload_for_backup = {
         "student_id": student_id,
         "obs_shape": obs_shape,
         "obs_sensitivity": obs_sensitivity,
         "obs_zigzag": obs_zigzag,
     }
-    backup_text = build_backup_text(payload_for_backup)
+
+    saved_payload = st.session_state.get(_BACKUP_STATE_KEY) or None
+    backup_payload = saved_payload if isinstance(saved_payload, dict) and saved_payload.get("student_id") == student_id else payload_for_backup
+    backup_text = build_backup_text(backup_payload)
 
     cA, cB = st.columns([1, 1], gap="large")
     with cA:
+        backup_make_clicked = st.button("⬇️ TXT 백업 만들기", use_container_width=True)
         st.download_button(
             label="📄 (다운로드) 1차시 백업 TXT",
             data=backup_text.encode("utf-8-sig"),
@@ -322,20 +341,16 @@ $$
         with btn2:
             go_next = st.button("➡️ 2차시로 이동", use_container_width=True)
 
+    if backup_make_clicked:
+        ok, msg = _validate_inputs()
+        if not ok:
+            st.error(msg)
+            st.stop()
+        st.session_state[_BACKUP_STATE_KEY] = dict(payload_for_backup)
+        st.rerun()
+
     # ✅ 저장 상태 알림: 버튼 바로 아래로 이동
     render_save_status()
-
-    # -------------------------
-    # 저장/이동 처리
-    # -------------------------
-    def _validate_inputs() -> tuple[bool, str]:
-        if not obs_shape.strip():
-            return False, "서술 1) 전체 형태/최소점 관찰을 입력하세요."
-        if not obs_sensitivity.strip():
-            return False, "서술 2) 민감도 방향과 근거를 입력하세요."
-        if not obs_zigzag.strip():
-            return False, "서술 3) 지그재그 관찰과 이유를 입력하세요."
-        return True, "OK"
 
     if save_clicked or go_next:
         ok, msg = _validate_inputs()
