@@ -9,9 +9,8 @@
 
     st.markdown(
         r"""
-1) 손실함수 $E(a,b)=\alpha a^2+\beta b^2$에 대해 $\dfrac{\partial E}{\partial a}$, $\dfrac{\partial E}{\partial b}$를 구하시오.  
-예: 각 변수에 대해 미분하여 얻은 식을 간단히 정리하여 서술
-"""
+    1) 손실함수 $E(a,b)=\alpha a^2+\beta b^2$에 대해 $\dfrac{\partial E}{\partial a}$, $\dfrac{\partial E}{\partial b}$를 구하시오.  
+    """
     )
 
     col1, col2 = st.columns(2)
