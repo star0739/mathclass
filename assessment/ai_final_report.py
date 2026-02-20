@@ -381,12 +381,12 @@ def build_ai_report_pdf(
     fn_tex = sections.get("function_expr", "").strip()
     if fn_tex:
         latex_str = r"E(a,b) = " + fn_tex
-        png = latex_to_png_bytes(latex_str, fontsize=20)
+        png = latex_to_png_bytes(latex_str, fontsize=12)
 
         story.append(Spacer(1, 4 * mm))
 
         if png:
-            img = RLImage(BytesIO(png))
+            img = _img_scale_to_width(png, target_w_mm=90)
             img.hAlign = "CENTER"
             story.append(img)
         else:
