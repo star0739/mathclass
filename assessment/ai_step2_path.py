@@ -287,7 +287,7 @@ def main():
     s = _init_state(student_id, a_init, b_init, e_init)
 
     st.markdown(
-        r"""
+        rf"""
 이번 시간은 **등고선(2D)** 위에서, 시작점에서 **손실을 줄이는 방향**을 직접 선택하고 1 step 이동을 반복하며 경로를 관찰합니다.
 """
     )
@@ -298,7 +298,7 @@ def main():
     # 좌측: ① 시작점 / ② 이동
     # -------------------------
     with left:
-        st.subheader("① 시작점 선")
+        st.subheader("① 시작점 선택")
 
         preset_labels = [f"({a:g}, {b:g})" for (a, b) in PRESET_STARTS]
         preset_idx = st.selectbox(
