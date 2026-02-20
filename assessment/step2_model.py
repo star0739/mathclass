@@ -533,12 +533,19 @@ payload = {
 }
 
 # 2. 버튼 레이아웃 (1차시와 동일한 비율)
-col1, col2, col3 = st.columns([1, 1, 1.2])
+st.divider()
 
-save_clicked = col1.button("💾 저장(구글시트)", use_container_width=True)
-download_clicked = col2.button("⬇️ TXT 백업 만들기", use_container_width=True) # 세션 저장 역할
-go_next = col3.button("➡️ 3차시로 이동", use_container_width=True)
+a1, a2, a3, a4 = st.columns([1, 1, 1, 1], gap="small")
 
+with a1:
+    backup_make_clicked = st.button("🧾 백업 준비", use_container_width=True)
+with a2:
+    # 다운로드 버튼은 아래(항상 렌더)에서 유지
+    pass
+with a3:
+    save_clicked = st.button("💾 저장(구글시트)", use_container_width=True)
+with a4:
+    go_next = st.button("➡️ 다음", use_container_width=True)
 # 3. 검증 함수 (ai_prompt 제외 로직 반영)
 def _validate_step2() -> bool:
     if hypothesis_decision == "가설 수정" and not revised_model_safe:
@@ -553,26 +560,27 @@ def _validate_step2() -> bool:
     return True
 
 # 4. 실제 파일 다운로드 버튼 (항상 렌더링되지만, 데이터는 최신 payload 반영)
-backup_bytes = build_step2_backup(payload) # build_step2_backup에서 ai_prompt 출력부 제거 필요
-st.download_button(
-    label="📄 (다운로드) 2차시 백업 TXT",
-    data=backup_bytes,
-    file_name=f"미적분_수행평가_2차시_{student_id}.txt",
-    mime="text/plain; charset=utf-8",
-)
+backup_bytes = build_step2_backup(payload)
+with a2:
+    st.download_button(
+        label="⬇️ TXT 다운로드",
+        data=backup_bytes,
+        file_name=f"미적분_수행평가_2차시_{student_id}.txt",
+        mime="text/plain; charset=utf-8",
+        use_container_width=True,
+    )
+
 
 # 5. 버튼 클릭 시 로직 처리
-if save_clicked or download_clicked or go_next:
+if save_clicked or backup_make_clicked or go_next:
     if not _validate_step2():
         st.stop()
 
-    # (1) 세션 저장: 'TXT 백업 만들기' 클릭 시에도 실행됨
     _set_step2_state({**payload, "saved_at": pd.Timestamp.now().isoformat()})
-    
-    if download_clicked:
-        st.success("✅ 백업 데이터가 준비되었습니다. 위 '다운로드' 버튼을 눌러주세요.")
 
-    # (2) 구글 시트 저장: 저장 버튼이나 다음 단계 버튼 클릭 시 실행
+    if backup_make_clicked:
+        st.success("✅ 백업 내용을 준비했습니다. TXT 다운로드 버튼을 눌러 저장하세요.")
+
     if save_clicked or go_next:
         try:
             append_step2_row(
@@ -597,7 +605,5 @@ if save_clicked or download_clicked or go_next:
             st.error(f"⚠️ 구글 시트 저장 오류: {e}")
             st.stop()
 
-# (3) 다음 차시 이동 로직
     if go_next:
-        st.success("3차시로 이동합니다.")
         st.switch_page("assessment/step3_integral.py")
