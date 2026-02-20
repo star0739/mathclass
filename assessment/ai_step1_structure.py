@@ -416,7 +416,7 @@ $$
         save_clicked = st.button("💾 저장(구글시트)", use_container_width=True)
 
     with a4:
-        go_next = st.button("➡️ 다음 차시로 이동", use_container_width=True)
+        go_next = st.button("➡️ 2차시로 이동", use_container_width=True)
 
     if backup_make_clicked:
         ok, msg = _validate_inputs()
