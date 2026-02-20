@@ -511,7 +511,6 @@ def main():
             return False, "1) ∂E/∂b 입력이 비어 있습니다."
         if not (direction_desc or "").strip():
             return False, "2) 방향 성분 판단 서술이 비어 있습니다."
-        if not (reflection or "").strip():
         return True, "OK"
 
     # 현재 경로 결과 요약
