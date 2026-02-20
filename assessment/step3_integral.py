@@ -109,7 +109,10 @@ def parse_year_month(s: pd.Series) -> pd.Series:
 # -----------------------------
 def parse_step2_backup_txt(text: str) -> dict:
     out: dict[str, str] = {}
-    lines = [ln.rstrip("\n") for ln in (text or "").splitlines()]
+    content = text or ""
+
+    # 1) 기존에 읽던 기본 정보(학번/데이터 출처/X|Y/유효점)
+    lines = [ln.rstrip("\n") for ln in content.splitlines()]
     stripped = [ln.strip() for ln in lines]
 
     def find_value(prefix: str) -> str:
@@ -120,6 +123,7 @@ def parse_step2_backup_txt(text: str) -> dict:
 
     out["student_id"] = find_value("학번:")
     out["data_source"] = find_value("- 데이터 출처:")
+
     out["x_col"] = ""
     out["y_col"] = ""
     for ln in stripped:
@@ -128,9 +132,23 @@ def parse_step2_backup_txt(text: str) -> dict:
             if m:
                 out["x_col"] = m.group(1).strip()
                 out["y_col"] = m.group(2).strip()
-    out["valid_n"] = find_value("- 유효 데이터 점:")
-    return out
 
+    out["valid_n"] = find_value("- 유효 데이터 점:")
+
+    # 2) ✅ 추가: 3차시용 파이썬 수식(py_model/py_d1/py_d2) 추출
+    def _grab_block(label: str) -> str:
+        # label 다음 줄부터, 빈 줄 전까지
+        pattern = rf"{re.escape(label)}\s*:\s*\n(.*?)(?:\n\s*\n|$)"
+        m = re.search(pattern, content, flags=re.DOTALL)
+        if not m:
+            return ""
+        return (m.group(1) or "").strip()
+
+    out["py_model"] = _grab_block("- py_model (f(t))")
+    out["py_d1"] = _grab_block("- py_d1 (f'(t))")
+    out["py_d2"] = _grab_block("- py_d2 (f''(t))")
+
+    return out
 
 # -----------------------------
 # np.trapz 의존 제거 사다리꼴 적분
@@ -385,6 +403,9 @@ if step2_txt is not None:
             "x_col": parsed2.get("x_col") or step2.get("x_col") or step1.get("x_col", ""),
             "y_col": parsed2.get("y_col") or step2.get("y_col") or step1.get("y_col", ""),
             "valid_n": parsed2.get("valid_n") or step2.get("valid_n") or step1.get("valid_n", ""),
+            "py_model": parsed2.get("py_model") or step2.get("py_model") or "",
+            "py_d1": parsed2.get("py_d1") or step2.get("py_d1") or "",
+            "py_d2": parsed2.get("py_d2") or step2.get("py_d2") or "",
         }
         _set_step2_state(step2)
         st.success("TXT에서 2차시 정보를 불러왔습니다.")
