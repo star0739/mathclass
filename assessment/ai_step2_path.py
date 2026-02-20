@@ -7,6 +7,9 @@ from datetime import datetime
 import numpy as np
 import pandas as pd
 import streamlit as st
+import re
+from assessment.ai_loss import make_loss_spec, latex_E
+
 
 PLOTLY_AVAILABLE = True
 try:
@@ -88,6 +91,25 @@ def _load_loss_spec_from_step1() -> tuple[object, str]:
     st.error("1차시에서 손실함수를 먼저 선택/저장한 뒤 2차시로 이동하세요.")
     st.stop()
 
+def parse_step1_backup_txt(uploaded_file):
+    content = uploaded_file.read().decode("utf-8-sig")
+
+    match_type = re.search(r"loss_type:\s*(\w+)", content)
+    if not match_type:
+        return None, "loss_type을 찾을 수 없습니다."
+
+    loss_type = match_type.group(1).strip()
+
+    match_params = re.search(r"params:\s*(\{.*?\})", content)
+    if not match_params:
+        return None, "params 정보를 찾을 수 없습니다."
+
+    try:
+        params = eval(match_params.group(1))
+    except Exception:
+        return None, "params 해석 실패"
+
+    return {"type": loss_type, "params": params}, None
 
 def _get_state() -> dict:
     return st.session_state.get(_STATE_KEY, {})
@@ -216,10 +238,56 @@ def main():
     init_assessment_session()
     student_id = require_student_id()
 
-    # ✅ 1차시에서 선택한 손실함수 불러오기
-    loss_spec, loss_latex = _load_loss_spec_from_step1()
+    # --------------------------------------------
+    # 0) 1차시 손실함수 불러오기 (세션 우선 → TXT 업로드 대안)
+    # --------------------------------------------
+    loss_spec = None
+    loss_latex = None
+
+    # (1) 세션에서 먼저 시도
+    try:
+        loss_spec, loss_latex = _load_loss_spec_from_step1()
+    except Exception:
+        loss_spec = None
+        loss_latex = None
+
+    # (2) 세션에 없으면: 1차시 백업 TXT 업로드로 복원
+    if loss_spec is None:
+        st.subheader("① 1차시 백업 파일 업로드")
+
+        uploaded_file = st.file_uploader(
+            "1차시 백업 TXT 파일을 업로드하세요",
+            type=["txt"],
+        )
+
+        if uploaded_file is None:
+            st.info("1차시를 완료한 같은 세션이 아니면, 1차시 백업 TXT 업로드가 필요합니다.")
+            st.stop()
+
+        parsed, error_msg = parse_step1_backup_txt(uploaded_file)
+        if error_msg:
+            st.error(error_msg)
+            st.stop()
+
+        loss_spec = make_loss_spec(parsed["type"], parsed["params"])
+        loss_latex = latex_E(loss_spec)
+
+        st.success("1차시 손실함수 복원 완료")
+        st.latex(loss_latex)
+
+    # (선택) 현재 선택된 함수 표시(세션으로 불러온 경우에도 보이게)
+    if loss_latex:
+        st.caption("현재 적용된 손실함수")
+        st.latex(loss_latex)
 
     st.title(TITLE)
+
+    st.markdown(
+        r"""
+이번 시간은 **등고선(2D)** 위에서, 시작점에서 **손실을 줄이는 방향**을 직접 선택하고
+1 step 이동을 반복하며 경로를 관찰합니다.
+"""
+    )
 
     # 초기 시작점: 프리셋 1
     a_init, b_init = _clip(PRESET_STARTS[0][0], PRESET_STARTS[0][1])
