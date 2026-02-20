@@ -566,25 +566,28 @@ def main():
     backup_text = build_backup_text(payload)
 
 
-    # 버튼 3개(기존 UX 유지)
-    cA, cB, cC = st.columns([1, 1, 1.2], gap="small")
-    with cA:
+    # --- 하단 액션바(통일: 백업 준비 → 다운로드 → 저장 → 다음) ---
+    st.divider()
+
+    a1, a2, a3, a4 = st.columns([1, 1, 1, 1], gap="small")
+
+    with a1:
+        backup_make_clicked = st.button("🧾 백업 준비", use_container_width=True)
+
+    with a2:
+        st.download_button(
+            label="⬇️ TXT 다운로드",
+            data=backup_text.encode("utf-8-sig"),
+            file_name=f"인공지능_수행평가_2차시_{student_id}.txt",
+            mime="text/plain; charset=utf-8",
+            use_container_width=True,
+        )
+
+    with a3:
         save_clicked = st.button("💾 저장(구글시트)", use_container_width=True)
-    with cB:
-        backup_make_clicked = st.button("⬇️ TXT 백업 만들기", use_container_width=True)
-    with cC:
-        go_next = st.button("➡️ 최종 보고서 작성", use_container_width=True)
 
-
-        # 다운로드 버튼은 항상 표시(학생 UX 안정)
-    st.download_button(
-        label="📄 (다운로드) 2차시 백업 TXT",
-        data=backup_text.encode("utf-8-sig"),
-        file_name=f"인공지능_수행평가_2차시_{student_id}.txt",
-        mime="text/plain; charset=utf-8",
-        use_container_width=True,
-    )
-
+    with a4:
+        go_next = st.button("➡️ 다음", use_container_width=True)
 
     # ---- 공통 검증(세 버튼 모두) ----
     if save_clicked or backup_make_clicked or go_next:
