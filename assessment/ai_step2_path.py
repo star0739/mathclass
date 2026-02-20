@@ -60,31 +60,16 @@ def _load_loss_spec_from_step1() -> tuple[object, str]:
     """
     returns:
       (loss_spec: LossSpec, display_latex: str)
-    호환:
-      - 신형: st.session_state["ai_step1_structure"]["loss_spec"] = {type, params, ...}
-      - 구형: st.session_state["ai_step1_structure"] has alpha/beta -> quad(alpha=alpha, b^2 coefficient fixed in ai_loss)
+
+    1차시에서 선택한 손실함수(loss_spec)를 세션에서 불러온다.
     """
     step1 = st.session_state.get("ai_step1_structure", {}) or {}
     loss_info = step1.get("loss_spec", None)
 
-    # 신형 구조
     if isinstance(loss_info, dict) and loss_info.get("type"):
         loss_type = str(loss_info.get("type"))
         params = loss_info.get("params", {}) or {}
         spec = make_loss_spec(loss_type, params)
-        return spec, latex_E(spec)
-
-    # 구형 구조(예: alpha/beta)
-    # -> quad(alpha=alpha)로 매핑 (ai_loss의 quad는 b^2 계수 1로 설계)
-    alpha = step1.get("alpha", None)
-    if alpha is not None:
-        spec = make_loss_spec("quad", {"alpha": float(alpha)})
-        return spec, latex_E(spec)
-
-    # 마지막 fallback: ai_loss_spec(1차시에서 별도로 저장했을 수도 있음)
-    raw = st.session_state.get("ai_loss_spec", None)
-    if isinstance(raw, dict) and raw.get("type"):
-        spec = make_loss_spec(str(raw["type"]), raw.get("params", {}) or {})
         return spec, latex_E(spec)
 
     return None, None
