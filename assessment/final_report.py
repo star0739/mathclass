@@ -356,26 +356,21 @@ def build_report_pdf(
         story.append(RLImage(BytesIO(images["raw_graph"]), width=170 * mm, height=90 * mm, hAlign="CENTER"))
         story.append(Spacer(1, 10 * mm))
 
-    # 2-2 미분(모델식 먼저, 그 다음 서술, 그 다음 도함수/이계도함수, 그래프)
+    # 2-2 미분(모델식 → 도함수 → 이계도함수 → 서술 → 그래프)
     story.append(Paragraph("2) 미분 분석", h2))
 
-    # 모델식(LaTeX) 먼저
+    # (1) 모델식
     model_tex = (latex_items.get("model") or "").strip()
     if model_tex:
         png = latex_to_png_bytes(model_tex, fontsize=18)
         if png:
-            story.append(RLImage(BytesIO(png), width=170 * mm, height=18 * mm, hAlign="CENTER"))
+            story.append(RLImage(BytesIO(png), width=110 * mm, height=15 * mm, hAlign="LEFT"))
             story.append(Spacer(1, 4 * mm))
         else:
             story.append(Paragraph(model_tex, body))
             story.append(Spacer(1, 4 * mm))
 
-    # 서술
-    if sections.get("body_diff", "").strip():
-        story.append(Paragraph(sections["body_diff"].replace("\n", "<br/>"), body))
-        story.append(Spacer(1, 6 * mm))
-
-    # 도함수/이계도함수(있으면)
+    # (2) 도함수, (3) 이계도함수  (둘 다 있으면 순서대로)
     for key, label in [("d1", "도함수"), ("d2", "이계도함수")]:
         tex = (latex_items.get(key) or "").strip()
         if not tex:
@@ -383,10 +378,15 @@ def build_report_pdf(
         png = latex_to_png_bytes(tex, fontsize=16)
         if png:
             story.append(Paragraph(label, caption))
-            story.append(RLImage(BytesIO(png), width=170 * mm, height=18 * mm, hAlign="CENTER"))
+            story.append(RLImage(BytesIO(png), width=110 * mm, height=15 * mm, hAlign="LEFT"))
         else:
             story.append(Paragraph(f"{label}: {tex}", body))
         story.append(Spacer(1, 4 * mm))
+
+    # (4) 서술 (도함수/이계도함수 뒤로 이동)
+    if sections.get("body_diff", "").strip():
+        story.append(Paragraph(sections["body_diff"].replace("\n", "<br/>"), body))
+        story.append(Spacer(1, 6 * mm))
 
     # 변화율 / 이계변화율 그래프
     if images.get("rate_graph"):
