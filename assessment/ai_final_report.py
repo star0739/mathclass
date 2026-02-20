@@ -367,15 +367,10 @@ def build_ai_report_pdf(
             story.append(Paragraph(tex, body))
             story.append(Spacer(1, 4 * mm))
 
-    if fn_tex or d1_tex or d2_tex:
-        # 과도한 섹션 제목은 피하고, 간단히 수식만 배치
-        if fn_tex:
-            _add_tex(fn_tex, fontsize=18)
-        if d1_tex:
-            _add_tex(d1_tex, fontsize=16)
-        if d2_tex:
-            _add_tex(d2_tex, fontsize=16)
-
+    fn_tex = sections.get("function_expr", "").strip()
+    if fn_tex:
+        story.append(Spacer(1, 4 * mm))
+        story.append(Paragraph(f"E(a,b) = {fn_tex}", body))
         story.append(Spacer(1, 6 * mm))
 
     # 1. 서론
@@ -598,11 +593,6 @@ sec_body_result = st.text_area("본문(서술형) — 편미분 기반 이동 �
 st.markdown("### 3. 결론")
 sec_conclusion = st.text_area("본문(서술형)", key=K_CONC, height=240)
 
-with st.expander("LaTeX(자동 생성) 확인/수정", expanded=False):
-    latex_items["fn"] = st.text_input("함수(LaTeX)", value=latex_items.get("fn", ""))
-    latex_items["d1"] = st.text_input("편미분 1(LaTeX)", value=latex_items.get("d1", ""))
-    latex_items["d2"] = st.text_input("편미분 2(LaTeX)", value=latex_items.get("d2", ""))
-    st.session_state["ai_latex_items"] = latex_items
 
 st.divider()
 
@@ -627,6 +617,7 @@ if st.button("📄 PDF 생성", use_container_width=True):
         st.stop()
 
     sections = {
+        "function_expr": s2.get("function_expr") or s1.get("function_expr") or "",
         "intro": sec_intro.strip(),
         "body_main": sec_body_main.strip(),
         "body_result": sec_body_result.strip(),
