@@ -96,7 +96,7 @@ def build_backup_text(payload: dict) -> str:
     lines.append("2) 민감도 큰 방향 + 근거(등고선/단면 등):")
     lines.append(payload.get("obs_sensitivity", "").strip())
     lines.append("")
-    lines.append("3) 한 변수만 줄이는 이동(지그재그) 관찰 + 이유:")
+    lines.append("3) 좌표축 방향 이동(지그재그) 관찰 + 이유:")
     lines.append(payload.get("obs_zigzag", "").strip())
     lines.append("")
     return "\n".join(lines)
@@ -289,7 +289,7 @@ $$
     obs_zigzag = st.text_area(
         "3) 좌표축 방향 이동했을 때 경로는 어떤 특징을 보이는가? 그 이유를 설명하시오.",
         height=120,
-        placeholder="예: 경로의 모양 설명, 그렇게 되는 수학적 이유 서",
+        placeholder="예: 경로의 모양 설명, 그렇게 되는 수학적 이유 서술",
         key="ai_step1_obs_zigzag",
     )
 
