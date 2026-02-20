@@ -381,42 +381,16 @@ DEFAULT_AI_STEP2_HEADER = [
 ]
 
 
-def ensure_ai_step2_header(ws):
-    """
-    AI 2차시 시트의 헤더를 보장한다.
-    - 시트가 비어 있으면 전체 헤더 생성
-    - 기존 헤더가 부족하면 누락 컬럼을 뒤에 추가
-    - 이미 최신이면 아무 작업도 하지 않음
-    """
-    try:
-        values = ws.get_all_values()
-    except Exception:
-        values = []
-
-    # 시트가 완전히 비어 있는 경우
+def ensure_ai_step2_header(ws) -> None:
+    values = ws.get_all_values()
     if not values:
-        ws.append_row(DEFAULT_AI_STEP2_HEADER)
+        ws.append_row(DEFAULT_AI_STEP2_HEADER, value_input_option="USER_ENTERED")
         return
 
-    current_header = values[0]
-
-    # 헤더가 완전 빈 줄인 경우
-    if not any(cell.strip() for cell in current_header):
+    first_row = values[0]
+    if len(first_row) == 0 or all((c.strip() == "" for c in first_row)):
         ws.update("A1", [DEFAULT_AI_STEP2_HEADER])
         return
-
-    # 기존 헤더가 최신보다 짧은 경우 → 누락 컬럼 추가
-    if len(current_header) < len(DEFAULT_AI_STEP2_HEADER):
-        missing = DEFAULT_AI_STEP2_HEADER[len(current_header):]
-        if missing:
-            ws.update(
-                f"{chr(65 + len(current_header))}1",
-                [missing]
-            )
-        return
-
-    # 이미 최신 구조면 아무 작업 안 함
-    return
 
 
 def append_ai_step2_row(
@@ -475,4 +449,3 @@ def append_ai_step2_row(
     ]
 
     ws.append_row(row, value_input_option="USER_ENTERED")
-
