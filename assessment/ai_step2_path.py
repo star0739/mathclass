@@ -270,8 +270,7 @@ def main():
         loss_spec = make_loss_spec(parsed["type"], parsed["params"])
         loss_latex = latex_E(loss_spec)
 
-        st.success("1차시 손실함수 복원 완료")
-        st.latex(loss_latex)
+        # st.success("1차시 손실함수 복원 완료")
 
     # (선택) 현재 선택된 함수 표시(세션으로 불러온 경우에도 보이게)
     if loss_latex:
@@ -299,9 +298,9 @@ def main():
     # 좌측: ① 시작점 / ② 이동
     # -------------------------
     with left:
-        st.subheader("① 시작점 설정")
+        st.subheader("① 시작점 선")
 
-        preset_labels = [f"프리셋 {i+1}: ({a:g}, {b:g})" for i, (a, b) in enumerate(PRESET_STARTS)]
+        preset_labels = [f"({a:g}, {b:g})" for (a, b) in PRESET_STARTS]
         preset_idx = st.selectbox(
             "시작점 선택",
             options=list(range(len(PRESET_STARTS))),
@@ -480,14 +479,7 @@ def main():
     # ✅ 고정식 제거 -> 선택된 함수 표시
     st.markdown(
         rf"""
-1) 선택한 손실함수 $E(a,b)$에 대해 시작점 $(a,b)$에서의 $\dfrac{{\partial E}}{{\partial a}}$, $\dfrac{{\partial E}}{{\partial b}}$를 구하시오.  
-
-현재 선택된 함수:
-$$
-{loss_latex}
-$$
-"""
-    )
+1) 손실함수 $E(a,b)=10 a^2+ b^2$에 대해 시작점 $(a,b)$에서의 $\dfrac{\partial E}{\partial a}$, $\dfrac{\partial E}{\partial b}$를 구하시오. 
 
     colp1, colp2 = st.columns(2, gap="large")
     with colp1:
@@ -498,16 +490,16 @@ $$
         dE_db = st.text_input("편미분 식에 시작점 b좌표 값 대입", key="ai_step2_dE_db", label_visibility="collapsed")
 
     direction_desc = st.text_area(
-        "2) 위에서 구한 두 값의 부호를 관찰하고, 손실을 줄이기 위해 각 변수를 어떤 방향(증가/감소)으로 변화시켜야 하는지 서술하시오.",
+        "2) 위에서 구한 두 값의 부호를 관찰하고, 손실을 줄이기 위해 각 변수를 어떤 방향(증가/감소)으로 변화시켜야 하는지 서술하시오.(필수)",
         height=120,
-        placeholder="예: ∂E/∂a의 부호가 +이면 a를 감소시키면 E가 줄어든다. ∂E/∂b의 부호가 -이면 b를 증가시키면 E가 줄어든다. ...",
+        placeholder="예: 각 값의 부호를 확인하여 a와 b의 값을 키울지 줄일지 결정하고, 그에 따라 내가 선택한 이동 방향을 서술",
         key="ai_step2_direction_desc",
     )
 
     reflection = st.text_area(
-        "3) 내가 선택한 방향으로 1 step씩 이동한 결과(경로)를 해석하시오.",
+        "3) 추천 방향으로 이동할때 항상 전역 최소점에 도달할 수 있는가? 손실 지형의 형태와 연결하여 설명하시오.",
         height=120,
-        placeholder="예: 처음에는 손실이 빠르게 감소했지만, 이후에는 감소 폭이 줄었다. 추천 방향과 비교했을 때... 등",
+        placeholder="예: 만약 손실 지형에 여러 개의 골짜기가 있다면..?",
         key="ai_step2_reflection",
     )
 
@@ -520,7 +512,6 @@ $$
         if not (direction_desc or "").strip():
             return False, "2) 방향 성분 판단 서술이 비어 있습니다."
         if not (reflection or "").strip():
-            return False, "3) 이동 결과 해석이 비어 있습니다."
         return True, "OK"
 
     # 현재 경로 결과 요약
