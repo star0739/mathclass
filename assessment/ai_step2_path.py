@@ -572,7 +572,7 @@ def main():
         save_clicked = st.button("💾 저장(구글시트)", use_container_width=True)
 
     with a4:
-        go_next = st.button("➡️ 다음", use_container_width=True)
+        go_next = st.button("➡️ 최종 보고서 작성", use_container_width=True)
 
     # ---- 공통 검증(세 버튼 모두) ----
     if save_clicked or backup_make_clicked or go_next:
