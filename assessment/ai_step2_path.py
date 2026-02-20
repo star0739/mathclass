@@ -565,7 +565,18 @@ def main():
 
     backup_text = build_backup_text(payload)
 
-    # 다운로드 버튼은 항상 표시(학생 UX 안정)
+
+    # 버튼 3개(기존 UX 유지)
+    cA, cB, cC = st.columns([1, 1, 1.2], gap="small")
+    with cA:
+        save_clicked = st.button("💾 저장(구글시트)", use_container_width=True)
+    with cB:
+        backup_make_clicked = st.button("⬇️ TXT 백업 만들기", use_container_width=True)
+    with cC:
+        go_next = st.button("➡️ 최종 보고서 작성", use_container_width=True)
+
+
+        # 다운로드 버튼은 항상 표시(학생 UX 안정)
     st.download_button(
         label="📄 (다운로드) 2차시 백업 TXT",
         data=backup_text.encode("utf-8-sig"),
@@ -574,14 +585,6 @@ def main():
         use_container_width=True,
     )
 
-    # 버튼 3개(기존 UX 유지)
-    cA, cB, cC = st.columns([1, 1, 1], gap="small")
-    with cA:
-        backup_make_clicked = st.button("⬇️ TXT 백업 만들기", use_container_width=True)
-    with cB:
-        save_clicked = st.button("✅ 제출/저장", use_container_width=True)
-    with cC:
-        go_next = st.button("➡️ 최종 보고서로 이동", use_container_width=True)
 
     # ---- 공통 검증(세 버튼 모두) ----
     if save_clicked or backup_make_clicked or go_next:
