@@ -276,7 +276,7 @@ def main():
 
     # (선택) 현재 선택된 함수 표시(세션으로 불러온 경우에도 보이게)
     if loss_latex:
-        st.caption("현재 적용된 손실함수")
+        st.caption("1차시에 선택한 손실함수")
         st.latex(loss_latex)
 
 
@@ -481,11 +481,11 @@ def main():
     # ✅ 고정식 제거 -> 선택된 함수 표시
     # 선택된 손실함수 표시(정보성, 입력 아님)
     if loss_latex:
-        st.caption("현재 선택된 손실함수")
+        st.caption("1차시에 선택한 손실함수")
         st.latex(loss_latex)
 
     # 1) 편미분 값 입력(필수)
-    st.markdown("#### 1) 시작점에서의 편미분 값(필수)")
+    st.markdown("시작점에서의 편미분 값(필수)")
 
     colp1, colp2 = st.columns(2, gap="large")
     with colp1:
@@ -523,9 +523,7 @@ def main():
         "3) 추천 방향으로 이동하면 항상 전역 최소점에 도달하는가? 손실 지형의 형태와 연결하여 설명하시오.(선택)",
         height=140,
         placeholder=(
-            "예:\n"
-            "- 손실함수가 볼록(convex)이면 기울기 하강이 전역 최소점으로 수렴하기 쉽다.\n"
-            "- 하지만 비볼록이면 국소 최소/안장점 때문에 시작점에 따라 다른 지점으로 갈 수 있다."
+            "예:만약 손실 지형에 여러 개의 골짜기가 있다면?"
         ),
         key="ai_step2_reflection",
     )
