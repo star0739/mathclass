@@ -11,7 +11,8 @@ import streamlit as st
 # ---------------------------
 st.set_page_config(page_title="좌석 확인", layout="wide")
 
-ROWS = 6
+# ✅ 5행 × 5열 = 25석
+ROWS = 5
 COLS = 5
 TOTAL = ROWS * COLS
 CLASSES = ["A", "B", "C", "D"]  # 미적분 A~D
@@ -258,9 +259,10 @@ def assignments_to_text(assignments: dict[int, str]) -> str:
             lines.append(f"{seat_no}: {assignments[seat_no]}")
     return "\n".join(lines)
 
+
 def export_db_to_text() -> str:
     """
-    A~D 전체 분반 좌석 정보 + 마지막 변경일을 사람이 읽을 수 있는 TXT로 변환
+    전체 분반 좌석 정보 + 마지막 변경일을 사람이 읽을 수 있는 TXT로 변환
     """
     lines = []
     with get_conn() as conn:
@@ -362,7 +364,7 @@ def render_grid(assignments: dict[int, str]):
 # ---------------------------
 init_db()
 
-st.title("좌석 확인(미적분 A~D)")
+st.title("좌석 확인(미적분, AI수학)")
 
 teacher_pw = get_teacher_password()
 if not teacher_pw:
