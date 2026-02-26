@@ -15,7 +15,22 @@ st.set_page_config(page_title="좌석 확인", layout="wide")
 ROWS = 5
 COLS = 5
 TOTAL = ROWS * COLS
-CLASSES = ["A", "B", "C", "D"]  # 미적분 A~D
+
+# ✅ 분반 변경 반영
+# 미적분(A, C, D, J), AI수학(B, F, H)
+CALC_CLASSES = ["A", "C", "D", "J"]
+AI_MATH_CLASSES = ["B", "F", "H"]
+
+# 화면 탭 순서(원하면 바꿔도 됨)
+TAB_ORDER = [
+    ("미적분", "A"),
+    ("AI수학", "B"),
+    ("미적분", "C"),
+    ("미적분", "D"),
+    ("AI수학", "F"),
+    ("AI수학", "H"),
+    ("미적분", "J"),
+]
 
 # DB를 "현재 파일(finalseat.py)과 같은 폴더"에 고정 생성
 DB_PATH = str(Path(__file__).with_name("finalseat.db"))
@@ -51,17 +66,23 @@ def get_conn():
         conn.close()
 
 
+def _ensure_column(conn: sqlite3.Connection, table: str, column: str, ddl: str):
+    cols = [r[1] for r in conn.execute(f"PRAGMA table_info({table});").fetchall()]
+    if column not in cols:
+        conn.execute(f"ALTER TABLE {table} ADD COLUMN {ddl};")
+
+
 def init_db():
     """
     최신 스키마:
-      seat_assignments(class_id, seat_no, student_name, updated_at)
-      PRIMARY KEY (class_id, seat_no)
+      seat_assignments(track, class_id, seat_no, student_name, updated_at)
+      PRIMARY KEY (track, class_id, seat_no)
 
-    + class_meta(class_id -> last_date)
-      분반별 마지막 변경일(표시용) 저장
+    + class_meta(track, class_id -> last_date)
+      과목/분반별 마지막 변경일(표시용) 저장
 
-    기존 DB에 seat_assignments 테이블이 다른 형태로 존재하면
-    새 스키마로 자동 이관(마이그레이션)합니다.
+    기존 DB가 이전 스키마(class_id, seat_no, student_name, updated_at)로 존재하면
+    기본 track='미적분' 으로 자동 이관(마이그레이션)합니다.
     """
     with get_conn() as conn:
         # --- seat_assignments 존재 확인 ---
@@ -73,11 +94,12 @@ def init_db():
             conn.execute(
                 """
                 CREATE TABLE seat_assignments (
+                    track TEXT NOT NULL,
                     class_id TEXT NOT NULL,
                     seat_no INTEGER NOT NULL,
                     student_name TEXT NOT NULL,
                     updated_at TEXT NOT NULL,
-                    PRIMARY KEY (class_id, seat_no)
+                    PRIMARY KEY (track, class_id, seat_no)
                 );
                 """
             )
@@ -85,47 +107,71 @@ def init_db():
             cols = conn.execute("PRAGMA table_info(seat_assignments);").fetchall()
             col_names = [c[1] for c in cols]
 
+            # 새 스키마 여부 판단
             is_new_schema = (
-                "class_id" in col_names
+                "track" in col_names
+                and "class_id" in col_names
                 and "seat_no" in col_names
                 and "student_name" in col_names
                 and "updated_at" in col_names
             )
 
             if not is_new_schema:
+                # 이전 스키마를 새 스키마로 이관: track 기본값='미적분'
                 now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
                 conn.execute("BEGIN;")
                 try:
                     conn.execute(
                         """
                         CREATE TABLE seat_assignments_new (
+                            track TEXT NOT NULL,
                             class_id TEXT NOT NULL,
                             seat_no INTEGER NOT NULL,
                             student_name TEXT NOT NULL,
                             updated_at TEXT NOT NULL,
-                            PRIMARY KEY (class_id, seat_no)
+                            PRIMARY KEY (track, class_id, seat_no)
                         );
                         """
                     )
 
-                    if "seat_no" in col_names and "student_name" in col_names:
+                    if "class_id" in col_names and "seat_no" in col_names and "student_name" in col_names:
                         if "updated_at" in col_names:
                             conn.execute(
                                 """
-                                INSERT INTO seat_assignments_new (class_id, seat_no, student_name, updated_at)
-                                SELECT 'A', seat_no, student_name, updated_at
+                                INSERT INTO seat_assignments_new (track, class_id, seat_no, student_name, updated_at)
+                                SELECT '미적분', class_id, seat_no, student_name, updated_at
                                 FROM seat_assignments;
                                 """
                             )
                         else:
                             conn.execute(
                                 """
-                                INSERT INTO seat_assignments_new (class_id, seat_no, student_name, updated_at)
-                                SELECT 'A', seat_no, student_name, ?
+                                INSERT INTO seat_assignments_new (track, class_id, seat_no, student_name, updated_at)
+                                SELECT '미적분', class_id, seat_no, student_name, ?
                                 FROM seat_assignments;
                                 """,
                                 (now,),
                             )
+                    else:
+                        # 정말 옛날 형태(예: A만 있던 형태)일 가능성 -> 최대한 복구
+                        if "seat_no" in col_names and "student_name" in col_names:
+                            if "updated_at" in col_names:
+                                conn.execute(
+                                    """
+                                    INSERT INTO seat_assignments_new (track, class_id, seat_no, student_name, updated_at)
+                                    SELECT '미적분', 'A', seat_no, student_name, updated_at
+                                    FROM seat_assignments;
+                                    """
+                                )
+                            else:
+                                conn.execute(
+                                    """
+                                    INSERT INTO seat_assignments_new (track, class_id, seat_no, student_name, updated_at)
+                                    SELECT '미적분', 'A', seat_no, student_name, ?
+                                    FROM seat_assignments;
+                                    """,
+                                    (now,),
+                                )
 
                     conn.execute("DROP TABLE seat_assignments;")
                     conn.execute("ALTER TABLE seat_assignments_new RENAME TO seat_assignments;")
@@ -133,54 +179,66 @@ def init_db():
                 except Exception:
                     conn.execute("ROLLBACK;")
                     raise
+            else:
+                # 혹시 track 컬럼이 없었다가 추가되는 경우를 대비(보수적으로 ensure)
+                _ensure_column(conn, "seat_assignments", "track", "track TEXT")
+                _ensure_column(conn, "seat_assignments", "class_id", "class_id TEXT")
+                _ensure_column(conn, "seat_assignments", "seat_no", "seat_no INTEGER")
+                _ensure_column(conn, "seat_assignments", "student_name", "student_name TEXT")
+                _ensure_column(conn, "seat_assignments", "updated_at", "updated_at TEXT")
 
         # --- class_meta 생성(표시용 마지막 변경일 저장) ---
         conn.execute(
             """
             CREATE TABLE IF NOT EXISTS class_meta (
-                class_id TEXT PRIMARY KEY,
-                last_date TEXT NOT NULL
+                track TEXT NOT NULL,
+                class_id TEXT NOT NULL,
+                last_date TEXT NOT NULL,
+                PRIMARY KEY (track, class_id)
             );
             """
         )
 
-        # 기본값(빈 문자열) 시드
-        for cid in CLASSES:
+        # 기본값(빈 문자열) 시드: 현재 사용하는 과목/분반 조합만
+        for tr, cid in TAB_ORDER:
             conn.execute(
-                "INSERT OR IGNORE INTO class_meta(class_id, last_date) VALUES(?, ?);",
-                (cid, ""),
+                "INSERT OR IGNORE INTO class_meta(track, class_id, last_date) VALUES(?, ?, ?);",
+                (tr, cid, ""),
             )
 
 
-def load_assignments(class_id: str) -> dict[int, str]:
+def load_assignments(track: str, class_id: str) -> dict[int, str]:
     with get_conn() as conn:
         rows = conn.execute(
             """
             SELECT seat_no, student_name
             FROM seat_assignments
-            WHERE class_id = ?
+            WHERE track = ? AND class_id = ?
             ORDER BY seat_no;
             """,
-            (class_id,),
+            (track, class_id),
         ).fetchall()
     return {int(seat_no): str(name) for seat_no, name in rows}
 
 
-def save_assignments(class_id: str, assignments: dict[int, str]):
+def save_assignments(track: str, class_id: str, assignments: dict[int, str]):
     now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     with get_conn() as conn:
         conn.execute("BEGIN;")
         try:
             # ✅ 항상 먼저 삭제 -> 이후 입력된 것만 다시 INSERT (빈 입력이면 '초기화'와 동일)
-            conn.execute("DELETE FROM seat_assignments WHERE class_id = ?;", (class_id,))
+            conn.execute(
+                "DELETE FROM seat_assignments WHERE track = ? AND class_id = ?;",
+                (track, class_id),
+            )
             for seat_no, name in assignments.items():
                 if 1 <= seat_no <= TOTAL and name.strip():
                     conn.execute(
                         """
-                        INSERT INTO seat_assignments (class_id, seat_no, student_name, updated_at)
-                        VALUES (?, ?, ?, ?);
+                        INSERT INTO seat_assignments (track, class_id, seat_no, student_name, updated_at)
+                        VALUES (?, ?, ?, ?, ?);
                         """,
-                        (class_id, seat_no, name.strip(), now),
+                        (track, class_id, seat_no, name.strip(), now),
                     )
             conn.execute("COMMIT;")
         except Exception:
@@ -188,27 +246,27 @@ def save_assignments(class_id: str, assignments: dict[int, str]):
             raise
 
 
-def get_last_date(class_id: str) -> str:
+def get_last_date(track: str, class_id: str) -> str:
     with get_conn() as conn:
         row = conn.execute(
-            "SELECT last_date FROM class_meta WHERE class_id = ?;",
-            (class_id,),
+            "SELECT last_date FROM class_meta WHERE track = ? AND class_id = ?;",
+            (track, class_id),
         ).fetchone()
     return row[0] if row else ""
 
 
-def set_last_date(class_id: str, last_date: str):
+def set_last_date(track: str, class_id: str, last_date: str):
     with get_conn() as conn:
         conn.execute("BEGIN;")
         try:
             cur = conn.execute(
-                "UPDATE class_meta SET last_date = ? WHERE class_id = ?;",
-                (last_date, class_id),
+                "UPDATE class_meta SET last_date = ? WHERE track = ? AND class_id = ?;",
+                (last_date, track, class_id),
             )
             if cur.rowcount == 0:
                 conn.execute(
-                    "INSERT INTO class_meta(class_id, last_date) VALUES(?, ?);",
-                    (class_id, last_date),
+                    "INSERT INTO class_meta(track, class_id, last_date) VALUES(?, ?, ?);",
+                    (track, class_id, last_date),
                 )
             conn.execute("COMMIT;")
         except Exception:
@@ -262,19 +320,19 @@ def assignments_to_text(assignments: dict[int, str]) -> str:
 
 def export_db_to_text() -> str:
     """
-    전체 분반 좌석 정보 + 마지막 변경일을 사람이 읽을 수 있는 TXT로 변환
+    전체 과목/분반 좌석 정보 + 마지막 변경일을 사람이 읽을 수 있는 TXT로 변환
     """
     lines = []
     with get_conn() as conn:
-        for cid in CLASSES:
+        for tr, cid in TAB_ORDER:
             # 마지막 변경일
             row = conn.execute(
-                "SELECT last_date FROM class_meta WHERE class_id = ?;",
-                (cid,),
+                "SELECT last_date FROM class_meta WHERE track = ? AND class_id = ?;",
+                (tr, cid),
             ).fetchone()
             last_date = row[0] if row else ""
 
-            lines.append(f"[미적분{cid}]")
+            lines.append(f"[{tr}{cid}]")
             if last_date:
                 lines.append(f"마지막 변경일: {last_date}")
 
@@ -282,10 +340,10 @@ def export_db_to_text() -> str:
                 """
                 SELECT seat_no, student_name
                 FROM seat_assignments
-                WHERE class_id = ?
+                WHERE track = ? AND class_id = ?
                 ORDER BY seat_no;
                 """,
-                (cid,),
+                (tr, cid),
             ).fetchall()
 
             if not rows:
@@ -370,34 +428,28 @@ teacher_pw = get_teacher_password()
 if not teacher_pw:
     st.warning("secrets.toml에 비밀번호가 설정되어 있지 않습니다. TEACHER_PASSWORD 또는 [auth].password를 설정하세요.")
 
-tabA, tabB, tabC, tabD, tabT = st.tabs(["미적분A", "미적분B", "미적분C", "미적분D", "교사"])
+# 탭 만들기
+tab_labels = [f"{tr}{cid}" for tr, cid in TAB_ORDER] + ["교사"]
+tabs = st.tabs(tab_labels)
 
-
-def render_class_tab(class_id: str, title: str):
+# ---- Student tabs (read-only display) ----
+def render_class_tab(track: str, class_id: str, title: str):
     st.subheader(title)
-    last_date = get_last_date(class_id)
+    last_date = get_last_date(track, class_id)
     if last_date:
         st.caption(f"마지막 변경일: {last_date}")
     render_front_bar()
-    render_grid(load_assignments(class_id))
+    render_grid(load_assignments(track, class_id))
 
 
-# ---- Student tabs (read-only display) ----
-with tabA:
-    render_class_tab("A", "미적분A 좌석 배치")
+for i, (tr, cid) in enumerate(TAB_ORDER):
+    with tabs[i]:
+        render_class_tab(tr, cid, f"{tr}{cid} 좌석 배치")
 
-with tabB:
-    render_class_tab("B", "미적분B 좌석 배치")
-
-with tabC:
-    render_class_tab("C", "미적분C 좌석 배치")
-
-with tabD:
-    render_class_tab("D", "미적분D 좌석 배치")
 
 # ---- Teacher tab ----
-with tabT:
-    st.subheader("교사용 입력 (분반별 좌석 배정)")
+with tabs[-1]:
+    st.subheader("교사용 입력 (과목/분반별 좌석 배정)")
 
     pw_input = st.text_input("비밀번호", type="password", key="teacher_pw_input")
     is_teacher = (teacher_pw != "") and (pw_input == teacher_pw)
@@ -405,11 +457,11 @@ with tabT:
     if teacher_pw and not is_teacher:
         st.info("비밀번호를 입력하면 편집 및 저장이 활성화됩니다.")
     else:
-        # ✅ (1) DB 백업 다운로드 (A~D 전체 포함)
+        # ✅ (1) DB 백업 다운로드 (전체 포함)
         try:
             txt_data = export_db_to_text()
             st.download_button(
-                label="좌석 DB 백업 다운로드(A~D 전체)",
+                label="좌석 DB 백업 다운로드(전체)",
                 data=txt_data,
                 file_name="finalseat.txt",
                 mime="text/plain",
@@ -419,31 +471,31 @@ with tabT:
             st.warning("DB 파일을 읽을 수 없어 백업 다운로드를 제공할 수 없습니다.")
 
         st.divider()
-        st.caption("※ 좌석 입력을 모두 지운 뒤 저장하면 해당 분반 좌석이 초기화됩니다.")
+        st.caption("※ 좌석 입력을 모두 지운 뒤 저장하면 해당 과목/분반 좌석이 초기화됩니다.")
 
-        tA, tB, tC, tD = st.tabs(["A 입력", "B 입력", "C 입력", "D 입력"])
+        teacher_tabs = st.tabs([f"{tr}{cid} 입력" for tr, cid in TAB_ORDER])
 
-        def teacher_editor(class_id: str):
-            text_key = f"text_{class_id}"
-            date_key = f"last_date_{class_id}"
+        def teacher_editor(track: str, class_id: str):
+            text_key = f"text_{track}_{class_id}"
+            date_key = f"last_date_{track}_{class_id}"
 
             def _reload():
-                st.session_state[text_key] = assignments_to_text(load_assignments(class_id))
-                st.session_state[date_key] = get_last_date(class_id)
+                st.session_state[text_key] = assignments_to_text(load_assignments(track, class_id))
+                st.session_state[date_key] = get_last_date(track, class_id)
 
             # 최초 진입 시 DB 저장본 로딩
             if text_key not in st.session_state:
-                st.session_state[text_key] = assignments_to_text(load_assignments(class_id))
+                st.session_state[text_key] = assignments_to_text(load_assignments(track, class_id))
             if date_key not in st.session_state:
-                st.session_state[date_key] = get_last_date(class_id)
+                st.session_state[date_key] = get_last_date(track, class_id)
 
             top1, top2 = st.columns([1, 1])
             with top1:
-                st.write(f"**미적분{class_id} 입력**")
+                st.write(f"**{track}{class_id} 입력**")
             with top2:
                 st.button(
                     "현재 저장본 불러오기",
-                    key=f"reload_{class_id}",
+                    key=f"reload_{track}_{class_id}",
                     on_click=_reload,
                     use_container_width=True,
                 )
@@ -462,7 +514,7 @@ with tabT:
                 placeholder="예) 1: 홍길동\n2: 김철수",
             )
 
-            if st.button("저장", key=f"save_{class_id}", use_container_width=True):
+            if st.button("저장", key=f"save_{track}_{class_id}", use_container_width=True):
                 new_assignments, errors = parse_text_to_assignments(text)
                 if errors:
                     st.error("입력 오류가 있습니다.")
@@ -471,19 +523,14 @@ with tabT:
                     return
 
                 # 좌석 저장
-                save_assignments(class_id, new_assignments)
+                save_assignments(track, class_id, new_assignments)
 
                 # 마지막 변경일 저장(빈 값도 허용: 표시 제거용)
-                set_last_date(class_id, last_date_text.strip())
+                set_last_date(track, class_id, last_date_text.strip())
 
-                st.success(f"미적분{class_id} 저장 완료. (분반 탭에 즉시 반영됩니다.)")
+                st.success(f"{track}{class_id} 저장 완료. (분반 탭에 즉시 반영됩니다.)")
                 st.rerun()
 
-        with tA:
-            teacher_editor("A")
-        with tB:
-            teacher_editor("B")
-        with tC:
-            teacher_editor("C")
-        with tD:
-            teacher_editor("D")
+        for j, (tr, cid) in enumerate(TAB_ORDER):
+            with teacher_tabs[j]:
+                teacher_editor(tr, cid)
