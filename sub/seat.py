@@ -8,8 +8,8 @@ from streamlit_autorefresh import st_autorefresh
 
 DB_PATH = "seats.db"
 
-# ✅ 5열 × 6행 = 30석
-ROWS = 6
+# ✅ 5열 × 5행 = 25석
+ROWS = 5
 COLS = 5
 
 
@@ -47,7 +47,7 @@ def init_db():
         conn.execute(
             """
             CREATE TABLE IF NOT EXISTS assignments (
-                seat_id TEXT PRIMARY KEY,               -- seat unique ("1".."30")
+                seat_id TEXT PRIMARY KEY,               -- seat unique ("1".."25")
                 user_token TEXT UNIQUE NOT NULL,         -- user unique (one seat per user, per device)
                 student_id TEXT NOT NULL,                -- 학번
                 student_name TEXT NOT NULL,              -- 이름
@@ -62,7 +62,6 @@ def init_db():
         _ensure_column(conn, "assignments", "assigned_at", "assigned_at REAL")
 
         # ✅ (권장) 같은 학번이 여러 좌석을 갖는 것을 원천 차단: UNIQUE INDEX
-        # 이미 중복 데이터가 있으면 생성이 실패할 수 있으므로 예외는 무시합니다.
         try:
             conn.execute("CREATE UNIQUE INDEX IF NOT EXISTS ux_assignments_student_id ON assignments(student_id);")
         except sqlite3.OperationalError:
@@ -272,7 +271,7 @@ with tab_student:
             for r in range(1, ROWS + 1):
                 cols = st.columns(COLS)
                 for c in range(1, COLS + 1):
-                    seat_num = (r - 1) * COLS + c  # 1..30
+                    seat_num = (r - 1) * COLS + c  # 1..25
                     seat_id = str(seat_num)
 
                     taken = seat_id in assignments
@@ -365,7 +364,6 @@ with tab_teacher:
     else:
         items = sorted(assignments.items(), key=lambda kv: safe_seat_sort_key(kv[0]))
         for seat_id, info in items:
-            # ✅ (요청) "학번 이름" 형태로 표기
             st.write(f"- **{seat_id}** : {info['student_id']} {info['student_name']}")
 
     st.caption("이전 버전 데이터가 섞여 있으면, '라운드 초기화'로 한번 정리한 뒤 사용하면 가장 안정적입니다.")
