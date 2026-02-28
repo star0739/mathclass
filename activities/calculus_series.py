@@ -1,10 +1,10 @@
 # activities/calculus_series.py
-# 정적분과 구분구적법 탐구활동
-# - Δx, x_k 한 줄 제시
-# - S_n은 등호로 연결하여 전개
-# - 왼쪽/오른쪽 끝점 선택
-# - n ≤ 80
-# - 교과서식 lim 표현 포함
+# 정적분과 구분구적법(급수→정적분 변형) 탐구활동
+# - 교과서식 전개: Δx, x_k 정의 → S_n(등호 전개) → lim → ∫
+# - 왼쪽/오른쪽 끝점(대표값) 중 하나만 선택
+# - n ≤ 80 (성능 안정)
+# - 표시용(a_tex, b_tex)과 계산용(a, b) 분리하여 (1-0), (π-0) 구조가 보이도록 처리
+# - "리만합" 용어 사용하지 않음
 
 from __future__ import annotations
 
@@ -21,76 +21,35 @@ def _cases():
         "x^2": {
             "a": 0.0,
             "b": 1.0,
+            "a_tex": "0",
+            "b_tex": "1",
             "f": lambda x: x**2,
             "problem_tex": r"f(x)=x^2,\;\; \text{적분구간 }[0,1]",
             "integral_tex": r"\int_{0}^{1}x^2\,dx=\frac{1}{3}",
-            "dx_right_tex":
-                r"\Delta x=\frac{b-a}{n}=\frac{1-0}{n},\quad "
-                r"x_k=a+k\Delta x=0+k\frac{1-0}{n}=\frac{k}{n}"
-                r"\;(k=1,2,\dots,n)",
-            
-            "dx_left_tex":
-                r"\Delta x=\frac{b-a}{n}=\frac{1-0}{n},\quad "
-                r"x_k=a+k\Delta x=0+k\frac{1-0}{n}=\frac{k}{n}"
-                r"\;(k=0,1,\dots,n-1)",
-            
-            "sigma_right_tex":
-                r"S_n=\sum_{k=1}^{n}f(x_k)\Delta x"
-                r"=\sum_{k=1}^{n}\left(\frac{k}{n}\right)^2\cdot\frac{1}{n}",
-            
-            "sigma_left_tex":
-                r"S_n=\sum_{k=0}^{n-1}f(x_k)\Delta x"
-                r"=\sum_{k=0}^{n-1}\left(\frac{k}{n}\right)^2\cdot\frac{1}{n}",
+            "sigma_right_tex": r"S_n=\sum_{k=1}^{n}\left(\frac{k}{n}\right)^2\cdot\frac{1}{n}",
+            "sigma_left_tex": r"S_n=\sum_{k=0}^{n-1}\left(\frac{k}{n}\right)^2\cdot\frac{1}{n}",
         },
         "1/x": {
             "a": 1.0,
             "b": math.e,
+            "a_tex": "1",
+            "b_tex": "e",
             "f": lambda x: 1.0 / x,
             "problem_tex": r"f(x)=\frac{1}{x},\;\; \text{적분구간 }[1,e]",
             "integral_tex": r"\int_{1}^{e}\frac{1}{x}\,dx=1",
-
-            "dx_right_tex":
-                r"\Delta x=\frac{b-a}{n}=\frac{e-1}{n},\quad "
-                r"x_k=a+k\Delta x=1+k\frac{e-1}{n}"
-                r"\;(k=1,2,\dots,n)",
-
-            "dx_left_tex":
-                r"\Delta x=\frac{b-a}{n}=\frac{e-1}{n},\quad "
-                r"x_k=a+k\Delta x=1+k\frac{e-1}{n}"
-                r"\;(k=0,1,\dots,n-1)",
-
-            "sigma_right_tex":
-                r"S_n=\sum_{k=1}^{n}f(x_k)\Delta x"
-                r"=\sum_{k=1}^{n}\frac{1}{1+\frac{(e-1)k}{n}}\cdot\frac{e-1}{n}",
-            
-            "sigma_left_tex":
-                r"S_n=\sum_{k=0}^{n-1}f(x_k)\Delta x"
-                r"=\sum_{k=0}^{n-1}\frac{1}{1+\frac{(e-1)k}{n}}\cdot\frac{e-1}{n}",
+            "sigma_right_tex": r"S_n=\sum_{k=1}^{n}\frac{1}{1+\frac{(e-1)k}{n}}\cdot\frac{e-1}{n}",
+            "sigma_left_tex": r"S_n=\sum_{k=0}^{n-1}\frac{1}{1+\frac{(e-1)k}{n}}\cdot\frac{e-1}{n}",
         },
         "sin x": {
             "a": 0.0,
             "b": math.pi,
+            "a_tex": "0",
+            "b_tex": r"\pi",
             "f": lambda x: math.sin(x),
             "problem_tex": r"f(x)=\sin x,\;\; \text{적분구간 }[0,\pi]",
             "integral_tex": r"\int_{0}^{\pi}\sin x\,dx=2",
-        
-            "dx_right_tex":
-                r"\Delta x=\frac{b-a}{n}=\frac{\pi-0}{n},\quad "
-                r"x_k=a+k\Delta x=0+k\frac{\pi-0}{n}=\frac{k\pi}{n}"
-                r"\;(k=1,2,\dots,n)",
-
-            "dx_left_tex":
-                r"\Delta x=\frac{b-a}{n}=\frac{\pi-0}{n},\quad "
-                r"x_k=a+k\Delta x=0+k\frac{\pi-0}{n}=\frac{k\pi}{n}"
-                r"\;(k=0,1,\dots,n-1)",
-
-            "sigma_right_tex":
-                r"S_n=\sum_{k=1}^{n}f(x_k)\Delta x"
-                r"=\sum_{k=1}^{n}\sin\!\left(\frac{k\pi}{n}\right)\cdot\frac{\pi}{n}",
-
-            "sigma_left_tex":
-                r"S_n=\sum_{k=0}^{n-1}f(x_k)\Delta x"
-                r"=\sum_{k=0}^{n-1}\sin\!\left(\frac{k\pi}{n}\right)\cdot\frac{\pi}{n}",
+            "sigma_right_tex": r"S_n=\sum_{k=1}^{n}\sin\!\left(\frac{k\pi}{n}\right)\cdot\frac{\pi}{n}",
+            "sigma_left_tex": r"S_n=\sum_{k=0}^{n-1}\sin\!\left(\frac{k\pi}{n}\right)\cdot\frac{\pi}{n}",
         },
     }
 
@@ -144,28 +103,42 @@ def render(show_title: bool = True, key_prefix: str = "cal_series") -> None:
 
     cfg = cases[case_key]
     a, b, f = float(cfg["a"]), float(cfg["b"]), cfg["f"]
+    a_tex, b_tex = str(cfg["a_tex"]), str(cfg["b_tex"])
 
+    # 1) 선택한 함수와 적분구간
     st.markdown("### 선택한 함수와 적분구간")
     st.latex(cfg["problem_tex"])
 
+    # 2) 구간을 n등분하여 구한 합 (교과서식 전개)
     st.markdown("### 구간을 n등분하여 구한 합")
 
     if mode == "right":
-        st.latex(cfg["dx_right_tex"])
-        st.latex(cfg["sigma_right_tex"])
+        st.latex(
+            rf"""
+\Delta x=\frac{{b-a}}{{n}}=\frac{{{b_tex}-{a_tex}}}{{n}},\quad
+x_k=a+k\Delta x={a_tex}+k\frac{{{b_tex}-{a_tex}}}{{n}}\quad (k=1,2,\dots,n)
+"""
+        )
+        st.latex(r"S_n=\sum_{k=1}^{n} f(x_k)\Delta x=" + cfg["sigma_right_tex"].split("=", 1)[1])
     else:
-        st.latex(cfg["dx_left_tex"])
-        st.latex(cfg["sigma_left_tex"])
+        st.latex(
+            rf"""
+\Delta x=\frac{{b-a}}{{n}}=\frac{{{b_tex}-{a_tex}}}{{n}},\quad
+x_k=a+k\Delta x={a_tex}+k\frac{{{b_tex}-{a_tex}}}{{n}}\quad (k=0,1,\dots,n-1)
+"""
+        )
+        st.latex(r"S_n=\sum_{k=0}^{n-1} f(x_k)\Delta x=" + cfg["sigma_left_tex"].split("=", 1)[1])
 
     st.latex(r"\lim_{n\to\infty} S_n=\int_a^b f(x)\,dx")
 
     Sn = _sum_value(f, a, b, int(n), mode)
     st.caption(f"현재 선택한 n에서의 합:  S_{n} = {Sn:.8f}")
 
+    # 3) 정적분 값
     st.markdown("### 정적분 값")
     st.latex(cfg["integral_tex"])
 
-    # 그래프
+    # 4) 그래프 확인
     st.markdown("### 그래프 확인")
 
     fig = plt.figure(figsize=(6.2, 4.0))
