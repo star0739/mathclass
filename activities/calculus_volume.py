@@ -1,10 +1,9 @@
 # activities/calculus_volume.py
-# 단면을 쌓아 만드는 부피(시각 중심)
-# - 목적: "단면 넓이를 적분구간만큼 쌓으면 입체가 된다"를 직관적으로 시각화
-# - 구분구적법(Σ, Δx) 강조는 최소화: 핵심 수식 2줄만 제시
-# - 좌: f(x) 그래프 + 현재 단면 위치(x*) 표시
-# - 우: 단면을 x방향으로 조금씩 이동해 겹쳐 그린(가짜 3D) 스택 시각화
-# - 성능: 단면 개수 m ≤ 30, matplotlib 2D 패치만 사용
+# 단면을 쌓아 만드는 부피(3D 슬라이스 시각화, matplotlib mplot3d)
+# - 좌: f(x) 그래프 + 현재 단면 위치 x*
+# - 우: x축 방향으로 여러 단면(슬라이스)을 3D로 배치해 "쌓여서 입체가 되는 느낌" 시각화
+# - 슬라이스 개수는 제한(M_MAX)하여 과부하 방지
+# - 수식은 최소: S(x), V=∫_a^b S(x)dx
 
 from __future__ import annotations
 
@@ -15,14 +14,17 @@ from typing import Callable, Dict, Tuple
 import numpy as np
 import streamlit as st
 import matplotlib.pyplot as plt
-from matplotlib.patches import Circle, Rectangle
+
+from mpl_toolkits.mplot3d.art3d import Poly3DCollection
 
 TITLE = "단면을 쌓아 만드는 부피"
 
+# 과부하 방지: 실제로 그리는 슬라이스 최대 개수
+M_MAX = 18
+# 원 단면을 그릴 때 원 둘레 분할(너무 크면 느려짐)
+CIRCLE_PTS = 60
 
-# -----------------------------
-# 함수/구간 예제
-# -----------------------------
+
 @dataclass(frozen=True)
 class Case:
     key: str
@@ -43,33 +45,43 @@ def _cases() -> Dict[str, Case]:
     }
 
 
-# -----------------------------
-# 단면 넓이 S(x)
-# -----------------------------
-def _S_and_tex(shape: str, f_tex: str) -> Tuple[Callable[[float, Callable[[float], float]], float], str]:
-    """
-    shape:
-      - "circle": 단면이 원(반지름 = f(x)) -> S(x)=π{f(x)}^2
-      - "square": 단면이 정사각형(한 변 = f(x)) -> S(x)={f(x)}^2
-    반환:
-      S(x) 계산 함수(케이스의 f를 인자로 받는 형태), 표시용 LaTeX
-    """
+def _S_tex(shape: str, f_tex: str) -> str:
     if shape == "circle":
-        return (lambda x, f: math.pi * (f(x) ** 2)), rf"S(x)=\pi\{{f(x)\}}^2=\pi\left({f_tex}\right)^2"
-    return (lambda x, f: (f(x) ** 2)), rf"S(x)=\{{f(x)\}}^2=\left({f_tex}\right)^2"
+        return rf"S(x)=\pi\{{f(x)\}}^2=\pi\left({f_tex}\right)^2"
+    return rf"S(x)=\{{f(x)\}}^2=\left({f_tex}\right)^2"
 
 
 def _safe_nonneg(v: float) -> float:
-    # 시각화 목적: 반지름/변 길이는 0 이상으로 표시
     if not math.isfinite(v):
         return 0.0
     return max(0.0, float(v))
 
 
-# -----------------------------
-# 렌더
-# -----------------------------
-def render(show_title: bool = True, key_prefix: str = "cal_volume") -> None:
+def _circle_polygon(x: float, r: float) -> np.ndarray:
+    # return (N,3) points on circle in yz-plane at given x
+    th = np.linspace(0, 2 * math.pi, CIRCLE_PTS, endpoint=True)
+    y = r * np.cos(th)
+    z = r * np.sin(th)
+    xs = np.full_like(y, x, dtype=float)
+    return np.column_stack([xs, y, z])
+
+
+def _square_polygon(x: float, s: float) -> np.ndarray:
+    # square centered at origin in yz-plane
+    h = s / 2.0
+    pts = np.array(
+        [
+            [x, -h, -h],
+            [x, +h, -h],
+            [x, +h, +h],
+            [x, -h, +h],
+        ],
+        dtype=float,
+    )
+    return pts
+
+
+def render(show_title: bool = True, key_prefix: str = "cal_volume3d") -> None:
     if show_title:
         st.title(TITLE)
 
@@ -103,11 +115,12 @@ def render(show_title: bool = True, key_prefix: str = "cal_volume") -> None:
             )
 
         with c3:
-            m = st.slider(
-                "쌓는 단면 개수 m",
+            # 사용자가 고르는 값은 넉넉히 두되, 실제 렌더는 M_MAX로 제한
+            m_user = st.slider(
+                "단면(슬라이스) 개수",
                 min_value=5,
-                max_value=30,
-                value=18,
+                max_value=M_MAX,
+                value=min(14, M_MAX),
                 step=1,
                 key=f"{key_prefix}_m",
             )
@@ -115,7 +128,7 @@ def render(show_title: bool = True, key_prefix: str = "cal_volume") -> None:
     case = cases[case_key]
     a, b = float(case.a), float(case.b)
 
-    # 단면 한 장 위치(x*) 슬라이더 (구간 내부)
+    # 현재 단면 위치 x*
     x_star = st.slider(
         "현재 단면 위치 x*",
         min_value=float(a),
@@ -125,43 +138,34 @@ def render(show_title: bool = True, key_prefix: str = "cal_volume") -> None:
         key=f"{key_prefix}_xstar",
     )
 
-    S_func, S_tex = _S_and_tex(shape, case.f_tex)
-
-    # -----------------------------
     # 수식(최소)
-    # -----------------------------
     st.markdown("### 핵심")
     st.latex(rf"f(x)={case.f_tex},\qquad \text{{적분구간 }}[{case.a_tex},{case.b_tex}]")
-    st.latex(S_tex)
+    st.latex(_S_tex(shape, case.f_tex))
     st.latex(r"V=\int_a^b S(x)\,dx")
 
-    # 현재 단면 정보(값)
     fx_star = _safe_nonneg(case.f(float(x_star)))
-    Sx_star = _safe_nonneg(S_func(float(x_star), case.f))
     if shape == "circle":
-        st.caption(f"현재 x*에서 반지름 r = f(x*) = {fx_star:.6f},  단면 넓이 S(x*) = {Sx_star:.6f}")
+        st.caption(f"현재 x*에서 반지름 r = f(x*) = {fx_star:.6f}")
     else:
-        st.caption(f"현재 x*에서 한 변 길이 s = f(x*) = {fx_star:.6f},  단면 넓이 S(x*) = {Sx_star:.6f}")
+        st.caption(f"현재 x*에서 한 변 길이 s = f(x*) = {fx_star:.6f}")
 
-    # -----------------------------
-    # 시각화: 좌(2D), 우(단면 스택)
-    # -----------------------------
     left, right = st.columns([1, 1])
 
-    # ---- 좌: f(x) 그래프 + x* 표시
+    # -----------------------------
+    # 좌: 2D 그래프
+    # -----------------------------
     with left:
         st.markdown("### 1) 함수 그래프와 단면 위치")
 
         fig1 = plt.figure(figsize=(6.2, 4.0))
         ax1 = fig1.add_subplot(111)
 
-        xs = np.linspace(a, b, 600)
+        xs = np.linspace(a, b, 700)
         ys = np.array([case.f(float(x)) for x in xs], dtype=float)
 
         ax1.plot(xs, ys, linewidth=1.6)
         ax1.axhline(0, linewidth=1)
-
-        # x* 위치 표시
         ax1.axvline(float(x_star), linewidth=1)
         ax1.plot([float(x_star)], [case.f(float(x_star))], marker="o")
 
@@ -170,89 +174,71 @@ def render(show_title: bool = True, key_prefix: str = "cal_volume") -> None:
         ax1.grid(True, linestyle="--", linewidth=0.5, alpha=0.6)
         st.pyplot(fig1)
 
-    # ---- 우: 단면을 조금씩 이동해 겹쳐 그리는 "쌓기" 시각화
+    # -----------------------------
+    # 우: 3D 슬라이스 시각화
+    # -----------------------------
     with right:
-        st.markdown("### 2) 단면을 쌓아 입체가 되는 모습(시각화)")
+        st.markdown("### 2) 단면을 쌓아 입체가 되는 모습(3D 슬라이스)")
 
-        # 샘플 x들: [a,b]에서 m개
-        xs_m = np.linspace(a, b, int(m))
-        # 시각화에서 "겹쳐 쌓는 느낌"을 위한 화면상 이동(오프셋)
-        # 너무 크게 이동하면 분리되고, 너무 작으면 안 보임
-        offset_step = 0.08  # 화면상의 x방향(그림 좌표) 이동량
-        base_shift = 0.0
+        m = int(min(m_user, M_MAX))
+        xs_m = np.linspace(a, b, m)
 
-        # 단면 크기(반지름/한 변)의 스케일을 화면에 맞추기
-        f_vals = np.array([_safe_nonneg(case.f(float(x))) for x in xs_m], dtype=float)
-        max_size = float(np.max(f_vals)) if f_vals.size else 1.0
-        if max_size <= 0:
-            max_size = 1.0
+        # 크기 스케일(축 범위 안정)
+        sizes = np.array([_safe_nonneg(case.f(float(x))) for x in xs_m], dtype=float)
+        R = float(np.max(sizes)) if sizes.size else 1.0
+        if R <= 0:
+            R = 1.0
 
-        # 단면 그림은 y-z 평면을 2D로 그린다고 생각하고,
-        # "쌓기 방향"은 화면에서 오른쪽으로 조금씩 이동시키는 방식(가짜 3D)
-        fig2 = plt.figure(figsize=(6.2, 4.0))
-        ax2 = fig2.add_subplot(111)
-        ax2.set_aspect("equal", adjustable="box")
+        fig2 = plt.figure(figsize=(6.2, 4.2))
+        ax2 = fig2.add_subplot(111, projection="3d")
 
-        # 축 범위: 단면 크기 기준으로 고정(안정)
-        # y-z 평면을 [-R, R] × [-R, R]에 두고, shift만 오른쪽으로
-        R = max_size
-        x_min = -R - 0.2
-        x_max = (int(m) - 1) * offset_step + R + 0.2
-        y_min = -R - 0.2
-        y_max = R + 0.2
-        ax2.set_xlim(x_min, x_max)
-        ax2.set_ylim(y_min, y_max)
+        # 보기 각도(교과서 느낌: 약간 위에서 사선으로)
+        ax2.view_init(elev=18, azim=-55)
 
-        # 축 라벨은 최소
-        ax2.set_xticks([])
-        ax2.set_yticks([])
-
-        # m개 단면을 순서대로 그리기 (투명도 낮게)
-        # 뒤에서 앞으로: 작은 shift부터 큰 shift로 그리면 겹침이 자연스러움
-        for i, x in enumerate(xs_m):
-            size = _safe_nonneg(case.f(float(x)))
-            shift = base_shift + i * offset_step
-
+        # 슬라이스(반투명 면 + 테두리)
+        polys = []
+        for x, s in zip(xs_m, sizes):
             if shape == "circle":
-                # 원: 중심 (shift, 0), 반지름=size
-                patch = Circle((shift, 0.0), radius=size, fill=False, linewidth=1.0, alpha=0.35)
+                pts = _circle_polygon(float(x), float(s))
             else:
-                # 정사각형: 중심 (shift,0), 한 변=size -> 좌하단 기준으로 그림
-                patch = Rectangle(
-                    (shift - size / 2.0, -size / 2.0),
-                    width=size,
-                    height=size,
-                    fill=False,
-                    linewidth=1.0,
-                    alpha=0.35,
-                )
+                pts = _square_polygon(float(x), float(s))
+            polys.append(pts)
 
-            ax2.add_patch(patch)
+            # 테두리 라인
+            ax2.plot(pts[:, 0], pts[:, 1], pts[:, 2], linewidth=0.8, alpha=0.35)
 
-        # 현재 x* 단면은 진하게 강조(가장 오른쪽 끝에 별도로 표시)
-        # "쌓기" 그림 내부에서도 한 장을 강조하고 싶으면, x*에 해당하는 위치를 찾아 강조
-        # 여기서는 x*를 가장 가까운 샘플로 매칭
+        # 면(폴리곤) 반투명 채우기
+        poly3d = [p.tolist() for p in polys]
+        coll = Poly3DCollection(poly3d, alpha=0.12)
+        ax2.add_collection3d(coll)
+
+        # 현재 x*에 가장 가까운 슬라이스를 강조
         idx = int(np.argmin(np.abs(xs_m - float(x_star)))) if xs_m.size else 0
-        shift_star = base_shift + idx * offset_step
-        size_star = _safe_nonneg(case.f(float(xs_m[idx]))) if xs_m.size else 0.0
-
+        xh = float(xs_m[idx])
+        sh = float(sizes[idx])
         if shape == "circle":
-            patch_star = Circle((shift_star, 0.0), radius=size_star, fill=False, linewidth=2.0, alpha=0.9)
+            hi = _circle_polygon(xh, sh)
         else:
-            patch_star = Rectangle(
-                (shift_star - size_star / 2.0, -size_star / 2.0),
-                width=size_star,
-                height=size_star,
-                fill=False,
-                linewidth=2.0,
-                alpha=0.9,
-            )
-        ax2.add_patch(patch_star)
+            hi = _square_polygon(xh, sh)
+            # 사각형은 닫힌 선으로 보이게
+            hi = np.vstack([hi, hi[0]])
 
-        # 간단한 안내선(중심선)
-        ax2.axhline(0, linewidth=0.8, alpha=0.4)
+        ax2.plot(hi[:, 0], hi[:, 1], hi[:, 2], linewidth=2.0, alpha=0.9)
+
+        # 가이드: x축(적분방향)
+        ax2.plot([a, b], [0, 0], [0, 0], linewidth=1.0, alpha=0.5)
+
+        # 축 범위/표시 최소화
+        ax2.set_xlim(a, b)
+        ax2.set_ylim(-R, R)
+        ax2.set_zlim(-R, R)
+        ax2.set_xlabel("x")
+        ax2.set_ylabel("")
+        ax2.set_zlabel("")
+        ax2.set_yticks([])
+        ax2.set_zticks([])
+        ax2.grid(False)
 
         st.pyplot(fig2)
 
-    # 짧은 안내 문장
-    st.caption("단면을 더 촘촘히(= m을 크게) 쌓을수록, 입체도형의 ‘연속적인’ 모습에 가까워집니다.")
+    st.caption("단면(슬라이스) 개수를 늘리면, 입체의 ‘연속적인’ 모습에 더 가까워집니다.")
