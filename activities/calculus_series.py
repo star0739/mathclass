@@ -26,6 +26,7 @@ def _cases():
             "f": lambda x: x**2,
             "problem_tex": r"f(x)=x^2,\;\; \text{적분구간 }[0,1]",
             "integral_tex": r"\int_{0}^{1}x^2\,dx=\frac{1}{3}",
+            "integral_rhs_tex": r"\frac{1}{3}",
             "sigma_right_tex": r"S_n=\sum_{k=1}^{n}\left(\frac{k}{n}\right)^2\cdot\frac{1}{n}",
             "sigma_left_tex": r"S_n=\sum_{k=0}^{n-1}\left(\frac{k}{n}\right)^2\cdot\frac{1}{n}",
         },
@@ -37,6 +38,7 @@ def _cases():
             "f": lambda x: 1.0 / x,
             "problem_tex": r"f(x)=\frac{1}{x},\;\; \text{적분구간 }[1,e]",
             "integral_tex": r"\int_{1}^{e}\frac{1}{x}\,dx=1",
+            "integral_rhs_tex": r"1",
             "sigma_right_tex": r"S_n=\sum_{k=1}^{n}\frac{1}{1+\frac{(e-1)k}{n}}\cdot\frac{e-1}{n}",
             "sigma_left_tex": r"S_n=\sum_{k=0}^{n-1}\frac{1}{1+\frac{(e-1)k}{n}}\cdot\frac{e-1}{n}",
         },
@@ -48,6 +50,7 @@ def _cases():
             "f": lambda x: math.sin(x),
             "problem_tex": r"f(x)=\sin x,\;\; \text{적분구간 }[0,\pi]",
             "integral_tex": r"\int_{0}^{\pi}\sin x\,dx=2",
+            "integral_rhs_tex": r"2",
             "sigma_right_tex": r"S_n=\sum_{k=1}^{n}\sin\!\left(\frac{k\pi}{n}\right)\cdot\frac{\pi}{n}",
             "sigma_left_tex": r"S_n=\sum_{k=0}^{n-1}\sin\!\left(\frac{k\pi}{n}\right)\cdot\frac{\pi}{n}",
         },
@@ -78,7 +81,7 @@ def render(show_title: bool = True, key_prefix: str = "cal_series") -> None:
 
         with col1:
             case_key = st.radio(
-                "예제 선택",
+                "함수 선택",
                 options=list(cases.keys()),
                 format_func=lambda k: {"x^2": r"$x^2$", "1/x": r"$\frac{1}{x}$", "sin x": r"$\sin x$"}[k],
                 key=f"{key_prefix}_case",
@@ -95,7 +98,7 @@ def render(show_title: bool = True, key_prefix: str = "cal_series") -> None:
             )
 
         mode = st.radio(
-            "대표값 선택",
+            "소구간 내 대표값 선택",
             options=["right", "left"],
             format_func=lambda m: "오른쪽 끝점" if m == "right" else "왼쪽 끝점",
             key=f"{key_prefix}_mode",
@@ -129,14 +132,12 @@ x_k=a+k\Delta x={a_tex}+k\frac{{{b_tex}-{a_tex}}}{{n}}\quad (k=0,1,\dots,n-1)
         )
         st.latex(r"S_n=\sum_{k=0}^{n-1} f(x_k)\Delta x=" + cfg["sigma_left_tex"].split("=", 1)[1])
 
-    st.latex(r"\lim_{n\to\infty} S_n=\int_a^b f(x)\,dx")
+    st.latex(r"\lim_{n\to\infty} S_n=\int_a^b f(x)\,dx="
+             + cfg["integral_rhs_tex"]
+    )
 
     Sn = _sum_value(f, a, b, int(n), mode)
     st.caption(f"현재 선택한 n에서의 합:  S_{n} = {Sn:.8f}")
-
-    # 3) 정적분 값
-    st.markdown("### 정적분 값")
-    st.latex(cfg["integral_tex"])
 
     # 4) 그래프 확인
     st.markdown("### 그래프 확인")
@@ -149,8 +150,8 @@ x_k=a+k\Delta x={a_tex}+k\frac{{{b_tex}-{a_tex}}}{{n}}\quad (k=0,1,\dots,n-1)
 
     ax.plot(xs, ys, linewidth=1.5)
     ax.axhline(0, linewidth=1)
-    ax.set_xlabel("x")
-    ax.set_ylabel("f(x)")
+    ax.set_xlabel("$x$")
+    ax.set_ylabel("$f(x)$")
     ax.grid(True, linestyle="--", linewidth=0.5, alpha=0.6)
 
     dx = (b - a) / n
