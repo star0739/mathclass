@@ -1,9 +1,9 @@
 # activities/calculus_series.py
-# 정적분과 급수(리만합) 관계 탐구활동
-# - 분할 개수 n: 최대 80
-# - 오른쪽/왼쪽 끝점 리만합 선택 가능 (동시 표시 불가)
-# - LaTeX 중심 표현
-# - 수열 수렴 그래프 없음
+# 정적분과 구분구적법 탐구활동
+# - 교과서 용어 사용 (리만합 표현 제거)
+# - 왼쪽/오른쪽 대표값 선택 가능
+# - n ≤ 80
+# - 정리에서 lim_{n→∞} 식 명시
 
 from __future__ import annotations
 
@@ -12,7 +12,7 @@ import numpy as np
 import streamlit as st
 import matplotlib.pyplot as plt
 
-TITLE = "정적분과 급수(리만합)"
+TITLE = "정적분과 구분구적법"
 
 
 def _cases():
@@ -21,45 +21,43 @@ def _cases():
             "a": 0.0,
             "b": 1.0,
             "f": lambda x: x**2,
-            "integral_exact": 1.0 / 3.0,
-            "problem_tex": r"f(x)=x^2,\;\; \text{적분구간 }[0,1]",
             "integral_tex": r"\int_{0}^{1}x^2\,dx=\frac{1}{3}",
+            "problem_tex": r"f(x)=x^2,\;\; \text{적분구간 }[0,1]",
             "sigma_right": r"S_n=\sum_{k=1}^{n}\left(\frac{k}{n}\right)^2\cdot\frac{1}{n}",
-            "sigma_left": r"S_n=\sum_{k=1}^{n}\left(\frac{k-1}{n}\right)^2\cdot\frac{1}{n}",
+            "sigma_left": r"S_n=\sum_{k=0}^{n-1}\left(\frac{k}{n}\right)^2\cdot\frac{1}{n}",
         },
         "1/x": {
             "a": 1.0,
             "b": math.e,
             "f": lambda x: 1.0 / x,
-            "integral_exact": 1.0,
-            "problem_tex": r"f(x)=\frac{1}{x},\;\; \text{적분구간 }[1,e]",
             "integral_tex": r"\int_{1}^{e}\frac{1}{x}\,dx=1",
+            "problem_tex": r"f(x)=\frac{1}{x},\;\; \text{적분구간 }[1,e]",
             "sigma_right": r"S_n=\sum_{k=1}^{n}\frac{1}{1+\frac{(e-1)k}{n}}\cdot\frac{e-1}{n}",
-            "sigma_left": r"S_n=\sum_{k=1}^{n}\frac{1}{1+\frac{(e-1)(k-1)}{n}}\cdot\frac{e-1}{n}",
+            "sigma_left": r"S_n=\sum_{k=0}^{n-1}\frac{1}{1+\frac{(e-1)k}{n}}\cdot\frac{e-1}{n}",
         },
         "sin x": {
             "a": 0.0,
             "b": math.pi,
             "f": lambda x: math.sin(x),
-            "integral_exact": 2.0,
-            "problem_tex": r"f(x)=\sin x,\;\; \text{적분구간 }[0,\pi]",
             "integral_tex": r"\int_{0}^{\pi}\sin x\,dx=2",
+            "problem_tex": r"f(x)=\sin x,\;\; \text{적분구간 }[0,\pi]",
             "sigma_right": r"S_n=\sum_{k=1}^{n}\sin\!\left(\frac{k\pi}{n}\right)\cdot\frac{\pi}{n}",
-            "sigma_left": r"S_n=\sum_{k=1}^{n}\sin\!\left(\frac{(k-1)\pi}{n}\right)\cdot\frac{\pi}{n}",
+            "sigma_left": r"S_n=\sum_{k=0}^{n-1}\sin\!\left(\frac{k\pi}{n}\right)\cdot\frac{\pi}{n}",
         },
     }
 
 
-def _riemann_sum(f, a: float, b: float, n: int, mode: str) -> float:
+def _sum_value(f, a: float, b: float, n: int, mode: str) -> float:
     dx = (b - a) / n
+
     if mode == "right":
         k = np.arange(1, n + 1, dtype=float)
-        xk = a + k * dx
-    else:  # left
+    else:
         k = np.arange(0, n, dtype=float)
-        xk = a + k * dx
 
+    xk = a + k * dx
     yk = np.array([f(float(x)) for x in xk], dtype=float)
+
     return float(np.sum(yk) * dx)
 
 
@@ -84,7 +82,7 @@ def render(show_title: bool = True, key_prefix: str = "cal_series") -> None:
 
         with col2:
             n = st.slider(
-                "분할 개수 n",
+                "구간을 나누는 개수 n",
                 min_value=5,
                 max_value=80,
                 value=40,
@@ -93,7 +91,7 @@ def render(show_title: bool = True, key_prefix: str = "cal_series") -> None:
             )
 
         mode = st.radio(
-            "리만합 방식 선택",
+            "대표값 선택",
             options=["right", "left"],
             format_func=lambda m: "오른쪽 끝점" if m == "right" else "왼쪽 끝점",
             key=f"{key_prefix}_mode",
@@ -102,21 +100,23 @@ def render(show_title: bool = True, key_prefix: str = "cal_series") -> None:
     cfg = cases[case_key]
     a, b, f = float(cfg["a"]), float(cfg["b"]), cfg["f"]
 
-    st.markdown("### 선택한 예제")
+    # ----------------------------
+    # 수식 제시
+    # ----------------------------
+    st.markdown("### 선택한 함수와 적분구간")
     st.latex(cfg["problem_tex"])
 
     st.markdown("### 정적분 값")
     st.latex(cfg["integral_tex"])
 
-    st.markdown("### 구간에 따른 급수 표현")
-
+    st.markdown("### 구간을 n등분하여 구한 합")
     if mode == "right":
         st.latex(cfg["sigma_right"])
     else:
         st.latex(cfg["sigma_left"])
 
-    Sn = _riemann_sum(f, a, b, int(n), mode)
-    st.caption(f"현재 선택한 n에서의 리만합 값:  S_{n} = {Sn:.8f}")
+    Sn = _sum_value(f, a, b, int(n), mode)
+    st.caption(f"현재 n에서의 합:  S_{n} = {Sn:.8f}")
 
     # ----------------------------
     # 그래프
@@ -142,7 +142,6 @@ def render(show_title: bool = True, key_prefix: str = "cal_series") -> None:
             x_left = a + (k - 1) * dx
             x_right = a + k * dx
             height = f(x_right)
-
             ax.plot([x_left, x_right], [height, height], linewidth=0.8)
             ax.plot([x_left, x_left], [0, height], linewidth=0.6)
             ax.plot([x_right, x_right], [0, height], linewidth=0.6)
@@ -151,13 +150,43 @@ def render(show_title: bool = True, key_prefix: str = "cal_series") -> None:
             x_left = a + k * dx
             x_right = a + (k + 1) * dx
             height = f(x_left)
-
             ax.plot([x_left, x_right], [height, height], linewidth=0.8)
             ax.plot([x_left, x_left], [0, height], linewidth=0.6)
             ax.plot([x_right, x_right], [0, height], linewidth=0.6)
 
     st.pyplot(fig)
 
+    # ----------------------------
+    # 교과서식 정리
+    # ----------------------------
     st.markdown("### 정리")
-    st.latex(r"S_n=\sum_{k=1}^{n} f\!\big(a+k\Delta x\big)\,\Delta x \quad \text{또는} \quad f\!\big(a+(k-1)\Delta x\big)\,\Delta x")
-    st.caption("끝점 선택에 따라 시그마 식이 어떻게 달라지는지 비교해보세요.")
+
+    st.latex(
+        r"""
+\text{구간 }[a,b]\text{을 }n\text{등분하여 각 부분구간의 길이를 }
+\Delta x=\frac{b-a}{n}\text{이라 하면}
+"""
+    )
+
+    if mode == "right":
+        st.latex(
+            r"""
+S_n=\sum_{k=1}^{n} f(a+k\Delta x)\,\Delta x
+"""
+        )
+    else:
+        st.latex(
+            r"""
+S_n=\sum_{k=0}^{n-1} f(a+k\Delta x)\,\Delta x
+"""
+        )
+
+    st.latex(
+        r"""
+\lim_{n\to\infty} S_n
+=
+\int_a^b f(x)\,dx
+"""
+    )
+
+    st.caption("n을 크게 할수록 위 합의 값이 정적분 값에 가까워진다.")
