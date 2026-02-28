@@ -17,8 +17,6 @@ import matplotlib.pyplot as plt
 
 from mpl_toolkits.mplot3d.art3d import Poly3DCollection
 
-st.caption("DEBUG: calculus_volume 3D loaded")
-
 TITLE = "단면을 쌓아 만드는 부피"
 
 # 과부하 방지: 실제로 그리는 슬라이스 최대 개수
