@@ -6,7 +6,7 @@ import numpy as np
 import streamlit as st
 import matplotlib.pyplot as plt
 
-TITLE = "분구적법"
+TITLE = "구분구적법"
 
 
 def _cases():
