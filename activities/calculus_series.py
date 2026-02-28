@@ -12,7 +12,7 @@ import numpy as np
 import streamlit as st
 import matplotlib.pyplot as plt
 
-TITLE = "정적분과 구분구적법"
+TITLE = "구분구적법"
 
 
 def _cases():
@@ -99,7 +99,7 @@ def render(show_title: bool = True, key_prefix: str = "cal_series") -> None:
             )
 
         mode = st.radio(
-            "대표값 선택",
+            "소구간 기준점 설정",
             options=["right", "left"],
             format_func=lambda m: "오른쪽 끝점" if m == "right" else "왼쪽 끝점",
             key=f"{key_prefix}_mode",
