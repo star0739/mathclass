@@ -10,7 +10,7 @@ from __future__ import annotations
 import sys
 from pathlib import Path
 import streamlit as st
-import calculus_series as integral_series
+
 # --------------------------------------------------
 # 0. set_page_config는 가능한 한 "가장 먼저" 실행
 #    (이미 다른 곳에서 호출된 경우 예외가 나므로 안전 처리)
@@ -38,8 +38,8 @@ import calculus_e_definition_limit as e_def
 import calculus_sin_x_over_x_area as sinx_over_x_area
 import calculus_circle_param_line_t as circle_param_t
 
-# (Ⅲ. 적분법 추가 예정)
-# import calculus_riemann_sum_area as riemann_area
+# ✅ (Ⅲ. 적분법) 새 활동 추가
+import calculus_series as integral_series
 
 # --------------------------------------------------
 # 3. 단원별 활동 등록
