@@ -109,8 +109,46 @@ def render(show_title: bool = True, key_prefix: str = "cal_series") -> None:
     st.markdown("### 선택한 함수와 적분구간")
     st.latex(cfg["problem_tex"])
 
-    # 2) 구간을 n등분하여 구한 합 (Δx, x_k 한 줄 + 등호로 연결된 극한 전개)
-    st.markdown("### 구간을 $n$등분하여 구한 합")
+
+    # 2) 그래프 확인 (곡선 + 직사각형)
+    st.markdown("### 그래프 확인")
+
+    fig = plt.figure(figsize=(6.2, 4.0))
+    ax = fig.add_subplot(111)
+
+    xs = np.linspace(a, b, 500)
+    ys = np.array([f(float(x)) for x in xs], dtype=float)
+
+    ax.plot(xs, ys, linewidth=1.5)
+    ax.axhline(0, linewidth=1)
+    ax.set_xlabel("$x$")
+    ax.set_ylabel("$f(x)$")
+    ax.grid(True, linestyle="--", linewidth=0.5, alpha=0.6)
+
+    dx = (b - a) / n
+
+    if mode == "right":
+        for k in range(1, n + 1):
+            x_left = a + (k - 1) * dx
+            x_right = a + k * dx
+            height = f(x_right)
+            ax.plot([x_left, x_right], [height, height], linewidth=0.8)
+            ax.plot([x_left, x_left], [0, height], linewidth=0.6)
+            ax.plot([x_right, x_right], [0, height], linewidth=0.6)
+    else:
+        for k in range(0, n):
+            x_left = a + k * dx
+            x_right = a + (k + 1) * dx
+            height = f(x_left)
+            ax.plot([x_left, x_right], [height, height], linewidth=0.8)
+            ax.plot([x_left, x_left], [0, height], linewidth=0.6)
+            ax.plot([x_right, x_right], [0, height], linewidth=0.6)
+
+    st.pyplot(fig)
+
+
+    # 3) 구간을 n등분하여 구한 합 (Δx, x_k 한 줄 + 등호로 연결된 극한 전개)
+    st.markdown("### 정적분과 급수의 관계")
 
     if mode == "right":
         st.latex(
@@ -158,40 +196,3 @@ x_k=a+k\Delta x={a_tex}+k\frac{{{b_tex}-{a_tex}}}{{n}}\quad (k=0,1,\dots,n-1)
     # 현재 n에서의 합(참고)
     Sn = _sum_value(f, a, b, int(n), mode)
     st.caption(f"현재 선택한 $n$에서의 합:  $S_{{{n}}}$ = {Sn:.8f}")
-
-
-    # 3) 그래프 확인 (곡선 + 직사각형)
-    st.markdown("### 그래프 확인")
-
-    fig = plt.figure(figsize=(6.2, 4.0))
-    ax = fig.add_subplot(111)
-
-    xs = np.linspace(a, b, 500)
-    ys = np.array([f(float(x)) for x in xs], dtype=float)
-
-    ax.plot(xs, ys, linewidth=1.5)
-    ax.axhline(0, linewidth=1)
-    ax.set_xlabel("$x$")
-    ax.set_ylabel("$f(x)$")
-    ax.grid(True, linestyle="--", linewidth=0.5, alpha=0.6)
-
-    dx = (b - a) / n
-
-    if mode == "right":
-        for k in range(1, n + 1):
-            x_left = a + (k - 1) * dx
-            x_right = a + k * dx
-            height = f(x_right)
-            ax.plot([x_left, x_right], [height, height], linewidth=0.8)
-            ax.plot([x_left, x_left], [0, height], linewidth=0.6)
-            ax.plot([x_right, x_right], [0, height], linewidth=0.6)
-    else:
-        for k in range(0, n):
-            x_left = a + k * dx
-            x_right = a + (k + 1) * dx
-            height = f(x_left)
-            ax.plot([x_left, x_right], [height, height], linewidth=0.8)
-            ax.plot([x_left, x_left], [0, height], linewidth=0.6)
-            ax.plot([x_right, x_right], [0, height], linewidth=0.6)
-
-    st.pyplot(fig)
