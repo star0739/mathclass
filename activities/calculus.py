@@ -40,6 +40,7 @@ import calculus_circle_param_line_t as circle_param_t
 
 # ✅ (Ⅲ. 적분법) 새 활동 추가
 import calculus_series as integral_series
+import calculus_volume as volume
 
 # --------------------------------------------------
 # 3. 단원별 활동 등록
@@ -56,6 +57,7 @@ UNIT_ACTIVITIES = {
     ],
     "Ⅲ. 적분법": [
         integral_series,
+        volume,
     ],
 }
 
