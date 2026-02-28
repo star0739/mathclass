@@ -1,9 +1,3 @@
-# activities/calculus_volume.py
-# 단면을 쌓아 만드는 부피(3D 슬라이스 시각화, matplotlib mplot3d)
-# - 좌: f(x) 그래프 + 현재 단면 위치 x*
-# - 우: x축 방향으로 여러 단면(슬라이스)을 3D로 배치해 "쌓여서 입체가 되는 느낌" 시각화
-# - 슬라이스 개수는 제한(M_MAX)하여 과부하 방지
-# - 수식은 최소: S(x), V=∫_a^b S(x)dx
 
 from __future__ import annotations
 
@@ -146,9 +140,9 @@ def render(show_title: bool = True, key_prefix: str = "cal_volume3d") -> None:
 
     fx_star = _safe_nonneg(case.f(float(x_star)))
     if shape == "circle":
-        st.caption(f"현재 x*에서 반지름 r = f(x*) = {fx_star:.6f}")
+        st.caption(f"현재 $x^*$에서 반지름 $r = f(x^*) $= {fx_star:.6f}")
     else:
-        st.caption(f"현재 x*에서 한 변 길이 s = f(x*) = {fx_star:.6f}")
+        st.caption(f"현재 $x^*$에서 한 변 길이 $s = f(x^*)$ = {fx_star:.6f}")
 
     left, right = st.columns([1, 1])
 
@@ -169,8 +163,8 @@ def render(show_title: bool = True, key_prefix: str = "cal_volume3d") -> None:
         ax1.axvline(float(x_star), linewidth=1)
         ax1.plot([float(x_star)], [case.f(float(x_star))], marker="o")
 
-        ax1.set_xlabel("x")
-        ax1.set_ylabel("f(x)")
+        ax1.set_xlabel("$x$")
+        ax1.set_ylabel("$f(x)$")
         ax1.grid(True, linestyle="--", linewidth=0.5, alpha=0.6)
         st.pyplot(fig1)
 
@@ -232,7 +226,7 @@ def render(show_title: bool = True, key_prefix: str = "cal_volume3d") -> None:
         ax2.set_xlim(a, b)
         ax2.set_ylim(-R, R)
         ax2.set_zlim(-R, R)
-        ax2.set_xlabel("x")
+        ax2.set_xlabel("$x$")
         ax2.set_ylabel("")
         ax2.set_zlabel("")
         ax2.set_yticks([])
