@@ -80,7 +80,7 @@ def render(show_title: bool = True, key_prefix: str = "cal_series") -> None:
             case_key = st.radio(
                 "예제 선택",
                 options=list(cases.keys()),
-                format_func=lambda k: {"x^2": r"$x^2$", "1/x": r"$\frac{1}{x}$", "sin x": r"$\sin x$"}[k],
+                format_func=lambda k: {"x^2": r"$f(x)=x^2$", "1/x": r"$f(x)=\frac{1}{x}$", "sin x": r"$f(x)=\sin x$"}[k],
                 key=f"{key_prefix}_case",
             )
 
