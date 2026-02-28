@@ -1,10 +1,3 @@
-# activities/calculus_series.py
-# 정적분과 구분구적법(급수→정적분 변형) 탐구활동
-# - 교과서식 전개: Δx, x_k 정의 → S_n(등호 전개) → lim → ∫
-# - 왼쪽/오른쪽 끝점(대표값) 중 하나만 선택
-# - n ≤ 80 (성능 안정)
-# - 표시용(a_tex, b_tex)과 계산용(a, b) 분리하여 (1-0), (π-0) 구조가 보이도록 처리
-# - "리만합" 용어 사용하지 않음
 
 from __future__ import annotations
 
@@ -25,10 +18,12 @@ def _cases():
             "b_tex": "1",
             "f": lambda x: x**2,
             "problem_tex": r"f(x)=x^2,\;\; \text{적분구간 }[0,1]",
+            "integral_full_tex": r"\int_{0}^{1} x^2\,dx",
             "integral_tex": r"\int_{0}^{1}x^2\,dx=\frac{1}{3}",
             "integral_rhs_tex": r"\frac{1}{3}",
-            "sigma_right_tex": r"S_n=\sum_{k=1}^{n}\left(\frac{k}{n}\right)^2\cdot\frac{1}{n}",
-            "sigma_left_tex": r"S_n=\sum_{k=0}^{n-1}\left(\frac{k}{n}\right)^2\cdot\frac{1}{n}",
+            # Σ 대입식(대표값에 따라 k 범위가 달라짐)
+            "sum_sub_right_tex": r"\sum_{k=1}^{n}\left(\frac{k}{n}\right)^2\cdot\frac{1}{n}",
+            "sum_sub_left_tex": r"\sum_{k=0}^{n-1}\left(\frac{k}{n}\right)^2\cdot\frac{1}{n}",
         },
         "1/x": {
             "a": 1.0,
@@ -37,10 +32,11 @@ def _cases():
             "b_tex": "e",
             "f": lambda x: 1.0 / x,
             "problem_tex": r"f(x)=\frac{1}{x},\;\; \text{적분구간 }[1,e]",
+            "integral_full_tex": r"\int_{1}^{e}\frac{1}{x}\,dx",
             "integral_tex": r"\int_{1}^{e}\frac{1}{x}\,dx=1",
             "integral_rhs_tex": r"1",
-            "sigma_right_tex": r"S_n=\sum_{k=1}^{n}\frac{1}{1+\frac{(e-1)k}{n}}\cdot\frac{e-1}{n}",
-            "sigma_left_tex": r"S_n=\sum_{k=0}^{n-1}\frac{1}{1+\frac{(e-1)k}{n}}\cdot\frac{e-1}{n}",
+            "sum_sub_right_tex": r"\sum_{k=1}^{n}\frac{1}{1+\frac{(e-1)k}{n}}\cdot\frac{e-1}{n}",
+            "sum_sub_left_tex": r"\sum_{k=0}^{n-1}\frac{1}{1+\frac{(e-1)k}{n}}\cdot\frac{e-1}{n}",
         },
         "sin x": {
             "a": 0.0,
@@ -49,10 +45,11 @@ def _cases():
             "b_tex": r"\pi",
             "f": lambda x: math.sin(x),
             "problem_tex": r"f(x)=\sin x,\;\; \text{적분구간 }[0,\pi]",
+            "integral_full_tex": r"\int_{0}^{\pi}\sin x\,dx",
             "integral_tex": r"\int_{0}^{\pi}\sin x\,dx=2",
             "integral_rhs_tex": r"2",
-            "sigma_right_tex": r"S_n=\sum_{k=1}^{n}\sin\!\left(\frac{k\pi}{n}\right)\cdot\frac{\pi}{n}",
-            "sigma_left_tex": r"S_n=\sum_{k=0}^{n-1}\sin\!\left(\frac{k\pi}{n}\right)\cdot\frac{\pi}{n}",
+            "sum_sub_right_tex": r"\sum_{k=1}^{n}\sin\!\left(\frac{k\pi}{n}\right)\cdot\frac{\pi}{n}",
+            "sum_sub_left_tex": r"\sum_{k=0}^{n-1}\sin\!\left(\frac{k\pi}{n}\right)\cdot\frac{\pi}{n}",
         },
     }
 
@@ -81,7 +78,7 @@ def render(show_title: bool = True, key_prefix: str = "cal_series") -> None:
 
         with col1:
             case_key = st.radio(
-                "함수 선택",
+                "예제 선택",
                 options=list(cases.keys()),
                 format_func=lambda k: {"x^2": r"$x^2$", "1/x": r"$\frac{1}{x}$", "sin x": r"$\sin x$"}[k],
                 key=f"{key_prefix}_case",
@@ -98,7 +95,7 @@ def render(show_title: bool = True, key_prefix: str = "cal_series") -> None:
             )
 
         mode = st.radio(
-            "소구간 내 대표값 선택",
+            "대표값 선택",
             options=["right", "left"],
             format_func=lambda m: "오른쪽 끝점" if m == "right" else "왼쪽 끝점",
             key=f"{key_prefix}_mode",
@@ -112,7 +109,7 @@ def render(show_title: bool = True, key_prefix: str = "cal_series") -> None:
     st.markdown("### 선택한 함수와 적분구간")
     st.latex(cfg["problem_tex"])
 
-    # 2) 구간을 n등분하여 구한 합 (교과서식 전개)
+    # 2) 구간을 n등분하여 구한 합 (Δx, x_k 한 줄 + 등호로 연결된 극한 전개)
     st.markdown("### 구간을 n등분하여 구한 합")
 
     if mode == "right":
@@ -122,7 +119,20 @@ def render(show_title: bool = True, key_prefix: str = "cal_series") -> None:
 x_k=a+k\Delta x={a_tex}+k\frac{{{b_tex}-{a_tex}}}{{n}}\quad (k=1,2,\dots,n)
 """
         )
-        st.latex(r"S_n=\sum_{k=1}^{n} f(x_k)\Delta x=" + cfg["sigma_right_tex"].split("=", 1)[1])
+        st.latex(
+            r"""
+\lim_{n\to\infty} S_n
+=
+\lim_{n\to\infty}\sum_{k=1}^{n} f(x_k)\Delta x
+=
+\lim_{n\to\infty}
+"""
+            + cfg["sum_sub_right_tex"]
+            + r"="
+            + cfg["integral_full_tex"]
+            + r"="
+            + cfg["integral_rhs_tex"]
+        )
     else:
         st.latex(
             rf"""
@@ -130,16 +140,30 @@ x_k=a+k\Delta x={a_tex}+k\frac{{{b_tex}-{a_tex}}}{{n}}\quad (k=1,2,\dots,n)
 x_k=a+k\Delta x={a_tex}+k\frac{{{b_tex}-{a_tex}}}{{n}}\quad (k=0,1,\dots,n-1)
 """
         )
-        st.latex(r"S_n=\sum_{k=0}^{n-1} f(x_k)\Delta x=" + cfg["sigma_left_tex"].split("=", 1)[1])
+        st.latex(
+            r"""
+\lim_{n\to\infty} S_n
+=
+\lim_{n\to\infty}\sum_{k=0}^{n-1} f(x_k)\Delta x
+=
+\lim_{n\to\infty}
+"""
+            + cfg["sum_sub_left_tex"]
+            + r"="
+            + cfg["integral_full_tex"]
+            + r"="
+            + cfg["integral_rhs_tex"]
+        )
 
-    st.latex(r"\lim_{n\to\infty} S_n=\int_a^b f(x)\,dx="
-             + cfg["integral_rhs_tex"]
-    )
-
+    # 현재 n에서의 합(참고)
     Sn = _sum_value(f, a, b, int(n), mode)
     st.caption(f"현재 선택한 n에서의 합:  S_{n} = {Sn:.8f}")
 
-    # 4) 그래프 확인
+    # 3) 정적분 값
+    st.markdown("### 정적분 값")
+    st.latex(cfg["integral_tex"])
+
+    # 4) 그래프 확인 (곡선 + 직사각형)
     st.markdown("### 그래프 확인")
 
     fig = plt.figure(figsize=(6.2, 4.0))
@@ -150,8 +174,8 @@ x_k=a+k\Delta x={a_tex}+k\frac{{{b_tex}-{a_tex}}}{{n}}\quad (k=0,1,\dots,n-1)
 
     ax.plot(xs, ys, linewidth=1.5)
     ax.axhline(0, linewidth=1)
-    ax.set_xlabel("$x$")
-    ax.set_ylabel("$f(x)$")
+    ax.set_xlabel("x")
+    ax.set_ylabel("f(x)")
     ax.grid(True, linestyle="--", linewidth=0.5, alpha=0.6)
 
     dx = (b - a) / n
