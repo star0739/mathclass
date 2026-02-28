@@ -11,7 +11,7 @@ import matplotlib.pyplot as plt
 
 from mpl_toolkits.mplot3d.art3d import Poly3DCollection
 
-TITLE = "단면을 쌓아 만드는 부피"
+TITLE = "입체도형의 부피"
 
 # 과부하 방지: 실제로 그리는 슬라이스 최대 개수
 M_MAX = 18
