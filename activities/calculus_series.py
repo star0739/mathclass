@@ -86,7 +86,7 @@ def render(show_title: bool = True, key_prefix: str = "cal_series") -> None:
 
         with col2:
             n = st.slider(
-                "구간을 나누는 개수 n",
+                "구간을 나누는 개수 $n$",
                 min_value=5,
                 max_value=80,
                 value=40,
@@ -95,7 +95,7 @@ def render(show_title: bool = True, key_prefix: str = "cal_series") -> None:
             )
 
         mode = st.radio(
-            "대표값 선택",
+            "소구간 내 대푯값 선택",
             options=["right", "left"],
             format_func=lambda m: "오른쪽 끝점" if m == "right" else "왼쪽 끝점",
             key=f"{key_prefix}_mode",
@@ -159,11 +159,8 @@ x_k=a+k\Delta x={a_tex}+k\frac{{{b_tex}-{a_tex}}}{{n}}\quad (k=0,1,\dots,n-1)
     Sn = _sum_value(f, a, b, int(n), mode)
     st.caption(f"현재 선택한 n에서의 합:  S_{n} = {Sn:.8f}")
 
-    # 3) 정적분 값
-    st.markdown("### 정적분 값")
-    st.latex(cfg["integral_tex"])
 
-    # 4) 그래프 확인 (곡선 + 직사각형)
+    # 3) 그래프 확인 (곡선 + 직사각형)
     st.markdown("### 그래프 확인")
 
     fig = plt.figure(figsize=(6.2, 4.0))
@@ -174,8 +171,8 @@ x_k=a+k\Delta x={a_tex}+k\frac{{{b_tex}-{a_tex}}}{{n}}\quad (k=0,1,\dots,n-1)
 
     ax.plot(xs, ys, linewidth=1.5)
     ax.axhline(0, linewidth=1)
-    ax.set_xlabel("x")
-    ax.set_ylabel("f(x)")
+    ax.set_xlabel("$x$")
+    ax.set_ylabel("$f(x)$")
     ax.grid(True, linestyle="--", linewidth=0.5, alpha=0.6)
 
     dx = (b - a) / n
