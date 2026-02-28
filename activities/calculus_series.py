@@ -1,9 +1,9 @@
 # activities/calculus_series.py
-# 정적분과 구분구적법 탐구활동
-# - 교과서 용어 사용 (리만합 표현 제거)
-# - 왼쪽/오른쪽 대표값 선택 가능
-# - n ≤ 80
-# - 정리에서 lim_{n→∞} 식 명시
+# 정적분과 구분구적법(급수→정적분 변형) 탐구활동
+# - 교과서식 전개: Δx, x_k 정의 → Σ f(x_k)Δx → lim → ∫
+# - 왼쪽/오른쪽 끝점(대표값) 중 하나만 선택
+# - n ≤ 80 (성능 안정)
+# - "리만합" 용어 사용하지 않음
 
 from __future__ import annotations
 
@@ -21,43 +21,51 @@ def _cases():
             "a": 0.0,
             "b": 1.0,
             "f": lambda x: x**2,
-            "integral_tex": r"\int_{0}^{1}x^2\,dx=\frac{1}{3}",
             "problem_tex": r"f(x)=x^2,\;\; \text{적분구간 }[0,1]",
-            "sigma_right": r"S_n=\sum_{k=1}^{n}\left(\frac{k}{n}\right)^2\cdot\frac{1}{n}",
-            "sigma_left": r"S_n=\sum_{k=0}^{n-1}\left(\frac{k}{n}\right)^2\cdot\frac{1}{n}",
+            "integral_tex": r"\int_{0}^{1}x^2\,dx=\frac{1}{3}",
+            # 오른쪽/왼쪽 끝점에서의 x_k (표현용)
+            "dx_tex": r"\Delta x=\frac{1}{n}",
+            "xk_right_tex": r"x_k=\frac{k}{n}\quad (k=1,2,\dots,n)",
+            "xk_left_tex": r"x_k=\frac{k}{n}\quad (k=0,1,\dots,n-1)",
+            # 교과서 연습용으로 “대입한 시그마 형태”도 함께 제시
+            "sigma_right_tex": r"S_n=\sum_{k=1}^{n}\left(\frac{k}{n}\right)^2\cdot\frac{1}{n}",
+            "sigma_left_tex": r"S_n=\sum_{k=0}^{n-1}\left(\frac{k}{n}\right)^2\cdot\frac{1}{n}",
         },
         "1/x": {
             "a": 1.0,
             "b": math.e,
             "f": lambda x: 1.0 / x,
-            "integral_tex": r"\int_{1}^{e}\frac{1}{x}\,dx=1",
             "problem_tex": r"f(x)=\frac{1}{x},\;\; \text{적분구간 }[1,e]",
-            "sigma_right": r"S_n=\sum_{k=1}^{n}\frac{1}{1+\frac{(e-1)k}{n}}\cdot\frac{e-1}{n}",
-            "sigma_left": r"S_n=\sum_{k=0}^{n-1}\frac{1}{1+\frac{(e-1)k}{n}}\cdot\frac{e-1}{n}",
+            "integral_tex": r"\int_{1}^{e}\frac{1}{x}\,dx=1",
+            "dx_tex": r"\Delta x=\frac{e-1}{n}",
+            "xk_right_tex": r"x_k=1+k\frac{e-1}{n}\quad (k=1,2,\dots,n)",
+            "xk_left_tex": r"x_k=1+k\frac{e-1}{n}\quad (k=0,1,\dots,n-1)",
+            "sigma_right_tex": r"S_n=\sum_{k=1}^{n}\frac{1}{1+\frac{(e-1)k}{n}}\cdot\frac{e-1}{n}",
+            "sigma_left_tex": r"S_n=\sum_{k=0}^{n-1}\frac{1}{1+\frac{(e-1)k}{n}}\cdot\frac{e-1}{n}",
         },
         "sin x": {
             "a": 0.0,
             "b": math.pi,
             "f": lambda x: math.sin(x),
-            "integral_tex": r"\int_{0}^{\pi}\sin x\,dx=2",
             "problem_tex": r"f(x)=\sin x,\;\; \text{적분구간 }[0,\pi]",
-            "sigma_right": r"S_n=\sum_{k=1}^{n}\sin\!\left(\frac{k\pi}{n}\right)\cdot\frac{\pi}{n}",
-            "sigma_left": r"S_n=\sum_{k=0}^{n-1}\sin\!\left(\frac{k\pi}{n}\right)\cdot\frac{\pi}{n}",
+            "integral_tex": r"\int_{0}^{\pi}\sin x\,dx=2",
+            "dx_tex": r"\Delta x=\frac{\pi}{n}",
+            "xk_right_tex": r"x_k=\frac{k\pi}{n}\quad (k=1,2,\dots,n)",
+            "xk_left_tex": r"x_k=\frac{k\pi}{n}\quad (k=0,1,\dots,n-1)",
+            "sigma_right_tex": r"S_n=\sum_{k=1}^{n}\sin\!\left(\frac{k\pi}{n}\right)\cdot\frac{\pi}{n}",
+            "sigma_left_tex": r"S_n=\sum_{k=0}^{n-1}\sin\!\left(\frac{k\pi}{n}\right)\cdot\frac{\pi}{n}",
         },
     }
 
 
 def _sum_value(f, a: float, b: float, n: int, mode: str) -> float:
     dx = (b - a) / n
-
     if mode == "right":
         k = np.arange(1, n + 1, dtype=float)
     else:
         k = np.arange(0, n, dtype=float)
-
     xk = a + k * dx
     yk = np.array([f(float(x)) for x in xk], dtype=float)
-
     return float(np.sum(yk) * dx)
 
 
@@ -101,25 +109,46 @@ def render(show_title: bool = True, key_prefix: str = "cal_series") -> None:
     a, b, f = float(cfg["a"]), float(cfg["b"]), cfg["f"]
 
     # ----------------------------
-    # 수식 제시
+    # 1) 선택한 함수/구간
     # ----------------------------
     st.markdown("### 선택한 함수와 적분구간")
     st.latex(cfg["problem_tex"])
 
+    # ----------------------------
+    # 2) 구간을 n등분하여 구한 합 (교과서식 전개)
+    # ----------------------------
+    st.markdown("### 구간을 n등분하여 구한 합")
+
+    # (1) Δx
+    st.latex(cfg["dx_tex"])
+
+    # (2) x_k (대표값 정의)
+    if mode == "right":
+        st.latex(cfg["xk_right_tex"])
+        sum_template = r"S_n=\sum_{k=1}^{n} f(x_k)\,\Delta x"
+        st.latex(sum_template)
+        st.latex(cfg["sigma_right_tex"])
+    else:
+        st.latex(cfg["xk_left_tex"])
+        sum_template = r"S_n=\sum_{k=0}^{n-1} f(x_k)\,\Delta x"
+        st.latex(sum_template)
+        st.latex(cfg["sigma_left_tex"])
+
+    # (3) lim → 정적분 (교과서식)
+    st.latex(r"\lim_{n\to\infty} S_n=\int_{a}^{b} f(x)\,dx")
+
+    # 참고값(현재 n에서 계산된 합) — 관찰을 강요하지 않는 정도로만
+    Sn = _sum_value(f, a, b, int(n), mode)
+    st.caption(f"현재 선택한 n에서의 합:  S_{n} = {Sn:.8f}")
+
+    # ----------------------------
+    # 3) 정적분 값 (교과서 답)
+    # ----------------------------
     st.markdown("### 정적분 값")
     st.latex(cfg["integral_tex"])
 
-    st.markdown("### 구간을 n등분하여 구한 합")
-    if mode == "right":
-        st.latex(cfg["sigma_right"])
-    else:
-        st.latex(cfg["sigma_left"])
-
-    Sn = _sum_value(f, a, b, int(n), mode)
-    st.caption(f"현재 n에서의 합:  S_{n} = {Sn:.8f}")
-
     # ----------------------------
-    # 그래프
+    # 4) 그래프 (함수 + 직사각형)
     # ----------------------------
     st.markdown("### 그래프 확인")
 
@@ -157,36 +186,14 @@ def render(show_title: bool = True, key_prefix: str = "cal_series") -> None:
     st.pyplot(fig)
 
     # ----------------------------
-    # 교과서식 정리
+    # 5) 정리 (교과서식 문장 최소)
     # ----------------------------
     st.markdown("### 정리")
-
-    st.latex(
-        r"""
-\text{구간 }[a,b]\text{을 }n\text{등분하여 각 부분구간의 길이를 }
-\Delta x=\frac{b-a}{n}\text{이라 하면}
-"""
-    )
-
+    st.latex(r"\Delta x=\frac{b-a}{n}")
     if mode == "right":
-        st.latex(
-            r"""
-S_n=\sum_{k=1}^{n} f(a+k\Delta x)\,\Delta x
-"""
-        )
+        st.latex(r"x_k=a+k\Delta x\quad (k=1,2,\dots,n)")
+        st.latex(r"S_n=\sum_{k=1}^{n} f(x_k)\,\Delta x")
     else:
-        st.latex(
-            r"""
-S_n=\sum_{k=0}^{n-1} f(a+k\Delta x)\,\Delta x
-"""
-        )
-
-    st.latex(
-        r"""
-\lim_{n\to\infty} S_n
-=
-\int_a^b f(x)\,dx
-"""
-    )
-
-    st.caption("n을 크게 할수록 위 합의 값이 정적분 값에 가까워진다.")
+        st.latex(r"x_k=a+k\Delta x\quad (k=0,1,\dots,n-1)")
+        st.latex(r"S_n=\sum_{k=0}^{n-1} f(x_k)\,\Delta x")
+    st.latex(r"\lim_{n\to\infty} S_n=\int_a^b f(x)\,dx")
