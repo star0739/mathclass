@@ -157,7 +157,7 @@ x_k=a+k\Delta x={a_tex}+k\frac{{{b_tex}-{a_tex}}}{{n}}\quad (k=0,1,\dots,n-1)
 
     # 현재 n에서의 합(참고)
     Sn = _sum_value(f, a, b, int(n), mode)
-    st.caption(f"현재 선택한 n에서의 합:  S_{n} = {Sn:.8f}")
+    st.caption(f"현재 선택한 $n$에서의 합:  $S_{{{n}}}$ = {Sn:.8f}")
 
 
     # 3) 그래프 확인 (곡선 + 직사각형)
