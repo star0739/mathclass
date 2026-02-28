@@ -6,7 +6,7 @@ import numpy as np
 import streamlit as st
 import matplotlib.pyplot as plt
 
-TITLE = "정적분과 구분구적법"
+TITLE = "분구적법"
 
 
 def _cases():
@@ -110,7 +110,7 @@ def render(show_title: bool = True, key_prefix: str = "cal_series") -> None:
     st.latex(cfg["problem_tex"])
 
     # 2) 구간을 n등분하여 구한 합 (Δx, x_k 한 줄 + 등호로 연결된 극한 전개)
-    st.markdown("### 구간을 n등분하여 구한 합")
+    st.markdown("### 구간을 $n$등분하여 구한 합")
 
     if mode == "right":
         st.latex(
