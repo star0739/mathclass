@@ -188,6 +188,15 @@ def parse_ai_step1_backup_txt(text: str, student_id_hint: str = "") -> Dict[str,
     return out
 
 
+def _extract_first_match(patterns: List[str], text: str) -> str:
+    """여러 정규식 후보 중 처음으로 잡히는 값을 반환한다."""
+    for pat in patterns:
+        m = re.search(pat, text, flags=re.MULTILINE)
+        if m:
+            return m.group(1).strip()
+    return ""
+
+
 def parse_ai_step2_backup_txt(text: str, student_id_hint: str = "") -> Dict[str, str]:
     text = _strip_bom(text)
     record = _select_record_by_student_id(text, student_id_hint)
@@ -202,40 +211,70 @@ def parse_ai_step2_backup_txt(text: str, student_id_hint: str = "") -> Dict[str,
     out["a_range"] = a_rng
     out["b_range"] = b_rng
 
-    cond = _section_text(lines, "[함수/조건]", ["[시작점/결과]", "[학생 입력(서술)]"])
-    if not cond:
-        cond = _section_text(lines, "[함수 설정]", ["[시작점/결과]", "[학생 입력(서술)]"])
-
-    m_step = re.search(r"step_size\s*=\s*([0-9]*\.?[0-9]+)", cond)
-    out["step_size"] = (m_step.group(1) if m_step else "").strip()
-
-    result = _section_text(lines, "[시작점/결과]", ["[학생 입력(서술)]"])
-
-    m = re.search(r"시작점\s*:\s*(\([^)]+\))", result)
-    out["start_point"] = (m.group(1).strip() if m else "")
-
-    m = re.search(r"최종점\s*:\s*(\([^)]+\))", result)
-    out["end_point"] = (m.group(1).strip() if m else "")
-
-    m = re.search(r"사용\s*step\s*수\s*:\s*([0-9]+)", result)
-    out["steps"] = (m.group(1).strip() if m else "")
-
-    m = re.search(r"최종\s*손실\s*E\s*:\s*([0-9]*\.?[0-9]+)", result)
-    out["final_E"] = (m.group(1).strip() if m else "")
+    # 2차시 백업은 버전에 따라 [함수/조건], [이동 설정], [시작점/결과] 구조가 다를 수 있다.
+    # 따라서 섹션명에 의존하지 않고 기록 전체에서 핵심 값을 우선 추출한다.
+    out["start_point"] = _extract_first_match(
+        [
+            r"시작점\s*:\s*(\([^\)]+\))",
+            r"start_point\s*[:=]\s*(\([^\)]+\))",
+        ],
+        record,
+    )
+    out["end_point"] = _extract_first_match(
+        [
+            r"최종점\s*:\s*(\([^\)]+\))",
+            r"end_point\s*[:=]\s*(\([^\)]+\))",
+        ],
+        record,
+    )
+    out["steps"] = _extract_first_match(
+        [
+            r"사용\s*step\s*수\s*:\s*([0-9]+)",
+            r"steps?\s*[:=]\s*([0-9]+)",
+        ],
+        record,
+    )
+    out["step_size"] = _extract_first_match(
+        [
+            r"step_size\s*[:=]\s*([+-]?[0-9]*\.?[0-9]+)",
+            r"학습률\s*\(\s*learning\s*rate\s*\)\s*:\s*([+-]?[0-9]*\.?[0-9]+)",
+            r"learning\s*rate\s*[:=]\s*([+-]?[0-9]*\.?[0-9]+)",
+            r"학습률\s*:\s*([+-]?[0-9]*\.?[0-9]+)",
+        ],
+        record,
+    )
+    out["final_E"] = _extract_first_match(
+        [
+            r"최종\s*손실\s*E\s*:\s*([+-]?[0-9]*\.?[0-9]+(?:[eE][+-]?\d+)?)",
+            r"최종\s*손실\s*:\s*([+-]?[0-9]*\.?[0-9]+(?:[eE][+-]?\d+)?)",
+            r"final_E\s*[:=]\s*([+-]?[0-9]*\.?[0-9]+(?:[eE][+-]?\d+)?)",
+        ],
+        record,
+    )
 
     narrative = _extract_student_narrative(record)
     out["narrative_all"] = narrative
     out.update(_split_numbered_answers(narrative))
 
-    # 편미분 값은 학생 입력 전체에서 추출 시도
-    m = re.search(r"∂E/∂a\s*=\s*([^\s,，]+)", narrative)
-    out["dE_da"] = (m.group(1).strip() if m else "")
-
-    m = re.search(r"∂E/∂b\s*=\s*([^\s,，]+)", narrative)
-    out["dE_db"] = (m.group(1).strip() if m else "")
+    # 편미분 값은 학생 입력에서 '∂E/∂a: 52.5', '∂E/∂a=52.5', 'dE/da>0' 등 다양한 표기를 고려한다.
+    out["dE_da"] = _extract_first_match(
+        [
+            r"∂E/∂a\s*[:=]\s*([+-]?[0-9]*\.?[0-9]+(?:[eE][+-]?\d+)?)",
+            r"dE/da\s*[:=]\s*([+-]?[0-9]*\.?[0-9]+(?:[eE][+-]?\d+)?)",
+            r"da\s*[:=]\s*([+-]?[0-9]*\.?[0-9]+(?:[eE][+-]?\d+)?)",
+        ],
+        narrative,
+    )
+    out["dE_db"] = _extract_first_match(
+        [
+            r"∂E/∂b\s*[:=]\s*([+-]?[0-9]*\.?[0-9]+(?:[eE][+-]?\d+)?)",
+            r"dE/db\s*[:=]\s*([+-]?[0-9]*\.?[0-9]+(?:[eE][+-]?\d+)?)",
+            r"db\s*[:=]\s*([+-]?[0-9]*\.?[0-9]+(?:[eE][+-]?\d+)?)",
+        ],
+        narrative,
+    )
 
     return out
-
 
 # ============================================================
 # LaTeX 렌더링(이미지) - matplotlib mathtext
@@ -474,9 +513,9 @@ def _format_backup_insert(title: str, text: str) -> str:
 
 
 def _maybe_init_drafts(s1: Dict[str, str], s2: Dict[str, str]) -> Dict[str, str]:
-    fn_expr = s2.get("function_expr") or s1.get("function_expr") or ""
-    a_rng = s2.get("a_range") or s1.get("a_range") or ""
-    b_rng = s2.get("b_range") or s1.get("b_range") or ""
+    fn_expr = s1.get("function_expr") or s2.get("function_expr") or ""
+    a_rng = s1.get("a_range") or s2.get("a_range") or ""
+    b_rng = s1.get("b_range") or s2.get("b_range") or ""
 
     step_size = s2.get("step_size", "")
     start_pt = s2.get("start_point", "")
@@ -497,70 +536,78 @@ def _maybe_init_drafts(s1: Dict[str, str], s2: Dict[str, str]) -> Dict[str, str]
 
     if K_INTRO not in st.session_state:
         st.session_state[K_INTRO] = f"""
-본 보고서는 지난 활동에서 저장한 백업 자료를 바탕으로 손실함수 $E(a,b)$의 등고선, 이동 경로, 편미분 기반 이동 방향을 정리하는 것이다.
+▶ 작성 가이드
+이 부분은 보고서의 시작 부분입니다. 활동의 목적을 간단히 밝히고, 내가 사용한 손실함수와 관찰 범위를 소개합시다. 아래 예시 문장을 그대로 제출하기보다, 1차시 백업 자료와 그림을 확인한 뒤 자신의 표현으로 다듬어 보세요.
+
+[서론 예시]
+본 보고서는 이변수함수로 나타낸 손실함수 $E(a,b)$의 손실곡면과 등고선을 관찰하고, 손실값이 작아지는 방향을 탐색한 활동을 정리한 것이다.
 
 활동에서 사용한 함수는 $E(a,b)={fn_norm}$ 이며, 관찰 범위는 a∈{a_rng}, b∈{b_rng}로 설정하였다.
 
-이 보고서에서는 먼저 1차시에서 관찰한 손실 지형과 좌표축 방향 이동의 특징을 정리하고, 이어서 2차시에서 계산한 편미분 값과 이동 결과를 바탕으로 손실을 줄이는 방향을 해석한다.
-
-아래 문장은 자동으로 생성된 초안이므로, 백업 자료의 내용과 그림을 확인하면서 자신의 표현으로 수정한다.
+먼저 좌표축 방향으로 번갈아 이동하는 지그재그 이동 경로를 관찰하여 이 방법의 특징과 비효율성을 살펴보았다. 이후 각 지점에서의 편미분 값을 이용하여 손실을 줄이는 이동 방향을 판단하고, 경사하강법으로 이동했을 때 손실값이 어떻게 변하는지 확인하였다. 또한 경사하강법이 항상 전역 최소점에 도달하는 것은 아닐 수 있다는 점도 함께 생각해 보았다.
 """.strip()
 
     if K_BODY_MAIN not in st.session_state:
         st.session_state[K_BODY_MAIN] = f"""
-그림 1과 1차시 백업 자료를 바탕으로 손실함수의 전체 형태, 최소점의 위치, 민감도가 큰 방향, 좌표축 방향 이동 경로의 특징을 정리한다.
+▶ 작성 가이드
+이 부분은 1차시 활동을 바탕으로 작성합니다. 손실 지형의 전체 모양, 손실값이 작아지는 위치, 등고선 간격을 통해 알 수 있는 변화가 큰 방향, 좌표축 방향 이동이 지그재그처럼 나타나는 이유를 하나의 흐름으로 정리해 보세요.
 
 {s1_insert}
 
-위 기록을 그대로 옮기는 데 그치지 말고, 다음 질문에 답하듯 문장을 다듬어 보고서 본문으로 완성한다.
+위 기록을 그대로 옮기는 데 그치지 말고, 다음 질문에 답하듯 문장을 다듬어 보고서 본문으로 완성합시다.
 
-1. 등고선이나 3D 손실 지형에서 손실값이 작아지는 위치는 어디로 보이는가?
-2. a방향과 b방향 중 어느 방향에서 손실값 변화가 더 크게 나타나는가?
-3. 그 근거를 등고선 간격, 곡면의 가파름, 함수식의 구조와 연결해 설명할 수 있는가?
-4. 좌표축 방향 이동 경로가 직선이 아니라 꺾이거나 지그재그 형태로 나타난 이유는 무엇인가?
-5. step_size가 너무 크거나 작을 때 경로가 어떻게 달라질 수 있는가?
+1. 그림 1에서 등고선 간격이나 곡면의 가파름을 근거로 볼 때, 어느 방향에서 손실값 변화가 더 크게 나타나는가?
+2. 좌표축 방향 이동이 바로 최소점으로 향하지 않고 꺾이거나 진동하는 이유는 무엇이며, 이 방법의 한계는 무엇인가?
 
-이 내용을 바탕으로 1차시 활동에서 관찰한 핵심 특징을 하나의 자연스러운 문단으로 정리한다.
+[본론 1차시 예시]
+그림 1의 등고선과 손실곡면을 관찰하면 손실값이 작아지는 위치와 지형의 전체적인 형태를 파악할 수 있다. 등고선 간격이 촘촘한 방향에서는 같은 거리만 이동해도 손실값이 더 크게 변하므로, 이 방향은 손실함수의 변화가 민감한 방향으로 해석할 수 있다.
+
+좌표축 방향 이동은 한 번에 a 또는 b 중 하나의 값만 바꾸는 방식이다. 따라서 이동 경로가 최소점으로 곧바로 향하기보다 가로 방향과 세로 방향을 번갈아 이동하는 지그재그 형태로 나타날 수 있다. 이 과정에서 학습률이 적절하지 않으면 한 축 방향으로 진동하거나 최소점 부근을 지나쳐 이동할 수 있으므로, 단순한 좌표축 방향 이동에는 비효율성이 있음을 확인할 수 있다.
 """.strip()
 
     if K_BODY_RESULT not in st.session_state:
         st.session_state[K_BODY_RESULT] = f"""
-2차시에서는 시작점 {start_pt}에서 손실을 줄이기 위한 이동 방향을 편미분 값으로 판단하였다.
+▶ 작성 가이드
+이 부분은 2차시 활동을 바탕으로 작성합니다. 시작점에서 계산한 편미분 값을 이용해 a와 b를 어느 방향으로 움직여야 손실이 줄어드는지 설명하고, 실제 이동 결과가 그 판단과 어떻게 연결되는지 정리해 보세요.
 
-시작점에서 계산한 편미분 값은 다음과 같다.
+[2차시 자동 반영 값]
+시작점: {start_pt}
 ∂E/∂a = {dE_da}
 ∂E/∂b = {dE_db}
-
-편미분 값은 각 변수 방향으로 움직였을 때 손실값이 증가하거나 감소하는 경향을 알려준다. 따라서 손실을 줄이기 위해서는 편미분 값의 부호와 크기를 확인하고, 각 변수의 이동 방향을 판단해야 한다.
-
-이후 step_size={step_size}로 이동을 반복한 결과, {steps} step 후 최종점 {end_pt}에 도달하였다. 이때 최종 손실은 $E\\approx {final_e}$ 이었다.
+step_size = {step_size}
+사용 step 수 = {steps}
+최종점: {end_pt}
+최종 손실: {final_e}
 
 {s2_insert}
 
-위 기록을 바탕으로 다음 질문에 답하듯 결과를 해석한다.
+위 기록을 바탕으로 다음 질문에 답하듯 결과를 해석해 봅시다.
 
-1. ∂E/∂a의 부호를 기준으로 a는 증가 방향과 감소 방향 중 어느 쪽으로 움직여야 하는가?
-2. ∂E/∂b의 부호를 기준으로 b는 증가 방향과 감소 방향 중 어느 쪽으로 움직여야 하는가?
-3. 실제 이동 경로는 손실이 작아지는 방향으로 진행되었는가?
-4. 최종점과 최종 손실값을 보면 이동 결과는 적절했다고 볼 수 있는가?
-5. step_size를 조절한다면 진동, 발산, 수렴 속도 중 어떤 점이 개선될 수 있는가?
+1. 편미분 값의 부호를 보고 a와 b는 각각 어느 방향으로 이동해야 손실이 줄어드는가?
+2. 실제 이동 후 최종점과 최종 손실값을 보면 손실이 줄어드는 방향으로 이동했다고 볼 수 있는가?
+3. 경사하강법이 항상 전역 최소점에 도달하지 않을 수 있는 이유를 이번 활동과 연결해 설명할 수 있는가?
 
-이 내용을 바탕으로 편미분 기반 이동 방향 판단과 실제 이동 결과를 연결하여 서술한다.
+[본론 2차시 예시]
+2차시에서는 시작점 {start_pt}에서 손실을 줄이기 위한 이동 방향을 편미분 값으로 판단하였다. 이때 ∂E/∂a={dE_da}, ∂E/∂b={dE_db}로 계산되었다. 편미분 값은 각 변수 방향으로 이동할 때 손실값이 증가하는 방향을 알려주므로, 손실을 줄이려면 편미분 값의 부호와 반대되는 방향으로 이동해야 한다.
+
+이후 step_size={step_size}로 이동을 반복한 결과, {steps} step 후 최종점 {end_pt}에 도달하였다. 이때 최종 손실은 $E\approx {final_e}$ 이었다. 이 결과를 통해 편미분을 이용한 이동 방향 판단이 손실값 감소와 어떻게 연결되는지 확인할 수 있다. 다만 손실곡면의 형태가 복잡하거나 학습률이 적절하지 않은 경우에는 경로가 진동하거나 국소적인 낮은 지점에 머물 수 있으므로, 경사하강법이 항상 전역 최소점에 도달한다고 단정할 수는 없다.
 """.strip()
 
     if K_CONC not in st.session_state:
         st.session_state[K_CONC] = """
-이번 활동을 통해 등고선의 모양과 간격, 좌표축 방향 이동 경로, 편미분 값이 서로 어떻게 연결되는지 정리할 수 있었다.
+▶ 작성 가이드
+결론에서는 활동 전체에서 알게 된 점을 짧게 정리합니다. 새로운 내용을 길게 추가하기보다, 1차시 관찰과 2차시 편미분 기반 이동 결과를 연결하여 핵심만 서술합니다.
 
-결론에서는 다음 내용을 자신의 말로 정리한다.
+다음 세 가지를 중심으로 자신의 말로 정리해 보세요.
 
-1. 등고선을 관찰하면서 알게 된 손실함수의 특징
-2. 좌표축 방향 이동 경로가 지그재그 또는 꺾인 형태로 나타난 이유
-3. 편미분 값을 이용해 손실을 줄이는 방향을 판단한 과정
-4. 실제 이동 결과와 최종 손실값에 대한 해석
-5. step_size를 조절하면 경로가 어떻게 개선될 수 있는지에 대한 생각
+1. 등고선과 손실곡면을 통해 손실값이 작아지는 방향을 어떻게 추측할 수 있었는가?
+2. 편미분 값은 손실을 줄이는 이동 방향을 판단하는 데 어떤 역할을 했는가?
+3. 경사하강법을 사용할 때 step_size와 손실곡면의 형태를 함께 고려해야 하는 이유는 무엇인가?
 
-마지막 문단에서는 손실을 줄이는 과정에서 이동 방향뿐 아니라 한 번에 얼마나 이동할지를 정하는 step_size도 중요하다는 점을 정리한다.
+[결론 예시]
+이번 활동을 통해 등고선의 간격과 손실곡면의 기울기가 손실값의 변화 정도와 연결된다는 점을 확인하였다. 또한 편미분 값은 각 변수 방향에서 손실이 증가하거나 감소하는 경향을 알려주므로, 이를 이용해 손실을 줄이는 이동 방향을 판단할 수 있었다.
+
+한편 좌표축 방향 이동은 경로가 지그재그로 나타나 비효율적일 수 있으며, 학습률이 적절하지 않으면 진동하거나 최소점에 안정적으로 접근하지 못할 수 있다. 따라서 경사하강법을 적용할 때에는 이동 방향뿐 아니라 이동 크기와 손실곡면의 형태를 함께 고려해야 한다.
 """.strip()
 
     latex_items = {
@@ -571,12 +618,11 @@ def _maybe_init_drafts(s1: Dict[str, str], s2: Dict[str, str]) -> Dict[str, str]
 
     return latex_items
 
-
 # ============================================================
 # Streamlit UI
 # ============================================================
 st.title("최종: 인공지능 수학 보고서 작성 & PDF 생성")
-st.caption("1~2차시 TXT 백업 + 그래프 이미지를 업로드하고, 자동으로 불러온 학생 입력을 바탕으로 보고서를 완성합니다.")
+st.caption("1~2차시 TXT 백업 + 그래프 이미지를 업로드하고, 자동으로 불러온 학생 입력을 바탕으로 자신의 보고서를 완성합니다.")
 st.divider()
 
 # 0) 기본 정보 입력
@@ -674,14 +720,14 @@ latex_items = st.session_state.get("ai_latex_items") or _maybe_init_drafts(s1, s
 st.session_state["ai_latex_items"] = latex_items
 
 st.markdown("### 1. 서론")
-sec_intro = st.text_area("본문(서술형)", key=K_INTRO, height=220)
+sec_intro = st.text_area("본문(서술형)", key=K_INTRO, height=300)
 
 st.markdown("### 2. 본론")
-sec_body_main = st.text_area("본문(서술형) — 1차시 관찰 자료를 바탕으로 완성", key=K_BODY_MAIN, height=360)
-sec_body_result = st.text_area("본문(서술형) — 2차시 편미분/이동 결과를 바탕으로 완성", key=K_BODY_RESULT, height=380)
+sec_body_main = st.text_area("본문(서술형) — 1차시 관찰 자료를 바탕으로 완성", key=K_BODY_MAIN, height=430)
+sec_body_result = st.text_area("본문(서술형) — 2차시 편미분/이동 결과를 바탕으로 완성", key=K_BODY_RESULT, height=500)
 
 st.markdown("### 3. 결론")
-sec_conclusion = st.text_area("본문(서술형)", key=K_CONC, height=260)
+sec_conclusion = st.text_area("본문(서술형)", key=K_CONC, height=340)
 
 st.divider()
 
