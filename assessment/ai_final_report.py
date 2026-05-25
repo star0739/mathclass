@@ -446,6 +446,11 @@ K_BODY_RESULT = "ai_sec_body_result"
 K_CONC = "ai_sec_conclusion"
 
 def _maybe_init_drafts(s1: Dict[str, str], s2: Dict[str, str]) -> Dict[str, str]:
+    """
+    학생이 업로드한 1~2차시 백업 자료를 바탕으로 보고서 초안을 만든다.
+    이 초안은 교사가 완성문을 대신 써주는 형태가 아니라,
+    학생이 자신의 관찰과 결과를 확인하고 직접 수정·보완할 수 있도록 안내하는 작성 유도형 문장으로 구성한다.
+    """
     fn_expr = s2.get("function_expr") or s1.get("function_expr") or ""
     a_rng = s2.get("a_range") or s1.get("a_range") or ""
     b_rng = s2.get("b_range") or s1.get("b_range") or ""
@@ -461,46 +466,145 @@ def _maybe_init_drafts(s1: Dict[str, str], s2: Dict[str, str]) -> Dict[str, str]
 
     fn_norm = _normalize_expr_for_latex(fn_expr)
 
+    # 학생 백업 서술: 보고서에 그대로 정답처럼 넣기보다,
+    # 학생이 다시 읽고 정리할 수 있도록 "나의 기록" 형태로 안내한다.
+    s1_observation = (
+        s1.get("q3")
+        or s1.get("q2")
+        or s1.get("q1")
+        or s1.get("narrative_all")
+        or ""
+    ).strip()
+
+    s2_observation = (
+        s2.get("q2")
+        or s2.get("q3")
+        or s2.get("q1")
+        or s2.get("narrative_all")
+        or ""
+    ).strip()
+
+    # 값이 비어 있을 때 문장이 어색해지는 것을 줄이기 위한 표시용 문자열
+    fn_display = fn_norm if fn_norm else "[함수식을 확인하여 입력]"
+    a_display = a_rng if a_rng else "[a의 관찰 범위]"
+    b_display = b_rng if b_rng else "[b의 관찰 범위]"
+    start_display = start_pt if start_pt else "[시작점]"
+    end_display = end_pt if end_pt else "[최종점]"
+    step_display = step_size if step_size else "[step_size]"
+    steps_display = steps if steps else "[반복 횟수]"
+    final_e_display = final_e if final_e else "[최종 손실값]"
+    dE_da_display = dE_da if dE_da else "[∂E/∂a 값]"
+    dE_db_display = dE_db if dE_db else "[∂E/∂b 값]"
+
+    # --------------------------------------------------------
+    # 1. 서론
+    # --------------------------------------------------------
     if K_INTRO not in st.session_state:
-        st.session_state[K_INTRO] = (
-            "본 보고서는 이변수 손실함수 $E(a,b)$의 등고선을 관찰하고, "
-            "좌표축 방향 이동에서 나타나는 경로의 특징을 분석한 뒤, "
-            "편미분 값을 이용해 손실을 줄이는 이동 방향을 판단하고 그 결과를 검증하는 것을 목적으로 한다.\n\n"
-            f"본 활동에서 사용한 함수는 $E(a,b)={fn_norm}$ 이며, 관찰 범위는 a∈{a_rng}, b∈{b_rng}로 설정했다."
-        ).strip()
+        st.session_state[K_INTRO] = f"""
+본 보고서는 내가 수행한 손실함수 탐구 활동을 정리하기 위한 것이다.
+활동에서는 손실함수의 등고선, 좌표축 방향 이동 경로, 편미분을 이용한 이동 방향 판단을 차례로 살펴보았다.
 
+내가 사용한 함수는 $E(a,b)={fn_display}$ 이며, 관찰 범위는 a∈{a_display}, b∈{b_display}로 설정하였다.
+
+이 보고서에서는 먼저 등고선 그림을 통해 손실값이 작아지는 위치와 경로의 특징을 관찰한다.
+그 다음 시작점에서의 편미분 값을 이용하여 손실을 줄이기 위한 이동 방향을 판단하고,
+실제 이동 결과가 그 판단과 어떻게 연결되는지 정리한다.
+마지막으로 step_size의 크기가 이동 경로와 손실 감소에 어떤 영향을 주었는지 생각해본다.
+""".strip()
+
+    # --------------------------------------------------------
+    # 2. 본론 - 그림 1 관찰 및 좌표축 방향 이동 해석
+    # --------------------------------------------------------
     if K_BODY_MAIN not in st.session_state:
-        s1_hint = (s1.get("q3") or s1.get("narrative_all") or "").strip()
-        extra = f"\n\n(구조 관찰 서술)\n{s1_hint}" if s1_hint else ""
-        st.session_state[K_BODY_MAIN] = (
-            "등고선을 관찰한 결과 전역 최소점은 원점 부근에서 나타나며, 지형은 원점을 향해 내려가는 형태로 해석할 수 있었다. "
-            "또한 등고선 간격을 보면 a방향의 변화가 더 민감하게 나타난다고 판단했다.\n\n"
-            "좌표축 방향으로만 번갈아 이동시키면 경로가 한 번에 최소점으로 향하지 못하고 꺾이는 형태가 반복되는데, "
-            "이 현상은 ( )와 같은 이유로 설명할 수 있다.\n\n"
-            "이 관찰은 ‘어느 방향으로 움직여야 손실이 더 빠르게 줄어드는가?’라는 질문으로 이어진다."
-            + extra
-        ).strip()
+        student_note = ""
+        if s1_observation:
+            student_note = f"""
 
+[내가 백업한 1차시 관찰 기록]
+{s1_observation}
+
+위 기록을 그대로 두기보다, 그림 1을 다시 보면서 관찰한 내용과 그 이유가 자연스럽게 이어지도록 문장을 다듬는다.
+""".strip()
+
+        st.session_state[K_BODY_MAIN] = f"""
+그림 1에서는 손실함수의 등고선과 좌표축 방향으로 이동한 경로를 확인할 수 있다.
+등고선의 모양을 보면 손실값이 작아지는 위치가 어디인지 추측할 수 있고,
+등고선의 간격을 비교하면 a방향과 b방향 중 어느 방향에서 손실값이 더 빠르게 변하는지도 판단할 수 있다.
+
+좌표축 방향 이동은 한 번에 a 또는 b 중 한 방향만 바꾸는 방식이다.
+따라서 이동 경로가 최소점으로 곧바로 향하기보다는 방향이 반복적으로 꺾이는 지그재그 형태로 나타날 수 있다.
+
+이 부분에서는 다음 질문에 답하듯이 자신의 관찰을 보고서 문장으로 정리한다.
+
+1. 그림 1에서 손실값이 작아지는 위치는 어디라고 볼 수 있는가?
+2. 등고선의 간격을 보았을 때 a방향과 b방향 중 어느 쪽 변화가 더 크게 나타나는가?
+3. 좌표축 방향 이동 경로가 지그재그 형태로 나타난 이유는 무엇인가?
+4. step_size가 너무 크거나 작을 때 경로는 어떻게 달라졌는가?
+
+{student_note}
+""".strip()
+
+    # --------------------------------------------------------
+    # 3. 본론 - 편미분 기반 이동 방향 판단 및 결과 해석
+    # --------------------------------------------------------
     if K_BODY_RESULT not in st.session_state:
-        s2_hint = (s2.get("q2") or s2.get("q3") or s2.get("narrative_all") or "").strip()
-        extra = f"\n\n(경로 탐색 서술)\n{s2_hint}" if s2_hint else ""
-        st.session_state[K_BODY_RESULT] = (
-            f"시작점 {start_pt}에서 편미분을 계산하면 ∂E/∂a={dE_da}, "
-            f"∂E/∂b={dE_db} 이므로, 손실을 줄이기 위한 이동 방향은 '기울기(편미분)의 부호와 반대'로 결정할 수 있다.\n\n"
-            "따라서 a는 (증가/감소) 방향, b는 (증가/감소) 방향으로 움직여야 한다고 판단했다.\n\n"
-            f"step_size={step_size}로 이동을 반복한 결과 {steps} step 후 최종점 {end_pt}에 도달했고, "
-            f"최종 손실은 $E\\approx {final_e}$ 이었다. 그림 2를 근거로 이동 방향의 타당성과 한계를 서술한다."
-            + extra
-        ).strip()
+        student_note = ""
+        if s2_observation:
+            student_note = f"""
 
+[내가 백업한 2차시 경로 탐색 기록]
+{s2_observation}
+
+위 기록을 바탕으로, 편미분 값으로 판단한 이동 방향과 실제 이동 결과가 어떻게 연결되는지 설명한다.
+""".strip()
+
+        st.session_state[K_BODY_RESULT] = f"""
+이제 시작점 {start_display}에서 손실을 줄이기 위한 이동 방향을 판단한다.
+편미분 값은 각 축 방향으로 움직였을 때 손실값이 어떻게 변하는지를 알려준다.
+
+시작점에서 계산한 편미분 값은 다음과 같다.
+
+∂E/∂a = {dE_da_display}
+∂E/∂b = {dE_db_display}
+
+편미분 값이 양수이면 해당 변수의 값이 증가할 때 손실이 증가한다는 뜻이고,
+편미분 값이 음수이면 해당 변수의 값이 증가할 때 손실이 감소한다는 뜻이다.
+따라서 손실을 줄이기 위해서는 편미분 값의 부호를 확인한 뒤,
+a와 b를 각각 증가시킬지 감소시킬지 판단해야 한다.
+
+이 판단을 바탕으로 step_size={step_display}로 이동을 반복한 결과,
+{steps_display} step 후 최종점 {end_display}에 도달하였다.
+이때 최종 손실은 $E\approx {final_e_display}$ 이었다.
+
+이 부분에서는 다음 질문에 답하듯이 자신의 결과를 해석한다.
+
+1. ∂E/∂a의 부호를 보면 a는 증가 방향과 감소 방향 중 어디로 움직여야 하는가?
+2. ∂E/∂b의 부호를 보면 b는 증가 방향과 감소 방향 중 어디로 움직여야 하는가?
+3. 그림 2의 실제 이동 경로는 손실이 작아지는 방향으로 진행되었는가?
+4. 최종점과 최종 손실값을 볼 때 이동 결과는 적절했다고 볼 수 있는가?
+5. step_size를 조절한다면 경로가 어떻게 개선될 수 있을까?
+
+{student_note}
+""".strip()
+
+    # --------------------------------------------------------
+    # 4. 결론
+    # --------------------------------------------------------
     if K_CONC not in st.session_state:
-        st.session_state[K_CONC] = (
-            "등고선의 간격과 방향은 손실함수의 민감도(변화율)와 연결되며, 편미분은 각 축 방향에서 손실이 어떻게 변하는지를 정량적으로 알려준다.\n\n"
-            "결론에서는 다음을 포함하여 정리한다.\n"
-            "• 관찰(그림 1)에서 얻은 핵심 통찰\n"
-            "• 편미분 기반 방향 판단과 결과(그림 2)의 연결\n"
-            "• step_size/스케일 보정 등 개선 아이디어"
-        ).strip()
+        st.session_state[K_CONC] = """
+이번 활동을 통해 등고선, 좌표축 방향 이동, 편미분 기반 이동 사이의 관계를 정리할 수 있었다.
+
+결론에서는 다음 내용을 자신의 말로 정리한다.
+
+1. 등고선을 관찰하면서 알게 된 손실함수의 특징
+2. 좌표축 방향 이동 경로가 지그재그 형태로 나타난 이유
+3. 편미분 값을 이용해 이동 방향을 판단한 과정
+4. 실제 이동 결과와 최종 손실값에 대한 해석
+5. step_size를 조절하면 경로가 어떻게 달라질 수 있는지에 대한 생각
+
+이를 바탕으로 손실을 줄이는 과정에서는 이동 방향뿐 아니라,
+한 번에 얼마나 이동할지를 정하는 step_size도 중요하다는 점을 정리한다.
+""".strip()
 
     # LaTeX 아이템도 함께 반환(UI에서 expander로 확인/수정)
     latex_items = {
@@ -509,7 +613,6 @@ def _maybe_init_drafts(s1: Dict[str, str], s2: Dict[str, str]) -> Dict[str, str]
         "d2": (r"\frac{\partial E}{\partial b} = " + dE_db) if dE_db else "",
     }
     return latex_items
-
 
 # ============================================================
 # Streamlit UI (final_report.py 스타일)
