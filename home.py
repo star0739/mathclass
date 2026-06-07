@@ -110,7 +110,7 @@ pages = {
     "Home": [home_page],
     "📖 교과 학습": [calculus_page, ai_math_page],
     "🪑 좌석 관리": [seat_page, finalseat_page],
-    "✏️ 공공데이터 분석 수행": [assessment_step1, assessment_step2, assessment_step3, assessment_final],
+    "✏️ 공공데이터 분석 수행": [data_modeling, data_integral],
     "🤖 인공지능 수학 수행평가": [ai_assessment_step1, ai_assessment_step2, ai_assessment_final],
     
 }
