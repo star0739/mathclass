@@ -1,15 +1,27 @@
+# activities/data_modeling.py
 # ------------------------------------------------------------
 # 공공데이터 함수 모델링 & 미분 기반 분석
 # - CSV 업로드
 # - X/Y 데이터 시각화
-# - 함수식 f(t), 도함수 f'(t), 이계도함수 f''(t) 입력
+# - AI가 제안한 수학식 입력
+# - SymPy로 수식 해석
+# - 도함수 f'(t), 이계도함수 f''(t) 자동 계산
 # - 원데이터, 변화율, 곡률 비교 그래프 출력
 # ------------------------------------------------------------
 
-import ast
-import streamlit as st
-import pandas as pd
+import re
+
 import numpy as np
+import pandas as pd
+import streamlit as st
+import sympy as sp
+from sympy.parsing.sympy_parser import (
+    parse_expr,
+    standard_transformations,
+    implicit_multiplication_application,
+    convert_xor,
+    function_exponentiation,
+)
 
 PLOTLY_AVAILABLE = True
 try:
@@ -71,16 +83,8 @@ def parse_year_month(s: pd.Series) -> pd.Series:
 
 # ------------------------------------------------------------
 # 데이터 전처리
-# - x_col, y_col을 선택한 뒤 유효값만 추출
-# - 날짜형 X축이면 t를 시작 시점으로부터의 월 단위 인덱스로 변환
-# - 숫자형 X축이면 t를 해당 숫자값으로 사용
 # ------------------------------------------------------------
-def prepare_xy_data(
-    df: pd.DataFrame,
-    x_col: str,
-    y_col: str,
-    x_mode: str,
-):
+def prepare_xy_data(df: pd.DataFrame, x_col: str, y_col: str, x_mode: str):
     y = pd.to_numeric(df[y_col], errors="coerce")
 
     if x_mode == "숫자":
@@ -126,124 +130,142 @@ def prepare_xy_data(
 # 데이터 기반 근사 도함수
 # ------------------------------------------------------------
 def compute_derivatives(t: np.ndarray, y: np.ndarray):
+    if len(t) < 3:
+        raise ValueError("변화율 계산을 위해서는 유효 데이터가 최소 3개 이상 필요합니다.")
+
+    if len(np.unique(t)) < len(t):
+        raise ValueError("X축 값 또는 t 값에 중복이 있어 변화율을 안정적으로 계산할 수 없습니다.")
+
     dy = np.gradient(y, t)
     d2y = np.gradient(dy, t)
     return dy, d2y
 
 
 # ------------------------------------------------------------
-# 수식 안전 계산
-# - 학생이 입력한 파이썬 수식을 t 배열에 대해 계산
-# - np.exp, np.sin, np.cos, np.log 등 사용 가능
+# 수학식 전처리
+# 학생 입력 예:
+# y = 23.5 - 0.01t - 0.0003t^2 + 4.5cos((2*pi/12)t) - 3.5sin((2*pi/12)t)
+#
+# 지원:
+# - y = 또는 f(t) = 앞부분 제거
+# - ^ 를 거듭제곱으로 처리
+# - π → pi
+# - ln(x) → log(x)
+# - e^(...) → exp(...)
+# - 0.01t, 2(t+1), cos((2*pi/12)t) 같은 생략 곱셈 처리
 # ------------------------------------------------------------
-ALLOWED_NAMES = {
-    "t",
-    "np",
-    "exp",
-    "sin",
-    "cos",
-    "tan",
-    "log",
-    "sqrt",
-    "abs",
-    "pi",
-    "e",
-}
+def normalize_math_text(text: str) -> str:
+    if text is None:
+        return ""
 
-ALLOWED_NP_ATTRS = {
-    "exp",
-    "sin",
-    "cos",
-    "tan",
-    "log",
-    "log10",
-    "sqrt",
-    "abs",
-    "power",
-    "pi",
-    "e",
-}
+    expr = str(text).strip()
 
+    expr = expr.replace("$$", "")
+    expr = expr.replace("$", "")
+    expr = expr.replace("π", "pi")
+    expr = expr.replace("Π", "pi")
+    expr = expr.replace("−", "-")
+    expr = expr.replace("–", "-")
+    expr = expr.replace("—", "-")
+    expr = expr.replace("×", "*")
+    expr = expr.replace("·", "*")
+    expr = expr.replace("÷", "/")
+    expr = expr.replace("²", "^2")
+    expr = expr.replace("³", "^3")
 
-def validate_expression(expr: str) -> None:
-    try:
-        tree = ast.parse(expr, mode="eval")
-    except SyntaxError as e:
-        raise ValueError(f"수식 문법 오류: {e}")
+    # y = ..., f(t) = ... 형태면 오른쪽만 사용
+    if "=" in expr:
+        expr = expr.split("=", 1)[1].strip()
 
-    allowed_node_types = (
-        ast.Expression,
-        ast.BinOp,
-        ast.UnaryOp,
-        ast.Call,
-        ast.Name,
-        ast.Load,
-        ast.Constant,
-        ast.Attribute,
-        ast.Add,
-        ast.Sub,
-        ast.Mult,
-        ast.Div,
-        ast.Pow,
-        ast.Mod,
-        ast.USub,
-        ast.UAdd,
-        ast.Tuple,
-        ast.List,
-    )
+    # 흔한 함수 표기 변환
+    expr = re.sub(r"\bln\s*\(", "log(", expr)
+    expr = re.sub(r"\bLog\s*\(", "log(", expr)
+    expr = re.sub(r"\bSin\s*\(", "sin(", expr)
+    expr = re.sub(r"\bCos\s*\(", "cos(", expr)
+    expr = re.sub(r"\bTan\s*\(", "tan(", expr)
+    expr = re.sub(r"\bExp\s*\(", "exp(", expr)
 
-    for node in ast.walk(tree):
-        if not isinstance(node, allowed_node_types):
-            raise ValueError("허용되지 않은 표현이 포함되어 있습니다.")
+    # e^(...) → exp(...)
+    expr = re.sub(r"\be\s*\^\s*\(", "exp(", expr)
 
-        if isinstance(node, ast.Name):
-            if node.id not in ALLOWED_NAMES:
-                raise ValueError(f"허용되지 않은 이름입니다: {node.id}")
-
-        if isinstance(node, ast.Attribute):
-            if not isinstance(node.value, ast.Name) or node.value.id != "np":
-                raise ValueError("np.함수 형태만 사용할 수 있습니다.")
-            if node.attr not in ALLOWED_NP_ATTRS:
-                raise ValueError(f"허용되지 않은 numpy 함수입니다: np.{node.attr}")
+    return expr.strip()
 
 
-def eval_model_expression(expr: str, t: np.ndarray) -> np.ndarray:
-    expr = expr.strip()
-    if not expr:
+def parse_math_expression(text: str):
+    t = sp.symbols("t")
+    expr_text = normalize_math_text(text)
+
+    if not expr_text:
         raise ValueError("수식이 비어 있습니다.")
 
-    validate_expression(expr)
+    transformations = standard_transformations + (
+        implicit_multiplication_application,
+        convert_xor,
+        function_exponentiation,
+    )
 
-    eval_env = {
-        "__builtins__": {},
-        "np": np,
+    local_dict = {
         "t": t,
-        "exp": np.exp,
-        "sin": np.sin,
-        "cos": np.cos,
-        "tan": np.tan,
-        "log": np.log,
-        "sqrt": np.sqrt,
-        "abs": np.abs,
-        "pi": np.pi,
-        "e": np.e,
+        "pi": sp.pi,
+        "e": sp.E,
+        "sin": sp.sin,
+        "cos": sp.cos,
+        "tan": sp.tan,
+        "log": sp.log,
+        "ln": sp.log,
+        "exp": sp.exp,
+        "sqrt": sp.sqrt,
+        "Abs": sp.Abs,
+        "abs": sp.Abs,
     }
 
-    result = eval(expr, eval_env)
+    try:
+        expr = parse_expr(
+            expr_text,
+            local_dict=local_dict,
+            transformations=transformations,
+            evaluate=True,
+        )
+    except Exception as e:
+        raise ValueError(
+            "수식을 해석하지 못했습니다. "
+            "예시처럼 t, sin(...), cos(...), log(...), exp(...) 형태로 입력해 주세요."
+        ) from e
+
+    unknown_symbols = expr.free_symbols - {t}
+    if unknown_symbols:
+        unknown_str = ", ".join(str(s) for s in sorted(unknown_symbols, key=lambda x: str(x)))
+        raise ValueError(f"수식에는 변수 t만 사용할 수 있습니다. 확인이 필요한 기호: {unknown_str}")
+
+    return expr, t, expr_text
+
+
+def evaluate_sympy_expression(expr, t_symbol, t_values: np.ndarray) -> np.ndarray:
+    try:
+        func = sp.lambdify(t_symbol, expr, modules=["numpy"])
+        result = func(t_values)
+    except Exception as e:
+        raise ValueError(f"수식을 수치 계산하는 중 오류가 발생했습니다: {e}") from e
 
     if np.isscalar(result):
-        result = np.full_like(t, float(result), dtype=float)
+        result = np.full_like(t_values, float(result), dtype=float)
     else:
         result = np.asarray(result, dtype=float)
 
-    if result.shape != t.shape:
-        raise ValueError(
-            f"계산 결과의 길이가 데이터 길이와 다릅니다. "
-            f"결과 shape={result.shape}, t shape={t.shape}"
-        )
+    if result.shape != t_values.shape:
+        try:
+            result = np.broadcast_to(result, t_values.shape).astype(float)
+        except Exception as e:
+            raise ValueError(
+                f"계산 결과의 길이가 데이터 길이와 다릅니다. "
+                f"결과 shape={result.shape}, t shape={t_values.shape}"
+            ) from e
 
     if not np.all(np.isfinite(result)):
-        raise ValueError("계산 결과에 NaN 또는 무한대 값이 포함되어 있습니다.")
+        raise ValueError(
+            "계산 결과에 NaN 또는 무한대 값이 포함되어 있습니다. "
+            "log(t), 1/t처럼 특정 t에서 정의되지 않는 식이 있는지 확인하세요."
+        )
 
     return result
 
@@ -390,10 +412,8 @@ def plot_second_derivative_compare(xv, d2y, ai_d2y):
 # ============================================================
 # UI 시작
 # ============================================================
-st.set_page_config(page_title="함수 모델링 & 미분 기반 분석", layout="wide")
-
 st.title("함수 모델링 & 미분 기반 분석")
-st.caption("공공데이터를 업로드한 뒤, 함수식과 도함수·이계도함수를 입력하여 데이터와 비교합니다.")
+st.caption("공공데이터를 업로드한 뒤, AI가 제안한 함수식을 입력하여 데이터와 비교합니다.")
 st.divider()
 
 
@@ -538,62 +558,50 @@ st.caption("※ 변화율 비교는 유효 데이터 점 30개 이상일 때 더
 
 
 # ============================================================
-# 5) 파이썬 수식 입력
+# 5) AI 모델식 입력
 # ============================================================
 st.divider()
-st.subheader("5) 파이썬 수식 입력")
+st.subheader("5) AI 모델식 입력")
 
 st.info(
-    "아래 수식에서 변수는 반드시 **t**를 사용하세요. "
-    "날짜형 자료의 경우 t는 첫 번째 날짜를 0으로 둔 월 단위 시간 인덱스입니다."
+    "AI가 제안한 모델식을 수학식 형태로 입력하세요. "
+    "파이썬 코드가 아니어도 됩니다. 변수는 반드시 t를 사용합니다."
 )
 
-with st.expander("입력 예시 보기", expanded=False):
+with st.expander("입력 예시 보기", expanded=True):
     st.markdown(
         """
-예를 들어 다음과 같이 입력할 수 있습니다.
+아래와 같은 형태로 입력할 수 있습니다.
 
-- 선형함수: `2.5 * t + 10`
-- 이차함수: `0.03 * t**2 - 1.2 * t + 50`
-- 지수함수: `3.2 * np.exp(0.04 * t)`
-- 로그함수: `15 * np.log(t + 1) + 20`
-- 삼각함수: `10 * np.sin(2 * np.pi * t / 12) + 50`
+예시 1
 
-도함수와 이계도함수도 직접 계산하여 입력합니다.
+    y = 23.5 - 0.01t - 0.0003t^2 + 4.5cos((2*pi/12)t) - 3.5sin((2*pi/12)t)
 
-예를 들어  
-`f(t) = 0.03 * t**2 - 1.2 * t + 50` 이라면,
+예시 2
 
-- `f'(t) = 0.06 * t - 1.2`
-- `f''(t) = 0.06`
+    23.5 - 0.01*t - 0.0003*t^2 + 4.5*cos((2*pi/12)*t) - 3.5*sin((2*pi/12)*t)
+
+지원되는 표현 예시는 다음과 같습니다.
+
+- 거듭제곱: `t^2`, `t**2`
+- 삼각함수: `sin(t)`, `cos(t)`, `tan(t)`
+- 지수함수: `exp(0.03t)`, `e^(0.03t)`
+- 로그함수: `log(t+1)`, `ln(t+1)`
+- 원주율: `pi`, `π`
+- 생략 곱셈: `0.01t`, `2(t+1)`, `cos((2*pi/12)t)`
 """
     )
 
-col1, col2 = st.columns(2)
+model_expr_text = st.text_area(
+    "AI 모델식 f(t)",
+    height=120,
+    placeholder="예: y = 23.5 - 0.01t - 0.0003t^2 + 4.5cos((2*pi/12)t) - 3.5sin((2*pi/12)t)",
+    key="model_expr_text",
+)
 
-with col1:
-    st.markdown("**파이썬 수식 (그래프 시뮬레이션용)**")
-    py_model = st.text_input(
-        "모델식 f(t) 식",
-        value=st.session_state.get("py_model", ""),
-        placeholder="예: 3.2 * np.exp(0.04 * t)",
-        key="py_model",
-    )
-
-with col2:
-    st.markdown("**도함수와 이계도함수**")
-    py_d1 = st.text_input(
-        "도함수 f'(t) 식",
-        value=st.session_state.get("py_d1", ""),
-        placeholder="예: 0.128 * np.exp(0.04 * t)",
-        key="py_d1",
-    )
-    py_d2 = st.text_input(
-        "이계도함수 f''(t) 식",
-        value=st.session_state.get("py_d2", ""),
-        placeholder="예: 0.00512 * np.exp(0.04 * t)",
-        key="py_d2",
-    )
+if not model_expr_text.strip():
+    st.info("AI 모델식을 입력하면 도함수와 이계도함수가 자동으로 계산되고, 그래프 비교가 표시됩니다.")
+    st.stop()
 
 
 # ============================================================
@@ -602,59 +610,48 @@ with col2:
 st.divider()
 st.subheader("6) 데이터 기반 변화율 및 AI 모델 비교")
 
-if not py_model.strip():
-    st.info("모델식 f(t)를 입력하면 그래프 비교가 표시됩니다.")
-    st.stop()
-
-dy, d2y = compute_derivatives(t, y_arr)
-
-ai_y = None
-ai_dy = None
-ai_d2y = None
-
-model_error = False
-
 try:
-    ai_y = eval_model_expression(py_model, t)
+    expr, t_symbol, normalized_expr_text = parse_math_expression(model_expr_text)
+
+    d1_expr = sp.diff(expr, t_symbol)
+    d2_expr = sp.diff(d1_expr, t_symbol)
+
+    ai_y = evaluate_sympy_expression(expr, t_symbol, t)
+    ai_dy = evaluate_sympy_expression(d1_expr, t_symbol, t)
+    ai_d2y = evaluate_sympy_expression(d2_expr, t_symbol, t)
+
+    dy, d2y = compute_derivatives(t, y_arr)
+
 except Exception as e:
-    model_error = True
-    st.error(f"모델식 f(t) 계산 오류: {e}")
-
-if py_d1.strip():
-    try:
-        ai_dy = eval_model_expression(py_d1, t)
-    except Exception as e:
-        model_error = True
-        st.error(f"도함수 f'(t) 계산 오류: {e}")
-else:
-    st.warning("도함수 f'(t)를 입력하면 변화율 비교 분석 그래프가 표시됩니다.")
-
-if py_d2.strip():
-    try:
-        ai_d2y = eval_model_expression(py_d2, t)
-    except Exception as e:
-        model_error = True
-        st.error(f"이계도함수 f''(t) 계산 오류: {e}")
-else:
-    st.warning("이계도함수 f''(t)를 입력하면 곡률(오목·볼록) 비교 분석 그래프가 표시됩니다.")
-
-if model_error:
+    st.error(f"AI 모델식 처리 오류: {e}")
     st.stop()
 
+st.markdown("#### 입력한 모델식 확인")
 
-# 원데이터 vs 모델 비교
-if ai_y is not None:
-    plot_model_compare(xv, y_arr, ai_y)
+c1, c2 = st.columns(2)
+
+with c1:
+    st.markdown("**앱이 해석한 입력식**")
+    st.code(normalized_expr_text, language="text")
+
+with c2:
+    st.markdown("**수식 미리보기**")
+    st.latex(r"f(t)=" + sp.latex(expr))
+
+st.markdown("#### 자동 계산된 도함수와 이계도함수")
+
+dcol1, dcol2 = st.columns(2)
+
+with dcol1:
+    st.latex(r"f'(t)=" + sp.latex(d1_expr))
+
+with dcol2:
+    st.latex(r"f''(t)=" + sp.latex(d2_expr))
 
 
-# 변화율 비교 분석
-if ai_dy is not None:
-    plot_derivative_compare(xv, dy, ai_dy)
-
-
-# 곡률 비교 분석
-if ai_d2y is not None:
-    plot_second_derivative_compare(xv, d2y, ai_d2y)
+plot_model_compare(xv, y_arr, ai_y)
+plot_derivative_compare(xv, dy, ai_dy)
+plot_second_derivative_compare(xv, d2y, ai_d2y)
 
 
 # ============================================================
@@ -668,18 +665,12 @@ result_df = pd.DataFrame(
         "X축 값": xv.astype(str).to_numpy(),
         "t": t,
         "실제 데이터 y": y_arr,
+        "AI 모델식 f(t)": ai_y,
         "데이터 변화율 Δy/Δt": dy,
+        "AI 도함수 f'(t)": ai_dy,
         "데이터 이계변화율 Δ²y/Δt²": d2y,
+        "AI 이계도함수 f''(t)": ai_d2y,
     }
 )
-
-if ai_y is not None:
-    result_df["모델식 f(t)"] = ai_y
-
-if ai_dy is not None:
-    result_df["도함수 f'(t)"] = ai_dy
-
-if ai_d2y is not None:
-    result_df["이계도함수 f''(t)"] = ai_d2y
 
 st.dataframe(result_df, use_container_width=True)
