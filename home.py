@@ -80,8 +80,8 @@ assessment_step1 = st.Page(
 )
 
 assessment_step2 = st.Page(
-    "assessment/step2_model.py",
-    title="2차시: 함수 모델링",
+    "assessment/data_integral.py",
+    title="2차시: 함수 누적량 해석",
     icon="2️⃣",
 )
 
@@ -162,8 +162,8 @@ with st.sidebar:
     if st.button("1차시: 함수 모델링 & 미분 기반 분석", use_container_width=True, key="sb_assess_1"):
         st.switch_page("assessment/data_modeling.py")
 
-    if st.button("2차시: 함수 모델링", use_container_width=True, key="sb_assess_2"):
-        st.switch_page("assessment/step2_model.py")
+    if st.button("2차시: 함수 누적량 해석", use_container_width=True, key="sb_assess_2"):
+        st.switch_page("assessment/data_integral.py")
 
     if st.button("3차시: 누적량 해석", use_container_width=True, key="sb_assess_3"):
         st.switch_page("assessment/step3_integral.py")
