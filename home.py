@@ -85,18 +85,6 @@ assessment_step2 = st.Page(
     icon="2️⃣",
 )
 
-assessment_step3 = st.Page(
-    "assessment/step3_integral.py",
-    title="3차시: 누적량 해석",
-    icon="3️⃣",
-)
-
-assessment_final = st.Page(
-    "assessment/final_report.py",
-    title="최종: 보고서 작성",
-    icon="⭐",
-)
-
 
 ai_assessment_step1 = st.Page(
     "assessment/ai_step1_structure.py",
@@ -164,13 +152,6 @@ with st.sidebar:
 
     if st.button("2차시: 수치적분과 정적분 기반 분석", use_container_width=True, key="sb_assess_2"):
         st.switch_page("assessment/data_integral.py")
-
-    if st.button("3차시: 누적량 해석", use_container_width=True, key="sb_assess_3"):
-        st.switch_page("assessment/step3_integral.py")
-
-    if st.button("최종: 보고서 작성", use_container_width=True, key="sb_final_report"):
-        st.switch_page("assessment/final_report.py")
-
 
     st.markdown("---")
     st.subheader("📝 인공지능 수학: 경사하강법 수행")
