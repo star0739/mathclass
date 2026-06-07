@@ -74,7 +74,7 @@ finalseat_page = st.Page(
 
 
 assessment_step1 = st.Page(
-    "assessment/step1_data.py",
+    "assessment/data_modeling.py",
     title="1차시: 데이터 탐색",
     icon="1️⃣",
 )
@@ -160,7 +160,7 @@ with st.sidebar:
     st.subheader("📝 미적분: 공공데이터 분석 수행")
 
     if st.button("1차시: 데이터 탐색", use_container_width=True, key="sb_assess_1"):
-        st.switch_page("assessment/step1_data.py")
+        st.switch_page("assessment/data_modeling.py")
 
     if st.button("2차시: 함수 모델링", use_container_width=True, key="sb_assess_2"):
         st.switch_page("assessment/step2_model.py")
