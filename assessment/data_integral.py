@@ -1,10 +1,10 @@
-# assessment/step3_integral.py
+# data_integral.py
 # ------------------------------------------------------------
-# 3차시: 수치적분과 정적분 기반 분석
+# 수치적분과 정적분 기반 분석
 # - CSV 업로드
 # - X/Y 데이터 시각화
 # - AI가 제안한 모델식 입력
-# - 적분 구간 선택
+# - 전체 유효 데이터 구간을 기준으로 적분
 # - 데이터 기반 수치적분(직사각형/사다리꼴)과 모델 정적분 비교
 # ------------------------------------------------------------
 
@@ -65,6 +65,7 @@ def read_csv_kosis(file) -> pd.DataFrame:
 
 # -----------------------------
 # 년/월/년월 파서
+# 예: 2015.01, 2015-01, 2015/01, 201501, 2015
 # -----------------------------
 def parse_year_month(s: pd.Series) -> pd.Series:
     s = s.astype(str).str.strip()
@@ -94,6 +95,9 @@ def parse_year_month(s: pd.Series) -> pd.Series:
 
 # -----------------------------
 # 데이터 전처리
+# - X/Y 열 선택
+# - 날짜형 X축이면 첫 시점을 0으로 둔 월 단위 t로 변환
+# - 숫자형 X축이면 해당 숫자값을 t로 사용
 # -----------------------------
 def prepare_xy_data(df: pd.DataFrame, x_col: str, y_col: str, x_mode: str):
     y_series = pd.to_numeric(df[y_col], errors="coerce")
@@ -134,8 +138,11 @@ def prepare_xy_data(df: pd.DataFrame, x_col: str, y_col: str, x_mode: str):
         t_all = xv.to_numpy(dtype=float)
         t_description = "t는 선택한 X축 숫자값입니다."
 
-    if len(np.unique(t_all)) < len(t_all):
-        raise ValueError("X축 값 또는 t 값에 중복이 있습니다. 적분 계산을 위해 X축 값이 중복되지 않아야 합니다.")
+    if len(t_all) >= 2 and len(np.unique(t_all)) < len(t_all):
+        raise ValueError(
+            "X축 값 또는 t 값에 중복이 있습니다. "
+            "적분 계산을 위해 X축 값이 중복되지 않아야 합니다."
+        )
 
     return xv, yv, t_all, y_all, x_type, t_description
 
@@ -388,7 +395,7 @@ def plot_integral_compare(
                 x=t,
                 y=y,
                 mode="markers+lines",
-                name="데이터(구간)",
+                name="데이터",
             )
         )
 
@@ -445,7 +452,7 @@ def plot_integral_compare(
 # ============================================================
 # UI 시작
 # ============================================================
-st.title("3차시: 수치적분과 정적분 기반 분석")
+st.title("수치적분과 정적분 기반 분석")
 st.caption("데이터로 만든 직사각형/사다리꼴 면적과, 모델 f(t)의 정적분 값을 비교합니다.")
 st.divider()
 
@@ -455,7 +462,7 @@ st.divider()
 # ============================================================
 st.subheader("1) CSV 업로드")
 
-csv_file = st.file_uploader("CSV 파일 업로드", type=["csv"], key="step3_csv_upload")
+csv_file = st.file_uploader("CSV 파일 업로드", type=["csv"], key="data_integral_csv_upload")
 
 if csv_file is None:
     st.info("CSV를 업로드하면 다음 단계로 진행할 수 있습니다.")
@@ -493,7 +500,7 @@ with col_x:
         "X축(시간/연도/년월)",
         cols,
         index=0,
-        key="step3_x_col",
+        key="data_integral_x_col",
     )
 
 with col_y:
@@ -505,14 +512,14 @@ with col_y:
         "Y축(수치)",
         cols,
         index=y_default_idx,
-        key="step3_y_col",
+        key="data_integral_y_col",
     )
 
 x_mode = st.radio(
     "X축 해석 방식",
     ["자동(권장)", "날짜(년월)", "숫자"],
     horizontal=True,
-    key="step3_x_mode",
+    key="data_integral_x_mode",
 )
 
 try:
@@ -556,9 +563,9 @@ st.divider()
 
 
 # ============================================================
-# 3) 모델식 확인 & 적분 구간 선택
+# 3) 모델식 확인 & 적분 구간 확인
 # ============================================================
-st.subheader("3) 모델식 확인 & 적분 구간 선택")
+st.subheader("3) 모델식 확인 & 적분 구간 확인")
 
 st.info(
     "AI가 제안한 모델식 f(t)를 수학식 형태로 입력하세요. "
@@ -593,11 +600,11 @@ model_expr_text = st.text_area(
     "모델식 f(t)",
     height=120,
     placeholder="예: y = 23.5 - 0.01t - 0.0003t^2 + 4.5cos((2*pi/12)t) - 3.5sin((2*pi/12)t)",
-    key="step3_model_expr_text",
+    key="data_integral_model_expr_text",
 )
 
 if not model_expr_text.strip():
-    st.info("모델식을 입력하면 적분 구간 선택과 비교 결과가 표시됩니다.")
+    st.info("모델식을 입력하면 전체 유효 데이터 구간에 대한 적분 비교 결과가 표시됩니다.")
     st.stop()
 
 try:
@@ -618,30 +625,20 @@ with c2:
     st.markdown("**수식 미리보기**")
     st.latex(r"f(t)=" + sp.latex(expr))
 
-n = len(t_all)
+# 전체 유효 데이터 구간 사용
+t = t_all
+y = y_all
+xv_selected = xv
 
-i0_default = 0
-i1_default = n - 1
+a = float(t[0])
+b = float(t[-1])
 
-i0, i1 = st.slider(
-    "적분 구간(인덱스)",
-    min_value=0,
-    max_value=n - 1,
-    value=(i0_default, i1_default),
-    step=1,
-)
-
-t = t_all[i0 : i1 + 1]
-y = y_all[i0 : i1 + 1]
-xv_selected = xv.iloc[i0 : i1 + 1]
-
-if len(t) < 2:
-    st.warning("적분 구간에는 최소 2개 이상의 데이터 점이 포함되어야 합니다.")
-    st.stop()
+st.markdown("#### 적분 구간 확인")
+st.info("이 활동에서는 전체 유효 데이터 구간을 기준으로 수치적분값과 모델 정적분값을 비교합니다.")
 
 st.caption(
-    f"선택 구간: **{xv_selected.iloc[0]} ~ {xv_selected.iloc[-1]}** "
-    f"| t = **{float(t[0]):.6g} ~ {float(t[-1]):.6g}**"
+    f"적분 구간: **{xv_selected.iloc[0]} ~ {xv_selected.iloc[-1]}** "
+    f"| t = **{a:.6g} ~ {b:.6g}**"
 )
 
 st.divider()
@@ -658,8 +655,6 @@ try:
     A_trap = data_trap(y, t)
 
     # 모델 정적분
-    a = float(t[0])
-    b = float(t[-1])
     I_model, integral_method = model_definite_integral(expr, t_symbol, a, b)
 
 except Exception as e:
@@ -686,11 +681,11 @@ d2.metric("사다리꼴 오차 |A-I|", f"{err_trap:,.6g}")
 d3.metric("사다리꼴 상대오차", f"{rel_trap:.3%}")
 
 if err_rect < err_trap:
-    st.success("이 구간에서는 직사각형 방법이 모델 정적분값에 더 가깝습니다.")
+    st.success("전체 구간에서는 직사각형 방법이 모델 정적분값에 더 가깝습니다.")
 elif err_trap < err_rect:
-    st.success("이 구간에서는 사다리꼴 방법이 모델 정적분값에 더 가깝습니다.")
+    st.success("전체 구간에서는 사다리꼴 방법이 모델 정적분값에 더 가깝습니다.")
 else:
-    st.info("이 구간에서는 직사각형 방법과 사다리꼴 방법의 오차가 같습니다.")
+    st.info("전체 구간에서는 직사각형 방법과 사다리꼴 방법의 오차가 같습니다.")
 
 st.divider()
 
@@ -704,6 +699,7 @@ vis_mode = st.radio(
     "도형 표시",
     ["직사각형(좌측)", "사다리꼴"],
     horizontal=True,
+    key="data_integral_vis_mode",
 )
 
 plot_integral_compare(
@@ -748,7 +744,7 @@ result_summary = pd.DataFrame(
 
 st.dataframe(result_summary, use_container_width=True)
 
-with st.expander("선택 구간의 데이터 확인", expanded=False):
+with st.expander("전체 유효 데이터 확인", expanded=False):
     selected_df = pd.DataFrame(
         {
             "X축 값": xv_selected.astype(str).to_numpy(),
