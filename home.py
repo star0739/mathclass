@@ -31,17 +31,13 @@ def home_screen():
     st.write("")
 
     st.markdown("#### 빠른 이동")
-    c1, c2, c3 = st.columns(3)
+    c1, c2 = st.columns(2)
 
     with c1:
         if st.button("공공데이터 분석 수행", use_container_width=True, key="quick_assessment"):
             st.switch_page("assessment/step1_data.py")
 
     with c2:
-        if st.button("인공지능 수학 수행평가", use_container_width=True, key="quick_ai_assessment"):
-            st.switch_page("assessment/ai_step1_structure.py")
-
-    with c3:
         if st.button("좌석 확인", use_container_width=True, key="quick_finalseat"):
             st.switch_page(finalseat_page)
 
@@ -50,7 +46,6 @@ home_page = st.Page(home_screen, title="Home", icon="✨", default=True)
 
 # -------------------------------------------------
 # activities 관련 페이지는 잠시 숨김
-# 필요할 때 아래 두 페이지를 다시 pages와 sidebar에 연결하면 됨
 # -------------------------------------------------
 # calculus_page = st.Page(
 #     "activities/calculus.py",
@@ -101,24 +96,26 @@ assessment_final = st.Page(
     icon="⭐",
 )
 
+# -------------------------------------------------
+# assessment/ai_ 관련 페이지는 잠시 숨김
+# -------------------------------------------------
+# ai_assessment_step1 = st.Page(
+#     "assessment/ai_step1_structure.py",
+#     title="1차시: 구조 관찰",
+#     icon="1️⃣",
+# )
 
-ai_assessment_step1 = st.Page(
-    "assessment/ai_step1_structure.py",
-    title="1차시: 구조 관찰",
-    icon="1️⃣",
-)
+# ai_assessment_step2 = st.Page(
+#     "assessment/ai_step2_path.py",
+#     title="2차시: 경로 탐색",
+#     icon="2️⃣",
+# )
 
-ai_assessment_step2 = st.Page(
-    "assessment/ai_step2_path.py",
-    title="2차시: 경로 탐색",
-    icon="2️⃣",
-)
-
-ai_assessment_final = st.Page(
-    "assessment/ai_final_report.py",
-    title="최종: 보고서 작성",
-    icon="⭐",
-)
+# ai_assessment_final = st.Page(
+#     "assessment/ai_final_report.py",
+#     title="최종: 보고서 작성",
+#     icon="⭐",
+# )
 
 
 pages = {
@@ -129,11 +126,6 @@ pages = {
         assessment_step2,
         assessment_step3,
         assessment_final,
-    ],
-    "🤖 인공지능 수학 수행평가": [
-        ai_assessment_step1,
-        ai_assessment_step2,
-        ai_assessment_final,
     ],
 }
 
@@ -181,18 +173,18 @@ with st.sidebar:
     if st.button("최종: 보고서 작성", use_container_width=True, key="sb_final_report"):
         st.switch_page("assessment/final_report.py")
 
-
-    st.markdown("---")
-    st.subheader("📝 인공지능 수학: 경사하강법 수행")
-
-    if st.button("1차시: 구조 관찰", use_container_width=True, key="sb_ai_assess_1"):
-        st.switch_page("assessment/ai_step1_structure.py")
-
-    if st.button("2차시: 경로 탐색", use_container_width=True, key="sb_ai_assess_2"):
-        st.switch_page("assessment/ai_step2_path.py")
-
-    if st.button("최종: 보고서 작성", use_container_width=True, key="sb_ai_final_report"):
-        st.switch_page("assessment/ai_final_report.py")
+    # assessment/ai_ 관련 메뉴는 잠시 숨김
+    # st.markdown("---")
+    # st.subheader("📝 인공지능 수학: 경사하강법 수행")
+    #
+    # if st.button("1차시: 구조 관찰", use_container_width=True, key="sb_ai_assess_1"):
+    #     st.switch_page("assessment/ai_step1_structure.py")
+    #
+    # if st.button("2차시: 경로 탐색", use_container_width=True, key="sb_ai_assess_2"):
+    #     st.switch_page("assessment/ai_step2_path.py")
+    #
+    # if st.button("최종: 보고서 작성", use_container_width=True, key="sb_ai_final_report"):
+    #     st.switch_page("assessment/ai_final_report.py")
     
 
     st.markdown("---")
