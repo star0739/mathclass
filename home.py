@@ -7,7 +7,7 @@ st.set_page_config(
 )
 
 # -----------------------------
-# 페이지 등록 (현재 폴더 구조 기준)
+# 페이지 등록
 # -----------------------------
 def home_screen():
     st.markdown(
@@ -31,15 +31,9 @@ def home_screen():
     st.write("")
 
     st.markdown("#### 빠른 이동")
-    c1, c2 = st.columns(2)
 
-    with c1:
-        if st.button("공공데이터 분석 수행", use_container_width=True, key="quick_assessment"):
-            st.switch_page("assessment/step1_data.py")
-
-    with c2:
-        if st.button("좌석 확인", use_container_width=True, key="quick_finalseat"):
-            st.switch_page(finalseat_page)
+    if st.button("공공데이터 분석 수행", use_container_width=True, key="quick_assessment"):
+        st.switch_page("assessment/step1_data.py")
 
 
 home_page = st.Page(home_screen, title="Home", icon="✨", default=True)
@@ -59,17 +53,20 @@ home_page = st.Page(home_screen, title="Home", icon="✨", default=True)
 #     icon="🤖",
 # )
 
-seat_page = st.Page(
-    "sub/seat.py",
-    title="선착순 배정",
-    icon="🪑",
-)
+# -------------------------------------------------
+# 좌석 관련 페이지는 잠시 숨김
+# -------------------------------------------------
+# seat_page = st.Page(
+#     "sub/seat.py",
+#     title="선착순 배정",
+#     icon="🪑",
+# )
 
-finalseat_page = st.Page(
-    "sub/finalseat.py",
-    title="좌석 확인",
-    icon="✅",
-)
+# finalseat_page = st.Page(
+#     "sub/finalseat.py",
+#     title="좌석 확인",
+#     icon="✅",
+# )
 
 
 assessment_step1 = st.Page(
@@ -120,7 +117,6 @@ assessment_final = st.Page(
 
 pages = {
     "Home": [home_page],
-    "🪑 좌석 관리": [seat_page, finalseat_page],
     "✏️ 공공데이터 분석 수행": [
         assessment_step1,
         assessment_step2,
@@ -185,16 +181,16 @@ with st.sidebar:
     #
     # if st.button("최종: 보고서 작성", use_container_width=True, key="sb_ai_final_report"):
     #     st.switch_page("assessment/ai_final_report.py")
-    
 
-    st.markdown("---")
-    st.subheader("🪑 좌석 관리")
-
-    if st.button("선착순 배정", use_container_width=True, key="sb_seat"):
-        st.switch_page(seat_page)
-
-    if st.button("좌석 확인", use_container_width=True, key="sb_finalseat"):
-        st.switch_page(finalseat_page)
+    # 좌석 관련 메뉴는 잠시 숨김
+    # st.markdown("---")
+    # st.subheader("🪑 좌석 관리")
+    #
+    # if st.button("선착순 배정", use_container_width=True, key="sb_seat"):
+    #     st.switch_page(seat_page)
+    #
+    # if st.button("좌석 확인", use_container_width=True, key="sb_finalseat"):
+    #     st.switch_page(finalseat_page)
 
 
 # -----------------------------
