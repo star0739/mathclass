@@ -81,7 +81,7 @@ data_modeling_page = st.Page(
 data_integral_page = st.Page(
     "assessment/data_integral.py",
     title="수치적분과 정적분",
-    icon="∫",
+    icon="⭐",
 )
 
 assessment_final = st.Page(
