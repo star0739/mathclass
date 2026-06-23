@@ -23,7 +23,7 @@ def home_screen():
         """
         수학적 사고가 실현되는 공간, 숭문고 수학 스튜디오에 오신 것을 환영합니다!\n\n
         '미적분'과 '인공지능 수학'의 원리를 직접 시각화하며 탐구할 수 있도록 설계되었습니다.\n\n
-        👉 **아래 메뉴에서 탐구하고자 하는 교과를 선택해 주세요.**
+        👉 **아래 메뉴에서 탐구하고자 하는 활동을 선택해 주세요.**
         """,
         unsafe_allow_html=True,
     )
@@ -34,12 +34,12 @@ def home_screen():
     c1, c2, c3 = st.columns(3)
 
     with c1:
-        if st.button("미적분", use_container_width=True, key="quick_calculus"):
-            st.switch_page(calculus_page)
+        if st.button("공공데이터 분석 수행", use_container_width=True, key="quick_assessment"):
+            st.switch_page("assessment/step1_data.py")
 
     with c2:
-        if st.button("인공지능 수학", use_container_width=True, key="quick_ai"):
-            st.switch_page(ai_math_page)
+        if st.button("인공지능 수학 수행평가", use_container_width=True, key="quick_ai_assessment"):
+            st.switch_page("assessment/ai_step1_structure.py")
 
     with c3:
         if st.button("좌석 확인", use_container_width=True, key="quick_finalseat"):
@@ -48,17 +48,21 @@ def home_screen():
 
 home_page = st.Page(home_screen, title="Home", icon="✨", default=True)
 
-calculus_page = st.Page(
-    "activities/calculus.py",
-    title="미적분",
-    icon="🧮",
-)
+# -------------------------------------------------
+# activities 관련 페이지는 잠시 숨김
+# 필요할 때 아래 두 페이지를 다시 pages와 sidebar에 연결하면 됨
+# -------------------------------------------------
+# calculus_page = st.Page(
+#     "activities/calculus.py",
+#     title="미적분",
+#     icon="🧮",
+# )
 
-ai_math_page = st.Page(
-    "activities/ai_math.py",
-    title="인공지능 수학",
-    icon="🤖",
-)
+# ai_math_page = st.Page(
+#     "activities/ai_math.py",
+#     title="인공지능 수학",
+#     icon="🤖",
+# )
 
 seat_page = st.Page(
     "sub/seat.py",
@@ -74,15 +78,27 @@ finalseat_page = st.Page(
 
 
 assessment_step1 = st.Page(
-    "assessment/data_modeling.py",
-    title="1차시: 함수 모델링 & 미분 기반 분석",
+    "assessment/step1_data.py",
+    title="1차시: 데이터 탐색",
     icon="1️⃣",
 )
 
 assessment_step2 = st.Page(
-    "assessment/data_integral.py",
-    title="2차시: 수치적분과 정적분 기반 분석",
+    "assessment/step2_model.py",
+    title="2차시: 함수 모델링",
     icon="2️⃣",
+)
+
+assessment_step3 = st.Page(
+    "assessment/step3_integral.py",
+    title="3차시: 누적량 해석",
+    icon="3️⃣",
+)
+
+assessment_final = st.Page(
+    "assessment/final_report.py",
+    title="최종: 보고서 작성",
+    icon="⭐",
 )
 
 
@@ -105,14 +121,20 @@ ai_assessment_final = st.Page(
 )
 
 
-
 pages = {
     "Home": [home_page],
-    "📖 교과 학습": [calculus_page, ai_math_page],
     "🪑 좌석 관리": [seat_page, finalseat_page],
-    "✏️ 공공데이터 분석 수행": [assessment_step1, assessment_step2],
-    "🤖 인공지능 수학 수행평가": [ai_assessment_step1, ai_assessment_step2, ai_assessment_final],
-    
+    "✏️ 공공데이터 분석 수행": [
+        assessment_step1,
+        assessment_step2,
+        assessment_step3,
+        assessment_final,
+    ],
+    "🤖 인공지능 수학 수행평가": [
+        ai_assessment_step1,
+        ai_assessment_step2,
+        ai_assessment_final,
+    ],
 }
 
 # 기본 네비게이션은 숨기고, 우리가 만든 사이드바로만 이동
@@ -134,24 +156,31 @@ st.divider()
 with st.sidebar:
     st.header("Home")
 
-    st.markdown("---")
-    st.subheader("📖 교과 학습")
-
-    if st.button("미적분", use_container_width=True, key="sb_calculus"):
-        st.switch_page(calculus_page)
-
-    if st.button("인공지능 수학", use_container_width=True, key="sb_ai"):
-        st.switch_page(ai_math_page)
-
+    # activities 관련 교과 학습 메뉴는 잠시 숨김
+    # st.markdown("---")
+    # st.subheader("📖 교과 학습")
+    #
+    # if st.button("미적분", use_container_width=True, key="sb_calculus"):
+    #     st.switch_page(calculus_page)
+    #
+    # if st.button("인공지능 수학", use_container_width=True, key="sb_ai"):
+    #     st.switch_page(ai_math_page)
 
     st.markdown("---")
     st.subheader("📝 미적분: 공공데이터 분석 수행")
 
-    if st.button("1차시: 함수 모델링 & 미분 기반 분석", use_container_width=True, key="sb_assess_1"):
-        st.switch_page("assessment/data_modeling.py")
+    if st.button("1차시: 데이터 탐색", use_container_width=True, key="sb_assess_1"):
+        st.switch_page("assessment/step1_data.py")
 
-    if st.button("2차시: 수치적분과 정적분 기반 분석", use_container_width=True, key="sb_assess_2"):
-        st.switch_page("assessment/data_integral.py")
+    if st.button("2차시: 함수 모델링", use_container_width=True, key="sb_assess_2"):
+        st.switch_page("assessment/step2_model.py")
+
+    if st.button("3차시: 누적량 해석", use_container_width=True, key="sb_assess_3"):
+        st.switch_page("assessment/step3_integral.py")
+
+    if st.button("최종: 보고서 작성", use_container_width=True, key="sb_final_report"):
+        st.switch_page("assessment/final_report.py")
+
 
     st.markdown("---")
     st.subheader("📝 인공지능 수학: 경사하강법 수행")
