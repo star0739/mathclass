@@ -99,10 +99,10 @@ with st.sidebar:
     st.markdown("---")
     st.subheader("📝 미적분 수행평가")
 
-    if st.button("함수 모델링", use_container_width=True, key="sb_data_modeling"):
+    if st.button("1차시: 함수 모델링 & 미분 기반 분석", use_container_width=True, key="sb_data_modeling"):
         st.switch_page(data_modeling_page)
 
-    if st.button("수치적분과 정적분", use_container_width=True, key="sb_data_integral"):
+    if st.button("2차시: 수치적분과 정적분 기반 분석", use_container_width=True, key="sb_data_integral"):
         st.switch_page(data_integral_page)
 
 
