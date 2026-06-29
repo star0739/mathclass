@@ -6,6 +6,10 @@
 # - AI가 제안한 모델식 입력
 # - 전체 유효 데이터 구간을 기준으로 적분
 # - 데이터 기반 수치적분(직사각형/사다리꼴)과 모델 정적분 비교
+#
+# 수정 핵심
+# - 복잡한 삼각함수 거듭제곱식에서 SymPy 기호적분이 멈추는 문제를 피하기 위해
+#   모델 정적분은 처음부터 고해상도 수치적분으로 근사함.
 # ------------------------------------------------------------
 
 from __future__ import annotations
@@ -315,22 +319,33 @@ def rect_y0y1(height: float) -> tuple[float, float]:
 # -----------------------------
 def model_definite_integral(expr, t_symbol, a: float, b: float) -> tuple[float, str]:
     """
-    1차 시도: SymPy 정적분
-    실패 시: 고해상도 사다리꼴 수치적분
+    모델 f(t)의 정적분값을 고해상도 사다리꼴 수치적분으로 근사한다.
+
+    이유:
+    - sp.integrate()는 cos(...)^14 같은 복잡한 삼각함수 거듭제곱식에서
+      계산이 오래 걸리거나 Streamlit 페이지를 멈추게 할 수 있다.
+    - 이 활동의 목적은 실제 데이터 기반 수치적분값과 모델 함수의 전체 면적을
+      비교하는 것이므로, 모델 정적분도 안정적인 수치근사로 처리한다.
     """
     try:
-        I = sp.integrate(expr, (t_symbol, a, b))
+        interval_length = abs(float(b) - float(a))
 
-        if isinstance(I, sp.Integral) or I.has(sp.Integral):
-            raise ValueError("sympy가 정적분을 기호적으로 계산하지 못했습니다.")
+        # 구간 길이에 따라 계산 점 개수 조절
+        # 월 단위 데이터에서는 보통 구간이 수십~수백 정도이므로 충분히 촘촘하게 계산함.
+        n = max(20001, int(interval_length * 1000) + 1)
 
-        return float(sp.N(I)), "symbolic"
+        # 지나치게 큰 구간에서 계산량이 폭증하지 않도록 상한 설정
+        n = min(n, 200001)
+
+        tt_ref = np.linspace(a, b, n, dtype=float)
+        ff_ref = evaluate_sympy_expression(expr, t_symbol, tt_ref)
+
+        I_num = trapz(ff_ref, tt_ref)
+
+        return I_num, "numeric_model_integral"
 
     except Exception as e:
-        tt_ref = np.linspace(a, b, 20001, dtype=float)
-        ff_ref = evaluate_sympy_expression(expr, t_symbol, tt_ref)
-        I_num = trapz(ff_ref, tt_ref)
-        return I_num, f"numeric_fallback: {e}"
+        raise ValueError(f"모델 정적분값을 수치적으로 계산하는 중 오류가 발생했습니다: {e}") from e
 
 
 # -----------------------------
@@ -551,11 +566,11 @@ st.divider()
 st.subheader("✅ 데이터 개수 점검")
 
 valid_n = int(len(t_all))
-st.metric("유효 데이터 점(숫자쌍) 개수", valid_n)
+st.metric("유효 데이터점 개수", valid_n)
 
 if valid_n < MIN_VALID_POINTS:
     st.warning(
-        f"유효 데이터 점이 {MIN_VALID_POINTS}개 미만입니다. "
+        f"유효 데이터점이 {MIN_VALID_POINTS}개 미만입니다. "
         "적분 계산은 가능하지만, 수치적분 비교가 불안정할 수 있습니다."
     )
 
@@ -568,7 +583,7 @@ st.divider()
 st.subheader("3) 모델식 확인 & 적분 구간 확인")
 
 st.info(
-    "AI가 제안한 모델식을 지오지브라에 입력할 수 있는 수학식 형태로 입력하세요. "
+    "AI가 제안한 모델식을 입력하세요. "
     "변수는 반드시 t를 사용합니다."
 )
 
@@ -585,6 +600,10 @@ with st.expander("모델식 입력 예시 보기", expanded=True):
 
     23.5 - 0.01*t - 0.0003*t^2 + 4.5*cos((2*pi/12)*t) - 3.5*sin((2*pi/12)*t)
 
+예시 3
+
+    y = 24150 - 268*t + 3.55*t^2 + 550*cos(pi*t/6) + 350*sin(pi*t/6) + 3800*cos(pi*(t-1)/12)^14 - 2800*cos(pi*(t-12)/12)^14
+
 지원되는 표현 예시는 다음과 같습니다.
 
 - 거듭제곱: `t^2`, `t**2`
@@ -593,13 +612,19 @@ with st.expander("모델식 입력 예시 보기", expanded=True):
 - 로그함수: `log(t+1)`, `ln(t+1)`
 - 원주율: `pi`, `π`
 - 생략 곱셈: `0.01t`, `2(t+1)`, `cos((2*pi/12)t)`
+
+복잡한 모델식에서는 곱셈 기호 `*`를 직접 쓰는 것을 권장합니다.
 """
     )
 
 model_expr_text = st.text_area(
     "모델식 f(t)",
     height=120,
-    placeholder="예: y = 23.5 - 0.01t - 0.0003t^2 + 4.5cos((2*pi/12)t) - 3.5sin((2*pi/12)t)",
+    placeholder=(
+        "예: y = 24150 - 268*t + 3.55*t^2 + 550*cos(pi*t/6) "
+        "+ 350*sin(pi*t/6) + 3800*cos(pi*(t-1)/12)^14 "
+        "- 2800*cos(pi*(t-12)/12)^14"
+    ),
     key="data_integral_model_expr_text",
 )
 
@@ -654,15 +679,19 @@ try:
     A_rect = data_rect_left(y, t)
     A_trap = data_trap(y, t)
 
-    # 모델 정적분
+    # 모델 함수의 전체 면적
+    # 계산 안정성을 위해 고해상도 수치적분으로 근사
     I_model, integral_method = model_definite_integral(expr, t_symbol, a, b)
 
 except Exception as e:
     st.error(f"적분 계산 오류: {e}")
     st.stop()
 
-if integral_method != "symbolic":
-    st.caption(f"참고: SymPy 정적분이 어려워 고해상도 수치적분으로 근사했습니다. ({integral_method})")
+if integral_method == "numeric_model_integral":
+    st.caption(
+        "참고: 입력한 모델식의 정적분값은 계산 안정성을 위해 "
+        "고해상도 수치적분으로 근사했습니다."
+    )
 
 err_rect = abs(A_rect - I_model)
 err_trap = abs(A_trap - I_model)
@@ -702,14 +731,18 @@ vis_mode = st.radio(
     key="data_integral_vis_mode",
 )
 
-plot_integral_compare(
-    t=t,
-    y=y,
-    expr=expr,
-    t_symbol=t_symbol,
-    y_col=y_col,
-    vis_mode=vis_mode,
-)
+try:
+    plot_integral_compare(
+        t=t,
+        y=y,
+        expr=expr,
+        t_symbol=t_symbol,
+        y_col=y_col,
+        vis_mode=vis_mode,
+    )
+except Exception as e:
+    st.error(f"그래프를 그리는 중 오류가 발생했습니다: {e}")
+    st.stop()
 
 st.divider()
 
